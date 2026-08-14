@@ -57,7 +57,7 @@
   }
   .wrap{ max-width:840px; margin:0 auto; padding:32px 20px 80px; }
   header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; flex-wrap:wrap; gap:16px; }
-  .header-left{ display:flex; align-items:center; gap:16px; }
+  .header-left{ display:flex; align-items:center; gap:16px; flex:none; }
   .brand{ display:flex; align-items:center; gap:10px; }
   .brand svg circle, .brand svg path{ stroke:var(--red); }
   .brand h1{
@@ -67,26 +67,25 @@
     letter-spacing:0.02em;
     margin:0;
   }
-  .theme-toggle{ cursor:pointer; }
-  .tt-track{ width:46px; height:24px; border-radius:20px; background:var(--gray-bg); border:var(--border-width) solid var(--border); position:relative; transition:background .2s; }
+  .theme-toggle{ cursor:pointer; flex:none; }
+  .tt-track{ width:46px; height:24px; border-radius:20px; background:var(--gray-bg); border:var(--border-width) solid var(--border); position:relative; transition:background .2s; box-sizing:border-box; flex:none; }
   .tt-knob{ position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--red); transition:transform .2s, background .2s; }
   [data-theme="dark"] .tt-knob{ transform:translateX(22px); }
-  .tt-glyph{ position:absolute; top:50%; transform:translateY(-50%); font-size:10px; opacity:.55; pointer-events:none; }
-  .tt-glyph.sun{ left:5px; }
-  .tt-glyph.moon{ right:5px; }
-  nav{ display:flex; gap:4px; background:var(--gray-bg); border-radius:10px; padding:4px; }
+  nav{ display:flex; gap:4px; background:var(--gray-bg); border-radius:10px; padding:4px; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   nav button{
     font-family:'Inter', sans-serif;
     font-size:13px;
     font-weight:500;
     letter-spacing:0.02em;
-    padding:8px 16px;
+    padding:8px 14px;
     border:none;
     background:transparent;
     color:var(--ink-soft);
     cursor:pointer;
     border-radius:7px;
     transition:background .15s, color .15s;
+    white-space:nowrap;
+    flex:none;
   }
   nav button.active{ background:var(--card); color:var(--red); box-shadow:0 1px 2px rgba(0,0,0,.06); }
   .card{
@@ -129,6 +128,14 @@
   }
   select:focus, input:focus{ outline:none; border-color:var(--red-soft); }
   select:disabled{ opacity:.55; }
+  input[type=color]{
+    -webkit-appearance:none; appearance:none;
+    width:56px; height:38px; padding:0; border:var(--border-width) solid var(--border);
+    border-radius:8px; background:var(--card); cursor:pointer; flex:none;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper{ padding:3px; }
+  input[type=color]::-webkit-color-swatch{ border:none; border-radius:6px; }
+  input[type=color]::-moz-color-swatch{ border:none; border-radius:6px; }
   .row{ display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
   .row > div{ flex:1; min-width:160px; position:relative; }
   .field-badges{ display:flex; gap:8px; margin-top:8px; }
@@ -354,6 +361,7 @@
   @media (max-width:520px){
     .row{ flex-direction:column; gap:12px; }
     header{ flex-direction:column; align-items:flex-start; }
+    nav{ width:100%; }
   }
 </style>
 </head>
@@ -364,8 +372,6 @@
     <div class="header-left">
       <div class="theme-toggle" onclick="toggleTheme()" role="button" aria-label="Alternar tema claro/escuro">
         <div class="tt-track">
-          <span class="tt-glyph sun">☼</span>
-          <span class="tt-glyph moon">☾</span>
           <div class="tt-knob"></div>
         </div>
       </div>
@@ -591,7 +597,7 @@
           </div>
           <div style="flex:none;">
             <label>Cor</label>
-            <input type="color" id="new-tag-color" value="#8f1d1d" style="width:56px; height:38px; padding:2px;">
+            <input type="color" id="new-tag-color" value="#8f1d1d">
           </div>
           <button type="button" onclick="addTag()">+ Adicionar</button>
         </div>
