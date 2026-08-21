@@ -1315,12 +1315,12 @@ A("Star Platinum: The World Over Heaven","magic",34,2,null)
 // Bespoke Ultimate per S/A-rank character, keyed by exact character name.
 // B/C-rank characters get none at all (checked in the build loop).
 const ULTIMATES = {
-"Sukuna": {name:"Domain Expansion: Malevolent Shrine", lifeBonus:35, dmgBonus:16, desc:"Expande seu domínio amaldiçoado, garantindo acerto certeiro e despedaçando tudo ao redor."},
+"Sukuna": {kind:"meteor", name:"Domain Expansion: Malevolent Shrine", aoeDmg:29, dmgType:"magic", desc:"Expande seu domínio amaldiçoado longe demais pra conter — corta tudo que está por perto, aliado ou não."},
 "Son Goku": {name:"Super Saiyajin", lifeBonus:32, dmgBonus:14, desc:"Seus cabelos se erguem e ficam dourados — poder e velocidade disparam instantaneamente."},
 "Vegeta": {name:"Super Saiyajin do Príncipe", lifeBonus:32, dmgBonus:14, desc:"Orgulho Saiyajin transformado em fúria dourada explosiva."},
 "All Might": {name:"Símbolo da Paz: Poder Pleno", lifeBonus:30, dmgBonus:15, desc:"Solta toda a reserva de One For All que ainda lhe resta, num último fôlego heroico."},
 "Ichigo Kurosaki": {name:"Bankai: Tensa Zangetsu", lifeBonus:30, dmgBonus:14, desc:"Sua zanpakuto se transforma, e seu reiatsu escurece a área ao redor."},
-"Meruem": {name:"Coroação Real Completa", lifeBonus:34, dmgBonus:15, desc:"Assume sua forma verdadeira de rei das formigas quimera, indiferente a qualquer resistência."},
+"Meruem": {kind:"meteor", name:"Fúria Real Indiscriminada", aoeDmg:28, dmgType:"magic", desc:"Seu poder de rei cresce tanto que nem ele consegue mais direcionar o alcance — todos no campo sofrem o impacto."},
 "Sung Jinwoo (Monarca)": {name:"Monarca das Sombras: Domínio Absoluto", lifeBonus:34, dmgBonus:16, desc:"Invoca seu exército de sombras completo e assume a forma do verdadeiro Monarca."},
 "Roronoa Zoro (Wano)": {name:"Ashura: Nove Espadas", lifeBonus:28, dmgBonus:14, desc:"Manifesta múltiplos braços fantasmagóricos empunhando espadas — um demônio de três cabeças."},
 "Garou": {name:"Predador Cósmico", lifeBonus:30, dmgBonus:14, desc:"Absorve os golpes recebidos e os transforma em evolução constante — quanto mais apanha, mais forte fica."},
@@ -1331,23 +1331,23 @@ const ULTIMATES = {
 "Baki Hanma": {name:"Instinto Ogro Desperto", lifeBonus:28, dmgBonus:13, desc:"O instinto assassino herdado de seu pai finalmente vem à tona por completo."},
 "Satoru Gojo": {name:"Domain Expansion: Unlimited Void", lifeBonus:34, dmgBonus:16, desc:"Expande seu domínio infinito, inundando o oponente com informação sensorial impossível de processar."},
 "Sasaki Kojiro": {name:"Tsubame Gaeshi Definitivo", lifeBonus:26, dmgBonus:14, desc:"A técnica da andorinha executada em velocidade sobre-humana, três cortes simultâneos."},
-"Adam": {name:"Sabedoria do Primeiro Homem", lifeBonus:28, dmgBonus:14, desc:"O primeiro humano relembra tudo que a espécie um dia viveria — e ataca com esse peso todo."},
+"Adam": {kind:"meteor", name:"Pecado Original", aoeDmg:26, dmgType:"physical", desc:"Desperta uma calamidade primordial ampla demais pra ser direcionada — atinge todo mundo ao redor, sem exceção."},
 "Killua Zoldyck": {name:"Godspeed: Whirlwind", lifeBonus:26, dmgBonus:13, desc:"Aumenta sua velocidade a níveis quase imperceptíveis, riscos de raio ao redor do corpo."},
-"Roy Mustang": {name:"Chama Suprema: Ifrit", lifeBonus:26, dmgBonus:14, desc:"Um estalar de dedos que gera uma explosão de calor capaz de derreter tudo ao redor."},
+"Roy Mustang": {kind:"meteor", name:"Chama Suprema: Inferno Total", aoeDmg:23, dmgType:"magic", desc:"Um estalar de dedos gera um incêndio grande demais pra controlar — o fogo não escolhe quem queima."},
 "Byakuya Kuchiki": {name:"Bankai: Senbonzakura Kageyoshi Total", lifeBonus:28, dmgBonus:14, desc:"Milhares de lâminas de pétalas cobrem o campo de batalha inteiro."},
 "Akame": {name:"Um Corte, Uma Morte: Murasame Total", lifeBonus:26, dmgBonus:14, desc:"Abandona qualquer hesitação — o próximo corte de Murasame é sempre fatal."},
 "Hercules": {name:"Doze Trabalhos Completos", lifeBonus:24, dmgBonus:12, desc:"Revive a força que completou os doze trabalhos lendários, num só golpe."},
 "Katsuki Bakugo": {name:"AP Shot Supremo", lifeBonus:24, dmgBonus:12, desc:"Concentra nitroglicerina suada ao extremo para uma explosão de propulsão total."},
 "Thomas Andre": {name:"Fúria do Guardião Nacional", lifeBonus:22, dmgBonus:11, desc:"O herói mais forte dos EUA solta todo seu poder de uma vez."},
-"Buddha": {name:"Iluminação Suprema", lifeBonus:24, dmgBonus:12, desc:"Alcança um estado de consciência que transcende dor e limite físico."},
+"Buddha": {kind:"meteor", name:"Julgamento Universal", aoeDmg:25, dmgType:"magic", desc:"Um julgamento divino desce sobre o campo inteiro, sem distinguir amigo de inimigo."},
 "Genos (upgrade)": {name:"Overdrive: Reator Total", lifeBonus:24, dmgBonus:12, desc:"Redireciona toda a energia do reator para os punhos incineradores."},
 "Android 18": {name:"Absorção Total de Energia", lifeBonus:22, dmgBonus:11, desc:"Absorve energia ambiente ilimitadamente, sem nunca precisar recarregar."},
-"Dio Brando": {name:"The World: Za Warudo Eterno", lifeBonus:26, dmgBonus:13, desc:"Para o tempo por segundos preciosos e reorganiza toda a luta a seu favor."},
+"Dio Brando": {kind:"meteor", name:"The World: Road Roller Total", aoeDmg:27, dmgType:"physical", desc:"Para o tempo e desfere pancadas em todas as direções — ninguém em campo escapa, nem seus próprios aliados."},
 "Nico Robin": {name:"Gigante Fleur Completo", lifeBonus:22, dmgBonus:11, desc:"Multiplica dezenas de braços fantasmas cobrindo cada ângulo do oponente."},
 "Sanji": {name:"Diable Jambe: Espectre", lifeBonus:22, dmgBonus:11, desc:"Suas pernas pegam fogo azulado — velocidade e força num só chute flamejante."},
 "Ban": {name:"Fox Sin Imortal", lifeBonus:24, dmgBonus:12, desc:"Sua imortalidade rouba a vida de quem o atinge, tornando-o cada vez mais implacável."},
 "Asta": {name:"Devil Union: Asmodeus", lifeBonus:24, dmgBonus:12, desc:"Funde-se por completo com o demônio da destruição, mesmo sem magia própria."},
-"Escanor": {name:"The One: Meio-Dia", lifeBonus:28, dmgBonus:14, desc:"No pico do sol, seu poder se torna absoluto — mas some por completo ao anoitecer."},
+"Escanor": {kind:"meteor", name:"The One: Sol Abrasador", aoeDmg:27, dmgType:"magic", desc:"No pico do meio-dia, o calor do seu corpo é tanto que queima o campo de batalha inteiro, sem exceção."},
 "Fern": {name:"Magia Suprema: Legado de Frieren", lifeBonus:22, dmgBonus:11, desc:"Canaliza tudo que aprendeu na jornada com Frieren num único feitiço devastador."},
 "Giyu Tomioka": {name:"Respiração da Água: Décima Primeira Forma", lifeBonus:22, dmgBonus:11, desc:"A forma secreta da respiração da água, fluida e implacável."},
 "Giorno Giovanna": {name:"Gold Experience Requiem", lifeBonus:26, dmgBonus:13, desc:"Seu stand evolui além da vida — anula qualquer resultado de ataques contra ele."},
@@ -1355,14 +1355,14 @@ const ULTIMATES = {
 "Jack the Ripper": {name:"Fantasma Assassino Total", lifeBonus:22, dmgBonus:11, desc:"Torna-se um borrão nas sombras, golpeando de ângulos impossíveis de prever."},
 "Cha Hae-in": {name:"Fúria da Espada Dourada", lifeBonus:22, dmgBonus:11, desc:"Sua espada brilha dourada, cortando através de qualquer resistência mágica."},
 "Esdeath": {name:"Mahapadma Absoluto", lifeBonus:24, dmgBonus:12, desc:"Congela o tempo ao redor do oponente por completo, sem chance de reação."},
-"Merlin": {name:"Infinito Arcano", lifeBonus:24, dmgBonus:12, desc:"Abre acesso a magias proibidas de eras esquecidas, poder sem limite aparente."},
+"Merlin": {kind:"meteor", name:"Magia Arcana Sem Controle", aoeDmg:24, dmgType:"magic", desc:"Um feitiço antigo demais pra ser contido explode em todas as direções, sem poupar ninguém no campo."},
 "Megumi Fushiguro": {name:"Divine General: Mahoraga", lifeBonus:24, dmgBonus:12, desc:"Invoca o shikigami mais poderoso de seu arsenal, que se adapta a qualquer ataque."},
 "Frieren": {name:"Magia Ancestral dos Mil Anos", lifeBonus:24, dmgBonus:12, desc:"Um feitiço estudado ao longo de um milênio inteiro de vida, refinado à perfeição."},
 "Stark": {name:"Fúria Guerreira Total", lifeBonus:20, dmgBonus:10, desc:"Abandona toda cautela e ataca com a força bruta de um verdadeiro guerreiro."},
 "Edward Elric": {name:"Portão da Verdade", lifeBonus:22, dmgBonus:11, desc:"Um vislumbre proibido de conhecimento alquímico absoluto, ainda que a um custo."},
 "Renji Abarai": {name:"Bankai: Hihio Zabimaru", lifeBonus:22, dmgBonus:11, desc:"Sua zanpakuto se transforma numa serpente óssea gigantesca e flamejante."},
 "Übel": {name:"Magia Amaldiçoada Total", lifeBonus:22, dmgBonus:11, desc:"Manipula a mente do oponente sem qualquer resquício de piedade."},
-"Chrollo Lucilfer": {name:"Livro Fantasma: Roubo Total", lifeBonus:22, dmgBonus:11, desc:"Rouba a habilidade mais valiosa do oponente e a usa contra ele mesmo."},
+"Chrollo Lucilfer": {kind:"meteor", name:"Judgment Chain: Roubo Descontrolado", aoeDmg:24, dmgType:"magic", desc:"Ativa uma habilidade roubada poderosa demais pra controlar — atinge todo mundo em campo, aliados inclusive."},
 "Kyojuro Rengoku": {name:"Respiração da Chama: Décima Forma", lifeBonus:24, dmgBonus:12, desc:"A forma secreta da respiração da chama, ardendo com o espírito de um Hashira."},
 "Itachi Uchiha": {name:"Susanoo Completo", lifeBonus:24, dmgBonus:12, desc:"Um avatar espectral gigante de chakra envolve seu corpo por completo."},
 "Josuke Higashikata": {name:"Crazy Diamond: Restauração Total", lifeBonus:20, dmgBonus:10, desc:"Restaura qualquer coisa ao seu estado original — inclusive a própria vitalidade."},
@@ -1411,7 +1411,9 @@ Object.keys(RAW).forEach(anime=>{
     entry.c.rank = pct<0.15 ? "S" : pct<0.40 ? "A" : pct<0.75 ? "B" : "C";
     if(entry.c.rank==="S" || entry.c.rank==="A"){
       const u = ULTIMATES[entry.c.name];
-      if(u) entry.c.ultimate = {name:u.name, lifeBonus:u.lifeBonus, dmgBonus:u.dmgBonus, desc:u.desc};
+      if(u) entry.c.ultimate = u.kind==="meteor"
+        ? {name:u.name, kind:"meteor", aoeDmg:u.aoeDmg, dmgType:u.dmgType, desc:u.desc}
+        : {name:u.name, kind:"transform", lifeBonus:u.lifeBonus, dmgBonus:u.dmgBonus, desc:u.desc};
     }
   });
 })();
@@ -1711,9 +1713,9 @@ function renderAuction(state){
 }
 
 function describeEffect(e){
-  if(e.type==="shield") return "+"+e.value+" de escudo";
+  if(e.type==="shield") return "+"+e.value+" de escudo até ser atingido";
   if(e.type==="heal") return "cura "+e.value+" de vida";
-  if(e.type==="debuff") return "-"+e.value+" no escudo do alvo";
+  if(e.type==="debuff") return "-"+e.value+" no escudo do alvo até ser atingido";
   if(e.type==="stun") return "atordoa por 1 turno";
   if(e.type==="dot") return e.value+" de dano contínuo por 2 turnos";
   return "";
@@ -1856,7 +1858,7 @@ function renderUltimate(state){
         <option value="">Selecione um personagem</option>
         ${ultCandidates.map(c=>`<option value="${c.id}" ${chosen===c.id?'selected':''}>${c.name}</option>`).join("")}
       </select>
-      ${chosen ? (()=>{ const cc=charById(chosen); return `<div class="ultimate-box"><strong>${cc.ultimate.name}</strong><br>${cc.ultimate.desc}<br>+${cc.ultimate.lifeBonus} vida máxima, +${cc.ultimate.dmgBonus} de dano enquanto ativo.</div>`; })() : ''}
+      ${chosen ? (()=>{ const cc=charById(chosen); return `<div class="ultimate-box"><strong>${cc.ultimate.name}</strong><br>${cc.ultimate.desc}<br>${cc.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo (aliados inclusive) com ${cc.ultimate.aoeDmg} de dano ${cc.ultimate.dmgType==="physical"?"físico":"mágico"} bruto.` : `+${cc.ultimate.lifeBonus} vida máxima, +${cc.ultimate.dmgBonus} de dano enquanto ativo.`}</div>`; })() : ''}
       `}
       <div style="margin-top:16px; text-align:center;">
         <button class="btn primary" onclick="confirmReady()">${chosen || ultCandidates.length===0 ? 'Confirmar time' : 'Confirmar sem Ultimate'}</button>
@@ -1989,7 +1991,8 @@ function initBattle(state){
   const battle = {
     currentTurn: state.coinResult,
     orderIndex: {p1:0, p2:0},
-    hp:{}, cooldowns:{}, onceUsed:{}, stunned:{}, shields:{}, dmgBonus:{}, maxLifeBonus:{}, ultimateUsed:{}, dot:{},
+    skipsOwed: {p1:0, p2:0},
+    hp:{}, cooldowns:{}, onceUsed:{}, stunned:{}, shields:{}, tempShield:{}, dmgBonus:{}, maxLifeBonus:{}, ultimateUsed:{}, transformed:{}, dot:{},
     log:["A batalha começou!"]
   };
   [...state.teams.p1, ...state.teams.p2].forEach(id=>{
@@ -2003,6 +2006,16 @@ function initBattle(state){
     battle.maxLifeBonus[id]=0;
   });
   return battle;
+}
+
+// Call right after any hp reduction to register a death-penalty: the dead
+// character's owner loses their next scheduled turn in the alternation.
+function checkDeathPenalty(state, id, wasAliveBefore){
+  if(wasAliveBefore && state.battle.hp[id]<=0){
+    const key = teamOf(state, id);
+    if(!state.battle.skipsOwed) state.battle.skipsOwed = {p1:0, p2:0};
+    state.battle.skipsOwed[key] = (state.battle.skipsOwed[key]||0) + 1;
+  }
 }
 
 // Pure lookup: which of this player's characters is up to act right now, walking
@@ -2024,8 +2037,15 @@ function getActiveId(state, key){
 // under the old free-choice system, which is exactly what caused the infinite stun).
 function resolveStunSkipsAndAdvance(state){
   let guard=0;
-  while(guard++<20){
+  while(guard++<30){
     const key = state.battle.currentTurn;
+    if(!state.battle.skipsOwed) state.battle.skipsOwed = {p1:0, p2:0};
+    if(state.battle.skipsOwed[key] > 0){
+      state.battle.skipsOwed[key] -= 1;
+      state.battle.log.unshift(`${playerName(state,key)} perde a vez por ter perdido um lutador!`);
+      state.battle.currentTurn = key==="p1" ? "p2" : "p1";
+      continue;
+    }
     const activeId = getActiveId(state, key);
     if(!activeId) return;
     if(state.battle.stunned[activeId]){
@@ -2071,6 +2091,7 @@ function renderBattle(state){
   const oppActiveId = getActiveId(state, oppKey);
 
   const attackerChar = (myTurn && myActiveId) ? charById(myActiveId) : null;
+  const isTransformed = attackerChar && state.battle.transformed && state.battle.transformed[myActiveId];
   const chosenAttack = (attackerChar && pendingAttackIdx!=null) ? attackerChar.attacks[pendingAttackIdx] : null;
   const needsTarget = chosenAttack && !['shield','heal'].includes(chosenAttack.effect && chosenAttack.effect.type);
   const targetMode = myTurn && chosenAttack && needsTarget;
@@ -2093,24 +2114,25 @@ function renderBattle(state){
 
       ${myTurn && attackerChar ? `
       <div class="action-panel">
-        <h3>${attackerChar.name} <span class="badge rank-${attackerChar.rank}">${attackerChar.rank}</span> — escolha o ataque</h3>
+        <h3>${attackerChar.name} <span class="badge rank-${attackerChar.rank}">${attackerChar.rank}</span> ${isTransformed?'<span class="badge ult">✨ Transformado</span>':''} — escolha o ataque</h3>
         <p class="hint" style="margin-top:-6px; margin-bottom:10px;">${attackerChar.class} · <span class="badge element-${attackerChar.element}">${ELEMENT_ICON[attackerChar.element]||''} ${attackerChar.element}</span></p>
         ${attackerChar.attacks.map((a,i)=>{
           const cdLeft = state.battle.cooldowns[myActiveId][i];
           const usedOnce = a.onceOnly && state.battle.onceUsed[myActiveId][i];
           const disabled = cdLeft>0 || usedOnce;
           const typeTag = a.dmgType==='physical' ? '<span class="badge physical">Físico</span>' : '<span class="badge magic">Mágico</span>';
+          const displayName = isTransformed ? `${attackerChar.ultimate.name}: ${a.name}` : a.name;
           return `<button class="atk-btn" ${disabled?'disabled':''} onclick="selectAttack(${i})">
-            <div class="an">${a.name} ${typeTag} ${a.onceOnly?'<span class="badge once">único</span>':''} ${pendingAttackIdx===i?'✓':''}</div>
-            <div class="ad">${disabled ? (usedOnce?'já usado nessa partida':'em cooldown ('+cdLeft+' turnos)') : (a.category==='melee'?'sem cooldown':'cooldown '+a.cooldown+' turnos')+(a.dmg?' · '+a.dmg+' dano':'')+(a.effect?' · '+describeEffect(a.effect):'')}</div>
+            <div class="an">${displayName} ${typeTag} ${a.onceOnly?'<span class="badge once">único</span>':''} ${pendingAttackIdx===i?'✓':''}</div>
+            <div class="ad">${disabled ? (usedOnce?'já usado nessa partida':'em cooldown ('+cdLeft+' turnos)') : (a.category==='melee'?'sem cooldown':'cooldown '+a.cooldown+' turnos')+(a.dmg?' · '+(a.dmg+(isTransformed?(state.battle.dmgBonus[myActiveId]||0):0))+' dano'+(isTransformed?' (reforçado)':''):'')+(a.effect?' · '+describeEffect(a.effect):'')}</div>
           </button>`;
         }).join("")}
         ${chosenAttack && !needsTarget ? `<button class="btn primary" onclick="executeSelfAction()">Confirmar</button>` : ''}
         ${state.ultimateChoice[myKey]===myActiveId && !state.battle.ultimateUsed[myActiveId] ? `
           <div class="ultimate-box">
             <strong>${attackerChar.ultimate.name}</strong> — ${attackerChar.ultimate.desc}<br>
-            +${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.dmgBonus} dano
-            <div style="margin-top:8px;"><button class="btn danger" onclick="useUltimate()">Ativar Ultimate (usa o turno)</button></div>
+            ${attackerChar.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo (aliados inclusive) com ${attackerChar.ultimate.aoeDmg} de dano ${attackerChar.ultimate.dmgType==="physical"?"físico":"mágico"} bruto. Usa o turno.` : `+${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.dmgBonus} dano em cada ataque, mas -25% de escudo pelo resto da luta. Não gasta o turno — você ainda ataca normalmente em seguida.`}
+            <div style="margin-top:8px;"><button class="btn danger" onclick="useUltimate()">${attackerChar.ultimate.kind==="meteor"?'Ativar Ultimate (usa o turno)':'Transformar (grátis)'}</button></div>
           </div>` : ''}
         ${pendingAttackIdx!=null ? `<button class="btn" onclick="cancelSelection()">Cancelar seleção</button>` : ''}
       </div>` : ''}
@@ -2129,8 +2151,12 @@ function fighterCardHTML(state, id, clickable, isActive, index, total){
   const maxHp = maxLifeOf(state,id);
   const pct = Math.max(0,Math.round((hp/maxHp)*100));
   const shields = state.battle.shields[id];
+  const tempMod = state.battle.tempShield && state.battle.tempShield[id];
+  const physDelta = tempMod ? (tempMod.phys||0) : 0;
+  const magDelta = tempMod ? (tempMod.mag||0) : 0;
   const isStunned = state.battle.stunned[id];
   const hasDot = state.battle.dot && state.battle.dot[id];
+  const isTransformed = state.battle.transformed && state.battle.transformed[id];
   const classes = ["fighter-card"];
   if(!alive) classes.push("dead");
   if(isActive && alive) classes.push("active-turn");
@@ -2140,15 +2166,16 @@ function fighterCardHTML(state, id, clickable, isActive, index, total){
   const mid = (total-1)/2;
   const dist = Math.abs(index-mid);
   const liftPx = Math.max(0, 12 - dist*7);
+  const deltaTag = (d)=> d ? (d>0 ? ` <b style="color:#8fe0a0">+${d}</b>` : ` <b style="color:#ff8a9a">${d}</b>`) : '';
   return `
     <div class="${classes.join(' ')}" ${clickAttr} style="margin-top:${-liftPx}px;">
       ${isActive && alive ? '<div class="active-tag">Agindo agora</div>' : ''}
       ${stickFigureSVG(c, alive)}
       <div class="fn">${c.name} <span class="badge rank-${c.rank}" style="font-size:8px; padding:1px 5px;">${c.rank}</span></div>
-      <div class="fa">${ELEMENT_ICON[c.element]||''} ${c.anime}</div>
+      <div class="fa">${ELEMENT_ICON[c.element]||''} ${c.anime}${isTransformed&&alive?' · ✨':''}</div>
       <div class="hpbar"><div class="hpbar-fill" style="width:${alive?pct:0}%;"></div></div>
       <div class="hp-txt">${alive?hp:0}/${maxHp} HP ${isStunned&&alive?'· atordoado':''}${hasDot&&alive?' · '+hasDot.source:''}</div>
-      <div class="shield-mini"><span>🛡️F ${shields.phys}</span><span>🛡️M ${shields.mag}</span></div>
+      <div class="shield-mini"><span>🛡️F ${shields.phys}${deltaTag(physDelta)}</span><span>🛡️M ${shields.mag}${deltaTag(magDelta)}</span></div>
     </div>`;
 }
 
@@ -2252,6 +2279,7 @@ function applyAction(state, attackerId, atkIdx, targetId){
   const c = charById(attackerId);
   const atk = c.attacks[atkIdx];
   const b = state.battle;
+  if(!b.tempShield) b.tempShield = {};
   for(let i=0;i<4;i++){ if(b.cooldowns[attackerId][i]>0) b.cooldowns[attackerId][i]--; }
   if(b.cooldowns[attackerId][atkIdx]>0 || (atk.onceOnly && b.onceUsed[attackerId][atkIdx])){
     b.log.unshift(`${c.name} tentou usar ${atk.name}, mas ainda não está pronto.`);
@@ -2259,17 +2287,21 @@ function applyAction(state, attackerId, atkIdx, targetId){
     if(atk.dmg>0 && targetId){
       const tgt = charById(targetId);
       const shieldKey = atk.dmgType==="physical"?"phys":"mag";
-      const shieldVal = b.shields[targetId][shieldKey];
+      const tempMod = (b.tempShield[targetId] && b.tempShield[targetId][shieldKey]) || 0;
+      const shieldVal = Math.max(0, b.shields[targetId][shieldKey] + tempMod);
       const dmg = Math.max(1, (atk.dmg + (b.dmgBonus[attackerId]||0)) - shieldVal);
+      const wasAlive = b.hp[targetId]>0;
       b.hp[targetId] = Math.max(0, b.hp[targetId]-dmg);
       b.log.unshift(`${c.name} usou ${atk.name} em ${tgt.name}: ${dmg} de dano.`);
+      // Any temporary shield buff/debuff on the target is used up the moment they take a hit.
+      if(b.tempShield[targetId]){ delete b.tempShield[targetId]; }
+      checkDeathPenalty(state, targetId, wasAlive);
       if(b.hp[targetId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
     }
     if(atk.effect){
       if(atk.effect.type==="shield"){
-        b.shields[attackerId].phys += atk.effect.value;
-        b.shields[attackerId].mag += atk.effect.value;
-        b.log.unshift(`${c.name} reforça a defesa (+${atk.effect.value}).`);
+        b.tempShield[attackerId] = {phys: atk.effect.value, mag: atk.effect.value};
+        b.log.unshift(`${c.name} reforça a defesa em +${atk.effect.value} até ser atingido.`);
       } else if(atk.effect.type==="heal"){
         const cap = maxLifeOf(state, attackerId);
         b.hp[attackerId] = Math.min(cap, b.hp[attackerId]+atk.effect.value);
@@ -2277,8 +2309,9 @@ function applyAction(state, attackerId, atkIdx, targetId){
       } else if(atk.effect.type==="debuff" && targetId){
         const tgt = charById(targetId);
         const shieldKey = atk.dmgType==="physical"?"phys":"mag";
-        b.shields[targetId][shieldKey] = Math.max(0, b.shields[targetId][shieldKey]-atk.effect.value);
-        b.log.unshift(`${tgt.name} teve o escudo reduzido em ${atk.effect.value}.`);
+        if(!b.tempShield[targetId]) b.tempShield[targetId] = {phys:0, mag:0};
+        b.tempShield[targetId][shieldKey] = -atk.effect.value;
+        b.log.unshift(`${tgt.name} fica vulnerável (-${atk.effect.value} de escudo até ser atingido).`);
       } else if(atk.effect.type==="stun" && targetId){
         const tgt = charById(targetId);
         b.stunned[targetId]=true;
@@ -2299,8 +2332,10 @@ function applyAction(state, attackerId, atkIdx, targetId){
     if(b.hp[id]<=0){ delete b.dot[id]; return; }
     const d = b.dot[id];
     const dTgt = charById(id);
+    const wasAlive = b.hp[id]>0;
     b.hp[id] = Math.max(0, b.hp[id]-d.value);
     b.log.unshift(`${dTgt.name} perde ${d.value} de vida por ${d.source.toLowerCase()}.`);
+    checkDeathPenalty(state, id, wasAlive);
     if(b.hp[id]<=0) b.log.unshift(`${dTgt.name} foi derrotado pelo ${d.source.toLowerCase()}!`);
     d.turnsLeft -= 1;
     if(d.turnsLeft<=0) delete b.dot[id];
@@ -2324,16 +2359,45 @@ async function useUltimate(){
   if(!ultId || ultId!==activeId || state.battle.ultimateUsed[ultId]) return;
   const c = charById(ultId);
   const b = state.battle;
-  b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
-  b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
-  b.dmgBonus[ultId] = c.ultimate.dmgBonus;
+  if(!b.tempShield) b.tempShield = {};
+  if(!b.transformed) b.transformed = {};
   b.ultimateUsed[ultId]=true;
-  b.log.unshift(`${c.name} ativa o Ultimate: ${c.ultimate.name}!`);
-  const pos = state.attackOrder[myKey].indexOf(ultId);
-  b.orderIndex[myKey] = (pos+1) % state.attackOrder[myKey].length;
-  state.battle.currentTurn = MY_SLOT===1?"p2":"p1";
-  resolveStunSkipsAndAdvance(state);
-  await postAction(state);
+
+  if(c.ultimate.kind==="meteor"){
+    // A single overwhelming attack — it IS the character's action for the turn.
+    b.log.unshift(`${c.name} ativa o Ultimate: ${c.ultimate.name}! Um poder descontrolado atinge todo mundo em campo.`);
+    const shieldKey = c.ultimate.dmgType==="physical"?"phys":"mag";
+    [...state.teams.p1, ...state.teams.p2].filter(id=>id!==ultId && b.hp[id]>0).forEach(otherId=>{
+      const tgt = charById(otherId);
+      const tempMod = (b.tempShield[otherId] && b.tempShield[otherId][shieldKey]) || 0;
+      const shieldVal = Math.max(0, b.shields[otherId][shieldKey] + tempMod);
+      const dmg = Math.max(1, c.ultimate.aoeDmg - shieldVal);
+      const wasAlive = b.hp[otherId]>0;
+      b.hp[otherId] = Math.max(0, b.hp[otherId]-dmg);
+      if(b.tempShield[otherId]) delete b.tempShield[otherId];
+      checkDeathPenalty(state, otherId, wasAlive);
+      b.log.unshift(`${tgt.name} sofre ${dmg} de dano do Ultimate de ${c.name}${teamOf(state,otherId)===teamOf(state,ultId)?' (aliado!)':''}.`);
+      if(b.hp[otherId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
+    });
+    const pos = state.attackOrder[myKey].indexOf(ultId);
+    b.orderIndex[myKey] = (pos+1) % state.attackOrder[myKey].length;
+    state.battle.currentTurn = MY_SLOT===1?"p2":"p1";
+    resolveStunSkipsAndAdvance(state);
+    await postAction(state);
+  } else {
+    // A transformation — free action: it does NOT consume the turn, so this same
+    // character still picks and lands an attack right after. The tradeoff for
+    // getting that "free" power spike is a lasting defense cut for the rest of
+    // the fight, so it's a real risk/reward choice rather than an auto-win button.
+    b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
+    b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
+    b.dmgBonus[ultId] = c.ultimate.dmgBonus;
+    b.transformed[ultId] = true;
+    b.shields[ultId].phys = Math.max(2, Math.round(b.shields[ultId].phys*0.75));
+    b.shields[ultId].mag = Math.max(2, Math.round(b.shields[ultId].mag*0.75));
+    b.log.unshift(`${c.name} se transforma: ${c.ultimate.name}! (+${c.ultimate.lifeBonus} vida, +${c.ultimate.dmgBonus} dano em cada ataque, mas -25% de escudo pelo resto da luta)`);
+    await commitAndDraw(state);
+  }
 }
 
 function renderBattleOver(state){
