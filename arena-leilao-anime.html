@@ -207,7 +207,22 @@
 <body>
 <div class="wrap" id="app"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
+/* ====== COLE AQUI AS CREDENCIAIS DO SEU PROJETO FIREBASE (passo 3 do tutorial) ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBkJzke1GEbdfQ93vQGqIJPkwd7szgjfqc",
+  authDomain: "leilaobattle.firebaseapp.com",
+  projectId: "leilaobattle",
+  storageBucket: "leilaobattle.firebasestorage.app",
+  messagingSenderId: "731759011050",
+  appId: "1:731759011050:web:a48502d1f44facd7eea393"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+/* ===================================================================================== */
+
 /* ============ CHARACTER DATABASE ============ */
 const ANIMES = ["Naruto","Dragon Ball","One Piece","Attack on Titan","One Punch Man","Solo Leveling",
 "Hunter x Hunter","Blue Lock","Death Note","Frieren","Akame ga Kill","Black Clover","Boku no Hero",
@@ -344,12 +359,14 @@ function newRoomState(code){
 
 async function loadRoom(code){
   try{
-    const r = await window.storage.get("room:"+code, true);
-    return r ? JSON.parse(r.value) : null;
-  }catch(e){ return null; }
+    const doc = await db.collection("rooms").doc(code).get();
+    return doc.exists ? doc.data() : null;
+  }catch(e){ console.error("Erro ao carregar sala:", e); return null; }
 }
 async function saveRoom(state){
-  await window.storage.set("room:"+state.code, JSON.stringify(state), true);
+  try{
+    await db.collection("rooms").doc(state.code).set(state);
+  }catch(e){ console.error("Erro ao salvar sala:", e); }
 }
 
 function charById(id){ return CHARACTERS.find(c=>c.id===id); }
