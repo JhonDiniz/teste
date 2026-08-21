@@ -331,6 +331,7 @@ let ROOM_CODE = null;
 let MY_SLOT = null; // 1 or 2
 let pollTimer = null;
 let LAST_STATE = null;
+let LAST_STATE_JSON = null;
 
 function genCode(){
   const letters="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -369,6 +370,12 @@ async function saveRoom(state){
     await db.collection("rooms").doc(state.code).set(state);
   }catch(e){ console.error("Erro ao salvar sala:", e); }
 }
+async function commitAndDraw(state){
+  await saveRoom(state);
+  LAST_STATE = state;
+  LAST_STATE_JSON = JSON.stringify(state);
+  draw(state);
+}
 
 function charById(id){ return CHARACTERS.find(c=>c.id===id); }
 
@@ -380,14 +387,33 @@ function render(){
   loadRoom(ROOM_CODE).then(state=>{
     if(!state){ renderHome(); return; }
     LAST_STATE = state;
-    if(state.phase==="lobby") renderLobby(state);
-    else if(state.phase==="auction") renderAuction(state);
-    else if(state.phase==="ultimate") renderUltimate(state);
-    else if(state.phase==="coinflip") renderCoinflip(state);
-    else if(state.phase==="battle") renderBattle(state);
-    else if(state.phase==="battleover") renderBattleOver(state);
-    else if(state.phase==="done") renderDone(state);
+    LAST_STATE_JSON = JSON.stringify(state);
+    draw(state);
   });
+}
+
+// Called on the polling interval: only redraws the screen if something actually
+// changed in the room (avoids wiping out whatever the player is typing/clicking).
+function poll(){
+  if(!ROOM_CODE) return;
+  loadRoom(ROOM_CODE).then(state=>{
+    if(!state) return;
+    const json = JSON.stringify(state);
+    if(json===LAST_STATE_JSON) return; // nothing changed, skip redraw
+    LAST_STATE = state;
+    LAST_STATE_JSON = json;
+    draw(state);
+  });
+}
+
+function draw(state){
+  if(state.phase==="lobby") renderLobby(state);
+  else if(state.phase==="auction") renderAuction(state);
+  else if(state.phase==="ultimate") renderUltimate(state);
+  else if(state.phase==="coinflip") renderCoinflip(state);
+  else if(state.phase==="battle") renderBattle(state);
+  else if(state.phase==="battleover") renderBattleOver(state);
+  else if(state.phase==="done") renderDone(state);
 }
 
 function renderHome(){
@@ -457,7 +483,7 @@ async function joinRoom(){
 function startPolling(){
   if(pollTimer) clearInterval(pollTimer);
   render();
-  pollTimer = setInterval(render, 2200);
+  pollTimer = setInterval(poll, 2000);
 }
 
 function renderLobby(state){
@@ -481,8 +507,7 @@ function renderLobby(state){
 async function goToCoinflip(){
   const state = await loadRoom(ROOM_CODE);
   state.phase = "coinflip";
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 async function startAuction(){
@@ -490,8 +515,7 @@ async function startAuction(){
   state.phase = "auction";
   setupCharacterTurn(state);
   state.log.unshift("Leilão iniciado — orçamento de R$20 cada, abertura de lance alternando por personagem.");
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 function setupCharacterTurn(state){
@@ -525,7 +549,7 @@ function renderAuction(state){
     controlsHTML = myTurn
       ? `<h3 style="margin-bottom:10px;">É a sua vez de abrir o lance</h3>
          <div class="bid-controls">
-           <input type="number" id="bidAmt" min="1" max="${myBudget}" placeholder="Valor do lance (R$)">
+           <input type="number" id="bidAmt" placeholder="Valor do lance (R$)">
            <button class="btn primary" onclick="openBid()">Dar lance</button>
            <button class="btn danger" onclick="openDesist()">Desistir</button>
          </div>
@@ -536,7 +560,7 @@ function renderAuction(state){
     controlsHTML = myTurn
       ? `<h3 style="margin-bottom:10px;">Lance atual: <span class="money">R$ ${state.currentBid.amount}</span> (liderando: ${leaderName})</h3>
          <div class="bid-controls">
-           <input type="number" id="bidAmt" min="${state.currentBid.amount+1}" max="${myBudget}" placeholder="Novo valor (R$)">
+           <input type="number" id="bidAmt" placeholder="Novo valor (R$)">
            <button class="btn primary" onclick="raiseBid()">Aumentar lance</button>
            <button class="btn danger" onclick="respondDesist()">Desistir</button>
          </div>
@@ -615,8 +639,7 @@ async function openBid(){
   } else {
     state.turnToAct = opp;
   }
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 async function openDesist(){
@@ -626,8 +649,7 @@ async function openDesist(){
   const c = charById(state.pool[state.poolIndex]);
   state.log.unshift(`${playerName(state,myKey)} não abriu lance em ${c.name} — ele fica de fora.`);
   advanceCharacter(state);
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 async function raiseBid(){
@@ -647,8 +669,7 @@ async function raiseBid(){
   } else {
     state.turnToAct = opp;
   }
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 async function respondDesist(){
@@ -659,8 +680,7 @@ async function respondDesist(){
   const leader = state.currentBid.by;
   state.log.unshift(`${playerName(state,myKey)} desistiu de ${c.name}.`);
   await awardCharacter(state, leader, c);
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 async function awardCharacter(state, winnerKey, c){
@@ -738,8 +758,7 @@ async function confirmReady(){
     state.battle = initBattle(state);
     state.phase="battle";
   }
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 /* ============ COIN FLIP ============ */
@@ -764,8 +783,7 @@ async function flipCoin(){
   if(state.coinResult){ render(); return; }
   const result = Math.random()<0.5 ? "p1" : "p2";
   state.coinResult = result;
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 /* ============ BATTLE ENGINE ============ */
@@ -972,8 +990,7 @@ async function postAction(state){
     state.phase="battleover";
     state.winner = p1Alive ? "p1" : "p2";
   }
-  await saveRoom(state);
-  render();
+  await commitAndDraw(state);
 }
 
 function applyAction(state, attackerId, atkIdx, targetId){
