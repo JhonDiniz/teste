@@ -70,6 +70,8 @@
   .btn.primary{background: linear-gradient(180deg, #e0b559, #c79a3f); color:#1a1509; border:none; box-shadow:0 2px 10px rgba(224,181,89,.25);}
   .btn.primary:hover{box-shadow:0 3px 16px rgba(224,181,89,.4); transform:translateY(-1px);}
   .btn.danger{background: linear-gradient(180deg, #d1495b, #a83447); color:#fff; border:none;}
+  .diff-btn{flex:1;}
+  .diff-btn.active{background:linear-gradient(180deg,var(--teal),#0f6e56); color:#fff; border:none;}
   .btn:disabled{opacity:.35; cursor:not-allowed;}
   input[type=text], input[type=number]{
     background: var(--panel2);
@@ -199,6 +201,26 @@
     background:var(--gold); color:#1a1509; font-size:8.5px; font-weight:800; text-transform:uppercase;
     letter-spacing:.4px; padding:2px 7px; border-radius:20px; white-space:nowrap;
   }
+  @keyframes impactFall{
+    0%{transform:translate(-50%,-38px) scale(.3) rotate(-25deg); opacity:0;}
+    45%{transform:translate(-50%,2px) scale(1.35) rotate(10deg); opacity:1;}
+    70%{transform:translate(-50%,-3px) scale(1.05) rotate(-5deg); opacity:1;}
+    100%{transform:translate(-50%,0) scale(.9) rotate(0deg); opacity:0;}
+  }
+  @keyframes shakeHit{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-4px);}
+    40%{transform:translateX(4px);}
+    60%{transform:translateX(-3px);}
+    80%{transform:translateX(3px);}
+  }
+  .impact-fx{
+    position:absolute; top:14px; left:50%; font-size:26px; line-height:1;
+    pointer-events:none; z-index:6; filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));
+    animation:impactFall .65s ease-out forwards;
+  }
+  .impact-fx.big{font-size:38px; animation-duration:.85s;}
+  .fighter-card.hit-shake{animation:shakeHit .4s ease-in-out;}
   .fighter-card.targetable{border-color:var(--crimson); box-shadow:0 0 0 2px var(--crimson-dim);}
   .fighter-card.targetable:hover{box-shadow:0 0 0 2px var(--crimson), 0 6px 18px rgba(209,73,91,.3);}
   .fighter-card.dead{opacity:.3; cursor:not-allowed;}
@@ -1323,7 +1345,7 @@ const ULTIMATES = {
 "Meruem": {kind:"meteor", name:"Fúria Real Indiscriminada", aoeDmg:28, dmgType:"magic", desc:"Seu poder de rei cresce tanto que nem ele consegue mais direcionar o alcance — todos no campo sofrem o impacto."},
 "Sung Jinwoo (Monarca)": {name:"Monarca das Sombras: Domínio Absoluto", lifeBonus:34, dmgBonus:16, desc:"Invoca seu exército de sombras completo e assume a forma do verdadeiro Monarca."},
 "Roronoa Zoro (Wano)": {name:"Ashura: Nove Espadas", lifeBonus:28, dmgBonus:14, desc:"Manifesta múltiplos braços fantasmagóricos empunhando espadas — um demônio de três cabeças."},
-"Garou": {name:"Predador Cósmico", lifeBonus:30, dmgBonus:14, desc:"Absorve os golpes recebidos e os transforma em evolução constante — quanto mais apanha, mais forte fica."},
+"Garou": {name:"Predador Cósmico", lifeBonus:24, dmgBonus:6, growPerHit:5, growCap:35, desc:"Absorve os golpes recebidos e evolui a cada apanhada — fica genuinamente mais forte conforme leva dano, até um limite."},
 "Reinhard van Astrea": {name:"Bênção do Dragão Ancestral", lifeBonus:30, dmgBonus:14, desc:"O sangue do lendário matador de dragões desperta por completo em suas veias."},
 "Jotaro Kujo": {name:"Star Platinum: The World", lifeBonus:28, dmgBonus:14, desc:"Para o tempo por um instante e desfere uma rajada de socos impossível de esquivar."},
 "Monkey D. Luffy": {name:"Gear 5: Nika Desperto", lifeBonus:34, dmgBonus:16, desc:"Desperta o Fruto do Sol — borracha, liberdade e caos puro em forma de guerreiro lendário."},
@@ -1413,7 +1435,7 @@ Object.keys(RAW).forEach(anime=>{
       const u = ULTIMATES[entry.c.name];
       if(u) entry.c.ultimate = u.kind==="meteor"
         ? {name:u.name, kind:"meteor", aoeDmg:u.aoeDmg, dmgType:u.dmgType, desc:u.desc}
-        : {name:u.name, kind:"transform", lifeBonus:u.lifeBonus, dmgBonus:u.dmgBonus, desc:u.desc};
+        : {name:u.name, kind:"transform", lifeBonus:u.lifeBonus, dmgBonus:u.dmgBonus, growPerHit:u.growPerHit||null, growCap:u.growCap||null, desc:u.desc};
     }
   });
 })();
@@ -1438,6 +1460,7 @@ function newRoomState(code){
   return {
     code,
     rev: 0,
+    difficulty: "easy",
     players:{p1:null, p2:null},
     budget: {p1:20, p2:20},
     teams: {p1:[], p2:[]},
@@ -1446,7 +1469,7 @@ function newRoomState(code){
     phase:"lobby", // lobby | coinflip | auction | ultimate | battle | battleover
     currentBid:{amount:0, by:null},
     turnToAct:null,
-    noBidDesists:0,
+    passedThisChar:{p1:false, p2:false},
     coinResult:null,
     ultimateChoice:{p1:null, p2:null},
     log:[]
@@ -1532,6 +1555,12 @@ function renderHome(){
       <h2>Criar sala</h2>
       <label>Seu nome</label>
       <input type="text" id="createName" maxlength="18" placeholder="Como você quer ser chamado">
+      <label style="margin-top:12px;">Dificuldade</label>
+      <div class="row" style="gap:8px;">
+        <button type="button" class="btn diff-btn active" id="diffEasyBtn" onclick="setDifficulty('easy')">Fácil</button>
+        <button type="button" class="btn diff-btn" id="diffHardBtn" onclick="setDifficulty('hard')">Difícil</button>
+      </div>
+      <p class="hint" id="diffHint">Fácil: mostra o ranking (S/A/B/C) de cada personagem durante o leilão.</p>
       <div style="margin-top:12px;"><button class="btn primary" onclick="createRoom()">Criar nova sala</button></div>
     </div>
     <div class="card">
@@ -1552,6 +1581,19 @@ function renderHome(){
   `;
 }
 
+let selectedDifficulty = "easy";
+function setDifficulty(mode){
+  selectedDifficulty = mode;
+  const easyBtn = document.getElementById("diffEasyBtn");
+  const hardBtn = document.getElementById("diffHardBtn");
+  const hint = document.getElementById("diffHint");
+  if(easyBtn) easyBtn.classList.toggle("active", mode==="easy");
+  if(hardBtn) hardBtn.classList.toggle("active", mode==="hard");
+  if(hint) hint.textContent = mode==="easy"
+    ? "Fácil: mostra o ranking (S/A/B/C) de cada personagem durante o leilão."
+    : "Difícil: o ranking fica escondido — vocês julgam só pelo nome, classe e elemento.";
+}
+
 function playerName(state,key){
   return (state.players[key] && state.players[key].name) || ("Jogador "+key.slice(1));
 }
@@ -1567,6 +1609,7 @@ async function createRoom(){
   const name = (document.getElementById("createName").value||"").trim() || "Jogador 1";
   const code = genCode();
   const state = newRoomState(code);
+  state.difficulty = selectedDifficulty;
   state.players.p1 = {name};
   await saveRoom(state);
   ROOM_CODE = code; MY_SLOT = 1;
@@ -1612,7 +1655,7 @@ function renderLobby(state){
         <div class="player-panel"><h3>${state.players.p2?state.players.p2.name:'Jogador 2'}</h3><p class="status-line">${state.players.p2?'Conectado':'Aguardando...'}</p></div>
       </div>
       ${bothIn ? `<div style="margin-top:16px; text-align:center;"><button class="btn primary" onclick="goToCoinflip()">Jogar a moeda e iniciar leilão</button></div>` : `<p class="status-line">Aguardando o segundo jogador entrar com o código acima...</p>`}
-      <p class="hint" style="margin-top:10px;">Você é <strong>${playerName(state,'p'+MY_SLOT)}</strong> nessa sala.</p>
+      <p class="hint" style="margin-top:10px;">Você é <strong>${playerName(state,'p'+MY_SLOT)}</strong> nessa sala. Dificuldade: <strong>${state.difficulty==="easy"?"Fácil (mostra ranking)":"Difícil (sem ranking)"}</strong>.</p>
       <div class="center" style="margin-top:14px;"><button class="btn" onclick="leaveRoom()">← Voltar</button></div>
     </div>
   `;
@@ -1639,7 +1682,7 @@ function setupCharacterTurn(state){
   if(state.teams[opener].length>=5) opener = otherKey(opener);
   state.turnToAct = opener;
   state.currentBid = {amount:0, by:null};
-  state.noBidDesists = 0;
+  state.passedThisChar = {p1:false, p2:false};
 }
 
 function openerFor(state, idx){
@@ -1691,8 +1734,10 @@ function renderAuction(state){
     <div class="card">
       <div class="char-hero">
         <span class="badge ${c.type}">${c.type==='physical'?'Físico':c.type==='magic'?'Mágico':'Híbrido'}</span>
+        ${state.difficulty==="easy" ? `<span class="badge rank-${c.rank}">${c.rank}</span>` : ''}
         <div class="name" style="margin-top:8px;">${c.name}</div>
         <div class="anime">${c.anime}</div>
+        <div class="hint" style="margin-top:4px;">${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
         <div style="margin-top:14px;">${stickFigureSVG(c, true)}</div>
       </div>
     </div>
@@ -1752,7 +1797,8 @@ async function openBid(){
   state.currentBid = {amount:amt, by:myKey};
   state.log.unshift(`${playerName(state,myKey)} abriu o lance em ${c.name} com R$${amt}.`);
   const opp = otherKey(myKey);
-  if(state.teams[opp].length>=5){
+  if(!state.passedThisChar) state.passedThisChar = {p1:false, p2:false};
+  if(state.teams[opp].length>=5 || state.passedThisChar[opp]){
     await awardCharacter(state, myKey, c);
   } else {
     state.turnToAct = opp;
@@ -1765,13 +1811,14 @@ async function openDesist(){
   const myKey = "p"+MY_SLOT;
   if(state.turnToAct!==myKey) return;
   const c = charById(state.pool[state.poolIndex]);
-  state.noBidDesists = (state.noBidDesists||0) + 1;
+  if(!state.passedThisChar) state.passedThisChar = {p1:false, p2:false};
+  state.passedThisChar[myKey] = true;
   const opp = otherKey(myKey);
-  if(state.noBidDesists>=2 || state.teams[opp].length>=5){
+  if(state.passedThisChar[opp] || state.teams[opp].length>=5){
     state.log.unshift(`${playerName(state,myKey)} também passou em ${c.name} — ele fica de fora.`);
     advanceCharacter(state);
   } else {
-    state.log.unshift(`${playerName(state,myKey)} passou a abertura do lance em ${c.name}. Passou a vez.`);
+    state.log.unshift(`${playerName(state,myKey)} passou em ${c.name} e não pode mais dar lance nele. Passou a vez.`);
     state.turnToAct = opp;
   }
   await commitAndDraw(state);
@@ -1789,7 +1836,8 @@ async function raiseBid(){
   state.currentBid = {amount:amt, by:myKey};
   state.log.unshift(`${playerName(state,myKey)} aumentou o lance em ${c.name} para R$${amt}.`);
   const opp = otherKey(myKey);
-  if(state.teams[opp].length>=5){
+  if(!state.passedThisChar) state.passedThisChar = {p1:false, p2:false};
+  if(state.teams[opp].length>=5 || state.passedThisChar[opp]){
     await awardCharacter(state, myKey, c);
   } else {
     state.turnToAct = opp;
@@ -1802,6 +1850,8 @@ async function respondDesist(){
   const myKey = "p"+MY_SLOT;
   if(state.turnToAct!==myKey) return;
   const c = charById(state.pool[state.poolIndex]);
+  if(!state.passedThisChar) state.passedThisChar = {p1:false, p2:false};
+  state.passedThisChar[myKey] = true;
   const leader = state.currentBid.by;
   state.log.unshift(`${playerName(state,myKey)} passou em ${c.name}.`);
   await awardCharacter(state, leader, c);
@@ -1858,7 +1908,7 @@ function renderUltimate(state){
         <option value="">Selecione um personagem</option>
         ${ultCandidates.map(c=>`<option value="${c.id}" ${chosen===c.id?'selected':''}>${c.name}</option>`).join("")}
       </select>
-      ${chosen ? (()=>{ const cc=charById(chosen); return `<div class="ultimate-box"><strong>${cc.ultimate.name}</strong><br>${cc.ultimate.desc}<br>${cc.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo (aliados inclusive) com ${cc.ultimate.aoeDmg} de dano ${cc.ultimate.dmgType==="physical"?"físico":"mágico"} bruto.` : `+${cc.ultimate.lifeBonus} vida máxima, +${cc.ultimate.dmgBonus} de dano enquanto ativo.`}</div>`; })() : ''}
+      ${chosen ? (()=>{ const cc=charById(chosen); return `<div class="ultimate-box"><strong>${cc.ultimate.name}</strong><br>${cc.ultimate.desc}<br>${cc.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo — inimigos levam ${cc.ultimate.aoeDmg} de dano ${cc.ultimate.dmgType==="physical"?"físico":"mágico"} bruto, aliados levam metade.` : `+${cc.ultimate.lifeBonus} vida máxima, +${cc.ultimate.dmgBonus} de dano, -25% de escudo por alguns turnos${cc.ultimate.growPerHit?`, fica mais forte a cada golpe apanhado`:''}.`}</div>`; })() : ''}
       `}
       <div style="margin-top:16px; text-align:center;">
         <button class="btn primary" onclick="confirmReady()">${chosen || ultCandidates.length===0 ? 'Confirmar time' : 'Confirmar sem Ultimate'}</button>
@@ -1993,6 +2043,7 @@ function initBattle(state){
     orderIndex: {p1:0, p2:0},
     skipsOwed: {p1:0, p2:0},
     hp:{}, cooldowns:{}, onceUsed:{}, stunned:{}, shields:{}, tempShield:{}, dmgBonus:{}, maxLifeBonus:{}, ultimateUsed:{}, transformed:{}, dot:{},
+    growOnHit:{}, transformPenalty:{}, stunImmune:{},
     log:["A batalha começou!"]
   };
   [...state.teams.p1, ...state.teams.p2].forEach(id=>{
@@ -2015,6 +2066,54 @@ function checkDeathPenalty(state, id, wasAliveBefore){
     const key = teamOf(state, id);
     if(!state.battle.skipsOwed) state.battle.skipsOwed = {p1:0, p2:0};
     state.battle.skipsOwed[key] = (state.battle.skipsOwed[key]||0) + 1;
+  }
+}
+
+// Call right after any hp reduction too: some ultimates (Garou's) make the
+// character genuinely grow stronger the more they get hit, up to a cap.
+function checkGrowOnHit(state, id, wasAliveBefore){
+  const b = state.battle;
+  if(!b.growOnHit || !b.growOnHit[id]) return;
+  if(!wasAliveBefore || b.hp[id]<=0) return; // no growth from a hit that finishes them off
+  const g = b.growOnHit[id];
+  if(g.current >= g.cap) return;
+  const gain = Math.min(g.perHit, g.cap-g.current);
+  g.current += gain;
+  b.dmgBonus[id] = (b.dmgBonus[id]||0) + gain;
+  const c = charById(id);
+  b.log.unshift(`${c.name} fica mais forte ao apanhar! (+${gain} de dano, ${g.current}/${g.cap} acumulado)`);
+}
+
+// Ticks down temporary transform side-effects (like a defense cut that wears
+// off) once per global action, restoring the original values when they expire.
+function tickTransformPenalties(state){
+  const b = state.battle;
+  if(!b.transformPenalty) return;
+  Object.keys(b.transformPenalty).forEach(id=>{
+    if(b.hp[id]<=0){ delete b.transformPenalty[id]; return; }
+    const p = b.transformPenalty[id];
+    p.turnsLeft -= 1;
+    if(p.turnsLeft<=0){
+      b.shields[id].phys = p.original.phys;
+      b.shields[id].mag = p.original.mag;
+      const c = charById(id);
+      b.log.unshift(`A defesa de ${c.name} volta ao normal — o efeito da transformação passou.`);
+      delete b.transformPenalty[id];
+    }
+  });
+}
+
+// Counts down a character's own rounds toward losing their post-stun immunity
+// (call once per round THIS character plays — whether they acted or were
+// skipped for being stunned — never on other characters' rounds).
+function tickStunImmunity(state, id){
+  const b = state.battle;
+  if(!b.stunImmune || !b.stunImmune[id]) return;
+  b.stunImmune[id].turnsLeft -= 1;
+  if(b.stunImmune[id].turnsLeft<=0){
+    delete b.stunImmune[id];
+    const c = charById(id);
+    b.log.unshift(`${c.name} não está mais imune a atordoamento.`);
   }
 }
 
@@ -2052,6 +2151,7 @@ function resolveStunSkipsAndAdvance(state){
       const c = charById(activeId);
       state.battle.log.unshift(`${c.name} estava atordoado e perdeu a vez.`);
       state.battle.stunned[activeId] = false;
+      tickStunImmunity(state, activeId);
       const pos = state.attackOrder[key].indexOf(activeId);
       state.battle.orderIndex[key] = (pos+1) % state.attackOrder[key].length;
       state.battle.currentTurn = key==="p1" ? "p2" : "p1";
@@ -2081,12 +2181,24 @@ const ELEMENT_ICON = {
   Espiritual:"👻", "Psíquico":"🌀", Vento:"🌪️", Terra:"🪨", "Água":"💧", Metal:"⚙️", Natureza:"🌿", Normal:"◽"
 };
 
+// Picks the impact icon for an attack's animation — weapon-flavored for physical
+// hits (varies by class), the caster's element for magic hits.
+function pickImpactIcon(c, atk){
+  if(atk.dmgType==="magic") return ELEMENT_ICON[c.element] || "✨";
+  if(c.class==="Espadachim") return "⚔️";
+  if(c.class==="Assassino") return "🗡️";
+  if(c.class==="Atirador") return "🏹";
+  if(c.class==="Lutador") return "👊";
+  return "💥";
+}
+function nextFxNonce(b){ return (b.lastFx ? b.lastFx.nonce : 0) + 1; }
+
 function renderBattle(state){
   const myKey="p"+MY_SLOT;
   const oppKey = otherKey(myKey);
   const myTurn = state.battle.currentTurn===myKey;
-  const myTeam = state.teams[myKey];
-  const oppTeam = state.teams[oppKey];
+  const myTeam = state.attackOrder[myKey];
+  const oppTeam = state.attackOrder[oppKey];
   const myActiveId = getActiveId(state, myKey);
   const oppActiveId = getActiveId(state, oppKey);
 
@@ -2131,7 +2243,7 @@ function renderBattle(state){
         ${state.ultimateChoice[myKey]===myActiveId && !state.battle.ultimateUsed[myActiveId] ? `
           <div class="ultimate-box">
             <strong>${attackerChar.ultimate.name}</strong> — ${attackerChar.ultimate.desc}<br>
-            ${attackerChar.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo (aliados inclusive) com ${attackerChar.ultimate.aoeDmg} de dano ${attackerChar.ultimate.dmgType==="physical"?"físico":"mágico"} bruto. Usa o turno.` : `+${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.dmgBonus} dano em cada ataque, mas -25% de escudo pelo resto da luta. Não gasta o turno — você ainda ataca normalmente em seguida.`}
+            ${attackerChar.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo com ${attackerChar.ultimate.aoeDmg} de dano ${attackerChar.ultimate.dmgType==="physical"?"físico":"mágico"} bruto nos inimigos (aliados levam metade). Usa o turno.` : `+${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.dmgBonus} dano em cada ataque, -25% de escudo por alguns turnos${attackerChar.ultimate.growPerHit?`, e fica ainda mais forte a cada golpe que apanhar (até +${attackerChar.ultimate.growCap} de dano)`:''}. Não gasta o turno — você ainda ataca normalmente em seguida.`}
             <div style="margin-top:8px;"><button class="btn danger" onclick="useUltimate()">${attackerChar.ultimate.kind==="meteor"?'Ativar Ultimate (usa o turno)':'Transformar (grátis)'}</button></div>
           </div>` : ''}
         ${pendingAttackIdx!=null ? `<button class="btn" onclick="cancelSelection()">Cancelar seleção</button>` : ''}
@@ -2142,6 +2254,27 @@ function renderBattle(state){
       ${state.battle.log.slice(0,12).map(l=>`<div>${l}</div>`).join("")}
     </div>
   `;
+  triggerBattleFx(state);
+}
+
+let lastFxNonce = null;
+// Plays the impact-icon animation for whatever just happened (a special attack
+// landing, a stun, a heal, a meteor ultimate hitting the whole field, etc). Runs
+// after the DOM is already in place, so it can find each target's card directly.
+function triggerBattleFx(state){
+  const fx = state.battle && state.battle.lastFx;
+  if(!fx || fx.nonce===lastFxNonce) return;
+  lastFxNonce = fx.nonce;
+  fx.effects.forEach(({targetId, icon, big})=>{
+    const card = app.querySelector(`.fighter-card[data-fighter-id="${targetId}"]`);
+    if(!card) return;
+    const el = document.createElement("div");
+    el.className = "impact-fx" + (big?" big":"");
+    el.textContent = icon;
+    card.appendChild(el);
+    card.classList.add("hit-shake");
+    setTimeout(()=>{ el.remove(); card.classList.remove("hit-shake"); }, big?900:700);
+  });
 }
 
 function fighterCardHTML(state, id, clickable, isActive, index, total){
@@ -2157,6 +2290,7 @@ function fighterCardHTML(state, id, clickable, isActive, index, total){
   const isStunned = state.battle.stunned[id];
   const hasDot = state.battle.dot && state.battle.dot[id];
   const isTransformed = state.battle.transformed && state.battle.transformed[id];
+  const stunImmuneTurns = state.battle.stunImmune && state.battle.stunImmune[id] ? state.battle.stunImmune[id].turnsLeft : 0;
   const classes = ["fighter-card"];
   if(!alive) classes.push("dead");
   if(isActive && alive) classes.push("active-turn");
@@ -2168,13 +2302,13 @@ function fighterCardHTML(state, id, clickable, isActive, index, total){
   const liftPx = Math.max(0, 12 - dist*7);
   const deltaTag = (d)=> d ? (d>0 ? ` <b style="color:#8fe0a0">+${d}</b>` : ` <b style="color:#ff8a9a">${d}</b>`) : '';
   return `
-    <div class="${classes.join(' ')}" ${clickAttr} style="margin-top:${-liftPx}px;">
+    <div class="${classes.join(' ')}" ${clickAttr} data-fighter-id="${id}" style="margin-top:${-liftPx}px;">
       ${isActive && alive ? '<div class="active-tag">Agindo agora</div>' : ''}
-      ${stickFigureSVG(c, alive)}
+      ${stickFigureSVG(c, alive, isTransformed)}
       <div class="fn">${c.name} <span class="badge rank-${c.rank}" style="font-size:8px; padding:1px 5px;">${c.rank}</span></div>
       <div class="fa">${ELEMENT_ICON[c.element]||''} ${c.anime}${isTransformed&&alive?' · ✨':''}</div>
       <div class="hpbar"><div class="hpbar-fill" style="width:${alive?pct:0}%;"></div></div>
-      <div class="hp-txt">${alive?hp:0}/${maxHp} HP ${isStunned&&alive?'· atordoado':''}${hasDot&&alive?' · '+hasDot.source:''}</div>
+      <div class="hp-txt">${alive?hp:0}/${maxHp} HP ${isStunned&&alive?'· atordoado':''}${hasDot&&alive?' · '+hasDot.source:''}${stunImmuneTurns>0&&alive?' · 🔰anti-stun('+stunImmuneTurns+')':''}</div>
       <div class="shield-mini"><span>🛡️F ${shields.phys}${deltaTag(physDelta)}</span><span>🛡️M ${shields.mag}${deltaTag(magDelta)}</span></div>
     </div>`;
 }
@@ -2194,7 +2328,13 @@ const OUTFIT_PALETTES = {
   hybrid: ["#3a6a4a","#8a5a2b","#6a2b6b","#c9432f"]
 };
 
-function stickFigureSVG(c, alive){
+const ELEMENT_GLOW = {
+  Fogo:"#e05a2d", Gelo:"#6fb3d9", "Elétrico":"#e0b559", Sombrio:"#8a5fd4", Sagrado:"#f0d98a",
+  Venenoso:"#4fbf63", Espiritual:"#a68fe0", "Psíquico":"#e078a8", Vento:"#3fc4b4", Terra:"#c48a52",
+  "Água":"#4a9be0", Metal:"#c9c9c9", Natureza:"#4fbf63", Normal:"#e0b559"
+};
+
+function stickFigureSVG(c, alive, transformed){
   let skin, hairColor, hairStyle, outfit, outfit2;
   if(c.appearance){
     const ap = c.appearance;
@@ -2214,6 +2354,20 @@ function stickFigureSVG(c, alive){
     outfit2 = !alive ? "#3a3c46" : shadeColor(outfit, -18);
   }
 
+  let auraSVG = "";
+  if(transformed && alive){
+    const glow = ELEMENT_GLOW[c.element] || "#e0b559";
+    auraSVG = `
+      <circle cx="20" cy="24" r="25" fill="${glow}" opacity="0.10"/>
+      <circle cx="20" cy="24" r="19" fill="${glow}" opacity="0.16"/>
+      <circle cx="20" cy="24" r="13" fill="${glow}" opacity="0.14"/>
+      <line x1="3" y1="7" x2="9" y2="13" stroke="${glow}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+      <line x1="37" y1="7" x2="31" y2="13" stroke="${glow}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+      <line x1="3" y1="41" x2="9" y2="35" stroke="${glow}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+      <line x1="37" y1="41" x2="31" y2="35" stroke="${glow}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>`;
+    hairColor = shadeColor(hairColor, 70);
+  }
+
   let hairSVG = "";
   if(hairStyle==="spiky") hairSVG = `<path d="M13 6 L10 -1 L15 4 L18 -3 L20 4 L22 -3 L25 4 L30 -1 L27 6 Z" fill="${hairColor}"/>`;
   else if(hairStyle==="short") hairSVG = `<path d="M12 8 Q20 -2 28 8 L28 5 Q20 0 12 5 Z" fill="${hairColor}"/>`;
@@ -2221,6 +2375,7 @@ function stickFigureSVG(c, alive){
   else if(hairStyle==="mohawk") hairSVG = `<path d="M17 6 Q20 -6 23 6 Z" fill="${hairColor}"/>`;
 
   return `<svg class="stick" width="40" height="52" viewBox="0 0 40 52">
+    ${auraSVG}
     <circle cx="20" cy="10" r="7" fill="${skin}"/>
     ${hairSVG}
     <path d="M13 19 L27 19 L25 33 L15 33 Z" fill="${outfit}"/>
@@ -2280,6 +2435,7 @@ function applyAction(state, attackerId, atkIdx, targetId){
   const atk = c.attacks[atkIdx];
   const b = state.battle;
   if(!b.tempShield) b.tempShield = {};
+  const fxEffects = [];
   for(let i=0;i<4;i++){ if(b.cooldowns[attackerId][i]>0) b.cooldowns[attackerId][i]--; }
   if(b.cooldowns[attackerId][atkIdx]>0 || (atk.onceOnly && b.onceUsed[attackerId][atkIdx])){
     b.log.unshift(`${c.name} tentou usar ${atk.name}, mas ainda não está pronto.`);
@@ -2296,16 +2452,20 @@ function applyAction(state, attackerId, atkIdx, targetId){
       // Any temporary shield buff/debuff on the target is used up the moment they take a hit.
       if(b.tempShield[targetId]){ delete b.tempShield[targetId]; }
       checkDeathPenalty(state, targetId, wasAlive);
+      checkGrowOnHit(state, targetId, wasAlive);
+      if(atkIdx>0) fxEffects.push({targetId, icon:pickImpactIcon(c,atk), big:false});
       if(b.hp[targetId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
     }
     if(atk.effect){
       if(atk.effect.type==="shield"){
         b.tempShield[attackerId] = {phys: atk.effect.value, mag: atk.effect.value};
         b.log.unshift(`${c.name} reforça a defesa em +${atk.effect.value} até ser atingido.`);
+        if(atkIdx>0) fxEffects.push({targetId:attackerId, icon:"🛡️", big:false});
       } else if(atk.effect.type==="heal"){
         const cap = maxLifeOf(state, attackerId);
         b.hp[attackerId] = Math.min(cap, b.hp[attackerId]+atk.effect.value);
         b.log.unshift(`${c.name} recupera ${atk.effect.value} de vida.`);
+        if(atkIdx>0) fxEffects.push({targetId:attackerId, icon:"💚", big:false});
       } else if(atk.effect.type==="debuff" && targetId){
         const tgt = charById(targetId);
         const shieldKey = atk.dmgType==="physical"?"phys":"mag";
@@ -2314,8 +2474,15 @@ function applyAction(state, attackerId, atkIdx, targetId){
         b.log.unshift(`${tgt.name} fica vulnerável (-${atk.effect.value} de escudo até ser atingido).`);
       } else if(atk.effect.type==="stun" && targetId){
         const tgt = charById(targetId);
-        b.stunned[targetId]=true;
-        b.log.unshift(`${tgt.name} ficou atordoado!`);
+        if(!b.stunImmune) b.stunImmune = {};
+        if(b.stunImmune[targetId] && b.stunImmune[targetId].turnsLeft>0){
+          b.log.unshift(`${tgt.name} está imune a atordoamento e resistiu ao efeito!`);
+        } else {
+          b.stunned[targetId]=true;
+          b.stunImmune[targetId] = {turnsLeft:3};
+          b.log.unshift(`${tgt.name} ficou atordoado! (imune a novo atordoamento pelas próximas 3 rodadas dele)`);
+          if(atkIdx>0) fxEffects.push({targetId, icon:"💫", big:false});
+        }
       } else if(atk.effect.type==="dot" && targetId){
         const tgt = charById(targetId);
         b.dot[targetId] = {value: atk.effect.value, turnsLeft: 2, source: atk.dmgType==="physical"?"Sangramento":(c.element==="Fogo"?"Queimadura":c.element==="Venenoso"?"Veneno":"Efeito contínuo")};
@@ -2325,7 +2492,9 @@ function applyAction(state, attackerId, atkIdx, targetId){
     if(atk.cooldown>0) b.cooldowns[attackerId][atkIdx]=atk.cooldown;
     if(atk.onceOnly) b.onceUsed[attackerId][atkIdx]=true;
   }
+  if(fxEffects.length){ b.lastFx = {nonce: nextFxNonce(b), effects: fxEffects}; }
   b.stunned[attackerId]=false;
+  tickStunImmunity(state, attackerId);
 
   // Tick any active damage-over-time effects (queimadura/veneno) once per global turn.
   Object.keys(b.dot).forEach(id=>{
@@ -2336,10 +2505,13 @@ function applyAction(state, attackerId, atkIdx, targetId){
     b.hp[id] = Math.max(0, b.hp[id]-d.value);
     b.log.unshift(`${dTgt.name} perde ${d.value} de vida por ${d.source.toLowerCase()}.`);
     checkDeathPenalty(state, id, wasAlive);
+    checkGrowOnHit(state, id, wasAlive);
     if(b.hp[id]<=0) b.log.unshift(`${dTgt.name} foi derrotado pelo ${d.source.toLowerCase()}!`);
     d.turnsLeft -= 1;
     if(d.turnsLeft<=0) delete b.dot[id];
   });
+
+  tickTransformPenalties(state);
 
   // Advance this side's order cursor past whoever just acted, then hand the turn
   // over — resolving any stun-skips on the way (this is what keeps stun from
@@ -2361,24 +2533,37 @@ async function useUltimate(){
   const b = state.battle;
   if(!b.tempShield) b.tempShield = {};
   if(!b.transformed) b.transformed = {};
+  if(!b.growOnHit) b.growOnHit = {};
+  if(!b.transformPenalty) b.transformPenalty = {};
   b.ultimateUsed[ultId]=true;
 
   if(c.ultimate.kind==="meteor"){
     // A single overwhelming attack — it IS the character's action for the turn.
+    // It hits everyone, but a reckless power still comes down harder on enemies
+    // than on the caster's own side — allies take half the damage, not the full hit.
     b.log.unshift(`${c.name} ativa o Ultimate: ${c.ultimate.name}! Um poder descontrolado atinge todo mundo em campo.`);
     const shieldKey = c.ultimate.dmgType==="physical"?"phys":"mag";
+    const meteorIcon = c.ultimate.dmgType==="physical" ? "☄️" : (ELEMENT_ICON[c.element] || "☄️");
+    const fxEffects = [];
     [...state.teams.p1, ...state.teams.p2].filter(id=>id!==ultId && b.hp[id]>0).forEach(otherId=>{
       const tgt = charById(otherId);
+      const isAlly = teamOf(state,otherId)===teamOf(state,ultId);
+      const baseDmg = isAlly ? Math.round(c.ultimate.aoeDmg*0.5) : c.ultimate.aoeDmg;
       const tempMod = (b.tempShield[otherId] && b.tempShield[otherId][shieldKey]) || 0;
       const shieldVal = Math.max(0, b.shields[otherId][shieldKey] + tempMod);
-      const dmg = Math.max(1, c.ultimate.aoeDmg - shieldVal);
+      const dmg = Math.max(1, baseDmg - shieldVal);
       const wasAlive = b.hp[otherId]>0;
       b.hp[otherId] = Math.max(0, b.hp[otherId]-dmg);
       if(b.tempShield[otherId]) delete b.tempShield[otherId];
       checkDeathPenalty(state, otherId, wasAlive);
-      b.log.unshift(`${tgt.name} sofre ${dmg} de dano do Ultimate de ${c.name}${teamOf(state,otherId)===teamOf(state,ultId)?' (aliado!)':''}.`);
+      checkGrowOnHit(state, otherId, wasAlive);
+      fxEffects.push({targetId:otherId, icon:meteorIcon, big:true});
+      b.log.unshift(`${tgt.name} sofre ${dmg} de dano do Ultimate de ${c.name}${isAlly?' (aliado — dano reduzido pela metade)':''}.`);
       if(b.hp[otherId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
     });
+    if(fxEffects.length){ b.lastFx = {nonce: nextFxNonce(b), effects: fxEffects}; }
+    tickTransformPenalties(state);
+    tickStunImmunity(state, ultId);
     const pos = state.attackOrder[myKey].indexOf(ultId);
     b.orderIndex[myKey] = (pos+1) % state.attackOrder[myKey].length;
     state.battle.currentTurn = MY_SLOT===1?"p2":"p1";
@@ -2387,15 +2572,23 @@ async function useUltimate(){
   } else {
     // A transformation — free action: it does NOT consume the turn, so this same
     // character still picks and lands an attack right after. The tradeoff for
-    // getting that "free" power spike is a lasting defense cut for the rest of
-    // the fight, so it's a real risk/reward choice rather than an auto-win button.
+    // getting that "free" power spike is a defense cut — but a TEMPORARY one
+    // (it wears off after a few turns), not a permanent scar on the character.
     b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
     b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
     b.dmgBonus[ultId] = c.ultimate.dmgBonus;
+    b.lastFx = {nonce: nextFxNonce(b), effects:[{targetId:ultId, icon:(ELEMENT_ICON[c.element]||"✨"), big:true}]};
     b.transformed[ultId] = true;
-    b.shields[ultId].phys = Math.max(2, Math.round(b.shields[ultId].phys*0.75));
-    b.shields[ultId].mag = Math.max(2, Math.round(b.shields[ultId].mag*0.75));
-    b.log.unshift(`${c.name} se transforma: ${c.ultimate.name}! (+${c.ultimate.lifeBonus} vida, +${c.ultimate.dmgBonus} dano em cada ataque, mas -25% de escudo pelo resto da luta)`);
+    const originalShields = {phys: b.shields[ultId].phys, mag: b.shields[ultId].mag};
+    b.shields[ultId].phys = Math.max(2, Math.round(originalShields.phys*0.75));
+    b.shields[ultId].mag = Math.max(2, Math.round(originalShields.mag*0.75));
+    b.transformPenalty[ultId] = {turnsLeft:4, original:originalShields};
+    let growNote = "";
+    if(c.ultimate.growPerHit){
+      b.growOnHit[ultId] = {perHit:c.ultimate.growPerHit, cap:c.ultimate.growCap, current:0};
+      growNote = ` Quanto mais apanhar a partir de agora, mais forte fica (até +${c.ultimate.growCap} de dano extra).`;
+    }
+    b.log.unshift(`${c.name} se transforma: ${c.ultimate.name}! (+${c.ultimate.lifeBonus} vida, +${c.ultimate.dmgBonus} dano em cada ataque, -25% de escudo por um tempo)${growNote}`);
     await commitAndDraw(state);
   }
 }
