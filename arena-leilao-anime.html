@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena de Leilão — Anime Battle Draft</title>
+<style>
+  :root{
+    --bg: #0d0f14;
+    --panel: #161922;
+    --panel2: #1e222e;
+    --line: #2a2f3d;
+    --gold: #e0b559;
+    --gold-dim: #8a6f36;
+    --crimson: #d1495b;
+    --crimson-dim: #6b2530;
+    --teal: #4fb3a9;
+    --text: #eceef2;
+    --text-dim: #9aa0af;
+    --weak: #7a8194;
+    --medium: #4fb3a9;
+    --strong: #d1495b;
+    --physical: #e0b559;
+    --magic: #7f77dd;
+    --radius: 10px;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background: radial-gradient(circle at 50% 0%, #1a1e29 0%, var(--bg) 60%);
+    color: var(--text);
+    margin:0;
+    min-height:100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap{max-width: 920px; margin:0 auto;}
+  h1,h2,h3{font-weight:700; letter-spacing:.3px; margin:0 0 6px;}
+  h1{font-size:26px;}
+  h2{font-size:19px;}
+  h3{font-size:15px;}
+  .eyebrow{
+    text-transform:uppercase; font-size:11px; letter-spacing:2px; color: var(--gold);
+    font-weight:700; margin-bottom:4px;
+  }
+  .sub{color:var(--text-dim); font-size:14px; margin-bottom:20px;}
+  .card{
+    background: var(--panel);
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom:16px;
+  }
+  .btn{
+    background: linear-gradient(180deg, #2a2f3d, #1e222e);
+    border:1px solid var(--line);
+    color: var(--text);
+    padding: 11px 18px;
+    border-radius: 8px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition: border-color .15s, transform .1s;
+  }
+  .btn:hover{border-color: var(--gold-dim);}
+  .btn:active{transform: scale(.97);}
+  .btn.primary{background: linear-gradient(180deg, #e0b559, #c79a3f); color:#1a1509; border:none;}
+  .btn.danger{background: linear-gradient(180deg, #d1495b, #a83447); color:#fff; border:none;}
+  .btn:disabled{opacity:.35; cursor:not-allowed;}
+  input[type=text], input[type=number]{
+    background: var(--panel2);
+    border:1px solid var(--line);
+    color: var(--text);
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:14px;
+    width:100%;
+  }
+  label{font-size:12px; color:var(--text-dim); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;}
+  .row{display:flex; gap:12px; flex-wrap:wrap;}
+  .row > *{flex:1; min-width:140px;}
+  .center{text-align:center;}
+  .code-display{
+    font-size:38px; font-weight:800; letter-spacing:8px; color:var(--gold);
+    text-align:center; padding:14px 0; font-family: monospace;
+  }
+  .badge{
+    display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px;
+    font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+  }
+  .badge.weak{background:rgba(122,129,148,.18); color:var(--weak);}
+  .badge.medium{background:rgba(79,179,169,.18); color:var(--medium);}
+  .badge.strong{background:rgba(209,73,91,.18); color:var(--strong);}
+  .badge.physical{background:rgba(224,181,89,.18); color:var(--physical);}
+  .badge.magic{background:rgba(127,119,221,.18); color:#a29bea;}
+  .badge.hybrid{background:rgba(224,181,89,.12); color:#c9b98a;}
+  .badge.ult{background:rgba(209,73,91,.25); color:#ff8a9a; border:1px solid var(--crimson-dim);}
+  .badge.once{background:rgba(224,181,89,.12); color:var(--gold); border:1px solid var(--gold-dim);}
+  .char-hero{
+    text-align:center; padding: 22px 0 10px;
+  }
+  .char-hero .name{font-size:26px; font-weight:800; margin-bottom:4px;}
+  .char-hero .anime{color:var(--text-dim); font-size:13px; margin-bottom:10px;}
+  .stat-row{display:flex; justify-content:center; gap:22px; margin:14px 0 4px; flex-wrap:wrap;}
+  .stat{text-align:center;}
+  .stat .val{font-size:22px; font-weight:800;}
+  .stat .lbl{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;}
+  .attacks{display:grid; grid-template-columns:1fr; gap:8px; margin-top:14px;}
+  .attack{
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+    display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .attack .an{font-weight:700; font-size:13.5px;}
+  .attack .ad{font-size:12px; color:var(--text-dim); margin-top:2px;}
+  .players-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media(max-width:600px){.players-grid{grid-template-columns:1fr;}}
+  .player-panel{
+    background:var(--panel2); border:1px solid var(--line); border-radius: var(--radius); padding:14px;
+  }
+  .player-panel.leader{border-color: var(--gold-dim); box-shadow: 0 0 0 1px var(--gold-dim) inset;}
+  .player-panel h3{display:flex; justify-content:space-between; align-items:center;}
+  .money{color:var(--gold); font-weight:800;}
+  .team-list{list-style:none; padding:0; margin:10px 0 0; font-size:13px;}
+  .team-list li{padding:5px 0; border-top:1px solid var(--line); display:flex; justify-content:space-between;}
+  .team-list li:first-child{border-top:none;}
+  .team-list .slot-empty{color:var(--text-dim); font-style:italic;}
+  .bid-controls{display:flex; gap:8px; margin-top:12px;}
+  .bid-controls input{flex:1;}
+  .log{
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+    max-height:140px; overflow-y:auto; font-size:12.5px; color:var(--text-dim); margin-top:14px;
+  }
+  .log div{padding:3px 0; border-bottom:1px dashed var(--line);}
+  .log div:last-child{border-bottom:none;}
+  .pill-tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .pill-tabs button{
+    flex:1; background:var(--panel2); border:1px solid var(--line); color:var(--text-dim);
+    padding:9px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer;
+  }
+  .pill-tabs button.active{background:var(--gold); color:#1a1509; border-color:var(--gold);}
+  .hint{font-size:12px; color:var(--text-dim); margin-top:6px;}
+  .divider{height:1px; background:var(--line); margin:16px 0;}
+  .ultimate-box{
+    border:1px dashed var(--crimson-dim); background:rgba(209,73,91,.06); border-radius:8px;
+    padding:10px 12px; margin-top:10px; font-size:12.5px;
+  }
+  .roster-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;}
+  @media(max-width:600px){.roster-grid{grid-template-columns:1fr;}}
+  .mini-card{
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px;
+  }
+  .mini-card .mn{font-weight:700; font-size:13.5px;}
+  .mini-card .ma{font-size:11px; color:var(--text-dim); margin-bottom:6px;}
+  select{
+    background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:8px; border-radius:8px; width:100%; font-size:13px;
+  }
+  .status-line{font-size:12.5px; color:var(--text-dim); text-align:center; margin-top:8px;}
+  .flash{animation: flashIn .4s ease;}
+  @keyframes flashIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+  .coin-stage{display:flex; flex-direction:column; align-items:center; padding:30px 0;}
+  .coin{
+    width:90px; height:90px; border-radius:50%;
+    background: linear-gradient(180deg,var(--gold),#a9822f);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; color:#1a1509; font-size:13px;
+    border:3px solid #7a601f;
+    perspective:600px;
+  }
+  .coin.flipping{animation: coinFlip 1.4s ease-in-out;}
+  @keyframes coinFlip{
+    0%{transform:rotateY(0deg);}
+    100%{transform:rotateY(1800deg);}
+  }
+  .turn-banner{
+    text-align:center; padding:10px; border-radius:8px; margin-bottom:14px;
+    background:rgba(224,181,89,.1); border:1px solid var(--gold-dim); font-weight:700; font-size:14px;
+  }
+  .turn-banner.opp{background:rgba(209,73,91,.08); border-color:var(--crimson-dim);}
+  .arena-row{display:flex; gap:8px; overflow-x:auto; padding:6px 2px 10px;}
+  .fighter-card{
+    flex:0 0 auto; width:96px; background:var(--panel2); border:1.5px solid var(--line);
+    border-radius:10px; padding:8px 6px; text-align:center; cursor:pointer; transition:border-color .15s, transform .1s;
+  }
+  .fighter-card:hover{border-color:var(--gold-dim);}
+  .fighter-card.selected{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold);}
+  .fighter-card.targetable{border-color:var(--crimson); box-shadow:0 0 0 1px var(--crimson-dim);}
+  .fighter-card.dead{opacity:.3; cursor:not-allowed;}
+  .fighter-card.stunned{border-color:#a29bea;}
+  .fighter-card .fn{font-size:10.5px; font-weight:700; margin-top:4px; line-height:1.2; height:24px; overflow:hidden;}
+  .fighter-card .fa{font-size:8.5px; color:var(--text-dim); margin-bottom:4px;}
+  .hpbar{height:6px; background:#000; border-radius:4px; overflow:hidden; margin-top:6px;}
+  .hpbar-fill{height:100%; background:linear-gradient(90deg,#7a2b34,var(--crimson));}
+  .hp-txt{font-size:9px; color:var(--text-dim); margin-top:3px;}
+  .shield-mini{display:flex; justify-content:center; gap:6px; font-size:8.5px; color:var(--text-dim); margin-top:2px;}
+  .action-panel{margin-top:14px;}
+  .atk-btn{
+    display:block; width:100%; text-align:left; background:var(--panel2); border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; margin-bottom:8px; cursor:pointer; color:var(--text);
+  }
+  .atk-btn:hover:not(:disabled){border-color:var(--gold-dim);}
+  .atk-btn:disabled{opacity:.35; cursor:not-allowed;}
+  .atk-btn .an{font-weight:700; font-size:13px;}
+  .atk-btn .ad{font-size:11px; color:var(--text-dim); margin-top:2px;}
+  .stick{display:block; margin:0 auto;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ============ CHARACTER DATABASE ============ */
+const ANIMES = ["Naruto","Dragon Ball","One Piece","Attack on Titan","One Punch Man","Solo Leveling",
+"Hunter x Hunter","Blue Lock","Death Note","Frieren","Akame ga Kill","Black Clover","Boku no Hero",
+"Bleach","Re:Zero","Fullmetal Alchemist","Record of Ragnarok","Baki","Haikyuu","Nanatsu no Taizai",
+"Kaguya-sama","Jujutsu Kaisen","Demon Slayer","Hell's Paradise","Your Name","Horimiya","JoJo's Bizarre Adventure"];
+
+// [name, level(weak/medium/strong), type(physical/magic/hybrid), ultimate?, onceOnly?]
+const RAW = {
+"Naruto":[["Konohamaru","weak","physical"],["Tenten","medium","physical"],["Shikamaru Nara","medium","hybrid"],["Might Guy","strong","physical","ult"],["Itachi Uchiha","strong","hybrid","ult"]],
+"Dragon Ball":[["Yamcha","weak","physical"],["Tenshinhan","medium","physical"],["Android 18","medium","physical"],["Vegeta","strong","physical","ult"],["Son Goku","strong","physical","ult"]],
+"One Piece":[["Coby","weak","physical"],["Nico Robin","medium","hybrid"],["Sanji","medium","physical"],["Roronoa Zoro (Wano)","strong","physical","ult"],["Monkey D. Luffy","strong","hybrid","ult"]],
+"Attack on Titan":[["Sasha Blouse","weak","physical"],["Jean Kirstein","medium","physical"],["Armin Arlert","medium","hybrid"],["Reiner Braun","strong","physical","ult"],["Eren Yeager","strong","hybrid","ult"]],
+"One Punch Man":[["Mumen Rider","weak","physical"],["Tornado","medium","magic"],["King (fama)","weak","physical"],["Genos (upgrade)","strong","hybrid"],["Garou","strong","physical","ult"]],
+"Solo Leveling":[["Woo Jinchul","weak","physical"],["Cha Hae-in","medium","physical"],["Go Gunhee","medium","hybrid"],["Thomas Andre","strong","physical"],["Sung Jinwoo (Monarca)","strong","magic","ult"]],
+"Hunter x Hunter":[["Leorio Paradinight","weak","physical"],["Killua Zoldyck","medium","hybrid"],["Biscuit Krueger","medium","hybrid"],["Chrollo Lucilfer","strong","magic","ult"],["Meruem","strong","hybrid","ult"]],
+"Blue Lock":[["Aoshi Tokimitsu","weak","physical"],["Rensuke Kunigami","weak","physical"],["Meguru Bachira","medium","physical"],["Shoei Baro","medium","physical"],["Seishiro Nagi","strong","physical"]],
+"Death Note":[["Soichiro Yagami","weak","physical"],["Misa Amane","weak","magic","","once"],["Near","medium","hybrid","","once"],["L Lawliet","strong","hybrid","","once"],["Light Yagami","strong","magic","ult","once"]],
+"Frieren":[["Sein","weak","physical"],["Übel","medium","magic"],["Stark","medium","physical"],["Fern","strong","magic"],["Frieren","strong","magic","ult"]],
+"Akame ga Kill":[["Bulat","medium","physical"],["Leone","medium","physical"],["Lubbock","weak","physical"],["Esdeath","strong","magic","ult"],["Akame","strong","physical","ult"]],
+"Black Clover":[["Luck Voltia","medium","magic"],["Magna Swing","weak","magic"],["Noelle Silva","medium","magic"],["Yuno Grinberryall","strong","magic","ult"],["Asta","strong","hybrid","ult"]],
+"Boku no Hero":[["Denki Kaminari","weak","magic"],["Ochaco Uraraka","medium","physical"],["Shoto Todoroki","strong","magic"],["Katsuki Bakugo","strong","magic","ult"],["All Might","strong","physical","ult"]],
+"Bleach":[["Keigo Asano","weak","physical"],["Renji Abarai","medium","hybrid"],["Rukia Kuchiki","medium","magic"],["Byakuya Kuchiki","strong","magic","ult"],["Ichigo Kurosaki","strong","hybrid","ult"]],
+"Re:Zero":[["Otto Suwen","weak","physical"],["Rem","medium","magic"],["Wilhelm van Astrea","strong","physical"],["Reinhard van Astrea","strong","physical","ult"],["Emilia","medium","magic"]],
+"Fullmetal Alchemist":[["Alphonse Elric (base)","weak","physical"],["Riza Hawkeye","medium","physical"],["Roy Mustang","strong","magic","ult"],["Edward Elric","strong","hybrid","ult"],["Alex Louis Armstrong","medium","physical"]],
+"Record of Ragnarok":[["Jack the Ripper","weak","physical"],["Hercules","strong","physical","ult"],["Sasaki Kojiro","medium","physical"],["Adam","strong","hybrid","ult"],["Buddha","strong","magic"]],
+"Baki":[["Kosho Shibukawa","medium","physical"],["Jack Hanma","strong","physical"],["Baki Hanma","strong","physical","ult"],["Doppo Orochi","medium","physical"],["Retsu Kaioh","weak","physical"]],
+"Haikyuu":[["Yu Nishinoya","weak","physical"],["Ryunosuke Tanaka","weak","physical"],["Kenma Kozume","medium","physical"],["Shoyo Hinata","medium","physical"],["Tobio Kageyama","strong","physical"]],
+"Nanatsu no Taizai":[["King","medium","magic"],["Diane","medium","physical"],["Ban","strong","physical","ult"],["Escanor","strong","magic","ult"],["Merlin","strong","magic"]],
+"Kaguya-sama":[["Yu Ishigami","weak","physical"],["Chika Fujiwara","weak","physical"],["Ai Hayasaka","medium","physical"],["Miyuki Shirogane","medium","hybrid"],["Kaguya Shinomiya","strong","hybrid"]],
+"Jujutsu Kaisen":[["Yuji Itadori (base)","medium","physical"],["Nobara Kugisaki","medium","physical"],["Megumi Fushiguro","medium","magic"],["Sukuna","strong","magic","ult"],["Satoru Gojo","strong","magic","ult"]],
+"Demon Slayer":[["Zenitsu Agatsuma","weak","physical"],["Inosuke Hashibira","medium","physical"],["Kyojuro Rengoku","strong","physical","ult"],["Giyu Tomioka","strong","physical"],["Tanjiro Kamado (Hi)","strong","hybrid","ult"]],
+"Hell's Paradise":[["Chobei","weak","physical"],["Yuzuriha","medium","physical"],["Sagiri Asaemon","medium","physical"],["Gabimaru","strong","physical","ult"],["Yamada Asaemon Tenza","strong","physical"]],
+"Your Name":[["Katsuhiko Teshigawara","weak","physical"],["Tessie","weak","physical"],["Miki Okudera","weak","physical"],["Mitsuha Miyamizu","medium","magic"],["Taki Tachibana","medium","physical"]],
+"Horimiya":[["Tooru Ishikawa","weak","physical"],["Yuki Yoshikawa","weak","physical"],["Remi Ayasaki","medium","physical"],["Izumi Miyamura","medium","physical"],["Kyoko Hori","medium","physical"]],
+"JoJo's Bizarre Adventure":[["Koichi Hirose","weak","hybrid"],["Josuke Higashikata","medium","hybrid"],["Giorno Giovanna","strong","magic","ult"],["Dio Brando","strong","hybrid","ult"],["Jotaro Kujo","strong","hybrid","ult"]]
+};
+
+const PHYS_SPECIAL_NAMES=["Investida Devastadora","Golpe Sísmico","Fúria Ancestral","Impacto Total","Combo Relâmpago"];
+const MAGIC_SPECIAL_NAMES=["Rajada Arcana","Selo Amaldiçoado","Explosão Elemental","Onda Espiritual","Ruptura Dimensional"];
+const SHIELD_NAMES=["Guarda de Ferro","Barreira Concentrada","Postura Defensiva","Manto Protetor"];
+const HEAL_NAMES=["Recuperação Vital","Segunda Respiração","Regeneração"];
+const DEBUFF_NAMES=["Golpe Enfraquecedor","Selo de Fraqueza","Corte Perfurante"];
+const STUN_NAMES=["Golpe Atordoante","Pressão Esmagadora","Onda de Choque"];
+
+function pick(arr,i){return arr[i%arr.length];}
+
+function buildStats(level,type){
+  const base = level==="weak"?{life:46,shield:9}:level==="medium"?{life:64,shield:15}:{life:86,shield:23};
+  let phys=base.shield, mag=base.shield;
+  if(type==="physical"){phys=base.shield+7; mag=Math.max(2,base.shield-6);}
+  else if(type==="magic"){mag=base.shield+7; phys=Math.max(2,base.shield-6);}
+  return {life:base.life, physShield:phys, magShield:mag};
+}
+
+function buildAttacks(name,level,type,idx,onceOnly){
+  const meleeDmg = level==="weak"?9:level==="medium"?12:16;
+  const specDmg1 = level==="weak"?18:level==="medium"?25:33;
+  const specDmg2 = level==="weak"?15:level==="medium"?21:28;
+  const melee = {name:"Ataque Corpo a Corpo", dmgType:"physical", category:"melee", dmg:meleeDmg, cooldown:0, effect:null};
+  let atk2, atk3;
+  const kind = idx%3;
+  // Physical-only chars: both specials physical. Magic-only: both magic.
+  // Hybrid chars: guaranteed ONE physical + ONE magic special (e.g. Yami's sword vs his darkness magic).
+  const specType1 = type==="magic" ? "magic" : "physical";
+  const specType2 = type==="physical" ? "physical" : type==="magic" ? "magic" : (specType1==="physical" ? "magic" : "physical");
+
+  if(kind===0){
+    atk2 = {name:pick(specType1==="magic"?MAGIC_SPECIAL_NAMES:PHYS_SPECIAL_NAMES,idx), dmgType:specType1, category:"special", dmg:specDmg1, cooldown:3, effect:null};
+    atk3 = {name:pick(SHIELD_NAMES,idx), dmgType:specType2, category:"special", dmg:0, cooldown:2, effect:{type:"shield", value: level==="weak"?10:level==="medium"?16:22}};
+  } else if(kind===1){
+    atk2 = {name:pick(specType1==="magic"?MAGIC_SPECIAL_NAMES:PHYS_SPECIAL_NAMES,idx+1), dmgType:specType1, category:"special", dmg:specDmg1, cooldown:3, effect:{type:"stun"}};
+    atk3 = {name:pick(HEAL_NAMES,idx), dmgType:specType2, category:"special", dmg:0, cooldown:4, effect:{type:"heal", value: level==="weak"?12:level==="medium"?18:25}};
+  } else {
+    atk2 = {name:pick(specType1==="magic"?MAGIC_SPECIAL_NAMES:PHYS_SPECIAL_NAMES,idx+2), dmgType:specType1, category:"special", dmg:specDmg2, cooldown:2, effect:{type:"debuff", value:10}};
+    atk3 = {name:pick(specType2==="magic"?MAGIC_SPECIAL_NAMES:STUN_NAMES,idx), dmgType:specType2, category:"special", dmg:specDmg2-4, cooldown:3, effect:{type:"stun"}};
+  }
+  if(onceOnly){ atk3.onceOnly = true; atk3.dmg = atk3.dmg || specDmg1+6; atk3.effect = atk3.effect || {type:"debuff", value:16}; atk3.name = "Página do Caderno"; }
+  return [melee, atk2, atk3];
+}
+
+const CHARACTERS = [];
+let cid=1;
+Object.keys(RAW).forEach(anime=>{
+  RAW[anime].forEach((row,idx)=>{
+    const [name, level, type, ultFlag, onceFlag] = row;
+    const stats = buildStats(level,type);
+    const attacks = buildAttacks(name,level,type,idx, !!onceFlag);
+    const character = {
+      id: "c"+(cid++),
+      name, anime, level, type,
+      life: stats.life, physShield: stats.physShield, magShield: stats.magShield,
+      attacks,
+      ultimate: ultFlag ? {
+        name: "Despertar: "+name,
+        lifeBonus: level==="strong"?30:20,
+        dmgBonus: level==="strong"?12:8,
+        desc: "Ativa uma vez por partida: aumenta vida máxima e poder de ataque por tempo limitado."
+      } : null
+    };
+    CHARACTERS.push(character);
+  });
+});
+
+/* ============ STATE ============ */
+let ROOM_CODE = null;
+let MY_SLOT = null; // 1 or 2
+let pollTimer = null;
+let LAST_STATE = null;
+
+function genCode(){
+  const letters="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s="";
+  for(let i=0;i<5;i++) s+=letters[Math.floor(Math.random()*letters.length)];
+  return s;
+}
+
+function newRoomState(code){
+  const shuffled=[...CHARACTERS].sort(()=>Math.random()-0.5);
+  const pool = shuffled.slice(0,20).map(c=>c.id);
+  return {
+    code,
+    players:{p1:null, p2:null},
+    budget: {p1:20, p2:20},
+    teams: {p1:[], p2:[]},
+    pool,
+    poolIndex:0,
+    phase:"lobby", // lobby | auction | ultimate | done
+    currentBid:{amount:0, by:null},
+    passed:{p1:false, p2:false},
+    ultimateChoice:{p1:null, p2:null},
+    log:[]
+  };
+}
+
+async function loadRoom(code){
+  try{
+    const r = await window.storage.get("room:"+code, true);
+    return r ? JSON.parse(r.value) : null;
+  }catch(e){ return null; }
+}
+async function saveRoom(state){
+  await window.storage.set("room:"+state.code, JSON.stringify(state), true);
+}
+
+function charById(id){ return CHARACTERS.find(c=>c.id===id); }
+
+/* ============ RENDER ============ */
+const app = document.getElementById("app");
+
+function render(){
+  if(!ROOM_CODE){ renderHome(); return; }
+  loadRoom(ROOM_CODE).then(state=>{
+    if(!state){ renderHome(); return; }
+    LAST_STATE = state;
+    if(state.phase==="lobby") renderLobby(state);
+    else if(state.phase==="auction") renderAuction(state);
+    else if(state.phase==="ultimate") renderUltimate(state);
+    else if(state.phase==="coinflip") renderCoinflip(state);
+    else if(state.phase==="battle") renderBattle(state);
+    else if(state.phase==="battleover") renderBattleOver(state);
+    else if(state.phase==="done") renderDone(state);
+  });
+}
+
+function renderHome(){
+  app.innerHTML = `
+    <div class="eyebrow">Draft de leilão</div>
+    <h1>Arena de Leilão — Anime Battle</h1>
+    <p class="sub">Monte seu time de 5 lutadores disputando lances contra um amigo. Crie uma sala, compartilhe o código, e leiloem juntos em tempo real.</p>
+    <div class="card">
+      <h2>Criar sala</h2>
+      <p class="sub" style="margin-bottom:12px;">Você entra como Jogador 1 e recebe um código pra mandar pro seu amigo.</p>
+      <button class="btn primary" onclick="createRoom()">Criar nova sala</button>
+    </div>
+    <div class="card">
+      <h2>Entrar em uma sala</h2>
+      <div class="row">
+        <div>
+          <label>Código da sala</label>
+          <input type="text" id="joinCode" maxlength="5" placeholder="EX: A2B9K" style="text-transform:uppercase; letter-spacing:3px; font-family:monospace;">
+        </div>
+      </div>
+      <div style="margin-top:12px;"><button class="btn" onclick="joinRoom()">Entrar na sala</button></div>
+    </div>
+    <p class="hint">135 personagens de 27 animes disponíveis, com atacantes físicos e mágicos, alguns com transformação Ultimate e habilidades de uso único.</p>
+  `;
+}
+
+async function createRoom(){
+  const code = genCode();
+  const state = newRoomState(code);
+  state.players.p1 = {name:"Jogador 1"};
+  await saveRoom(state);
+  ROOM_CODE = code; MY_SLOT = 1;
+  startPolling();
+}
+
+async function joinRoom(){
+  const code = document.getElementById("joinCode").value.trim().toUpperCase();
+  if(!code){ return; }
+  const state = await loadRoom(code);
+  if(!state){ alert("Sala não encontrada. Confira o código."); return; }
+  if(!state.players.p2 && !state.players.p1){
+    state.players.p1 = {name:"Jogador 1"};
+    await saveRoom(state);
+    ROOM_CODE = code; MY_SLOT = 1;
+  } else if(!state.players.p2){
+    state.players.p2 = {name:"Jogador 2"};
+    await saveRoom(state);
+    ROOM_CODE = code; MY_SLOT = 2;
+  } else {
+    ROOM_CODE = code; MY_SLOT = 2;
+  }
+  startPolling();
+}
+
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  render();
+  pollTimer = setInterval(render, 2200);
+}
+
+function renderLobby(state){
+  const bothIn = state.players.p1 && state.players.p2;
+  app.innerHTML = `
+    <div class="eyebrow">Sala criada</div>
+    <h1>Sala de espera</h1>
+    <p class="sub">Compartilhe esse código com seu amigo pra ele entrar na mesma sala.</p>
+    <div class="card">
+      <div class="code-display">${state.code}</div>
+      <div class="players-grid">
+        <div class="player-panel ${state.players.p1?'':''}"><h3>Jogador 1</h3><p class="status-line">${state.players.p1?'Conectado':'Aguardando...'}</p></div>
+        <div class="player-panel"><h3>Jogador 2</h3><p class="status-line">${state.players.p2?'Conectado':'Aguardando...'}</p></div>
+      </div>
+      ${bothIn ? `<div style="margin-top:16px; text-align:center;"><button class="btn primary" onclick="startAuction()">Iniciar leilão</button></div>` : `<p class="status-line">Aguardando o segundo jogador entrar com o código acima...</p>`}
+      <p class="hint" style="margin-top:10px;">Você é o <strong>Jogador ${MY_SLOT}</strong> nessa sala.</p>
+    </div>
+  `;
+}
+
+async function startAuction(){
+  const state = await loadRoom(ROOM_CODE);
+  state.phase = "auction";
+  state.log.unshift("Leilão iniciado — 20 personagens sorteados, orçamento de R$20 cada.");
+  await saveRoom(state);
+  render();
+}
+
+function renderAuction(state){
+  if(state.poolIndex >= state.pool.length || state.teams.p1.length>=5 && state.teams.p2.length>=5){
+    finishAuction(state);
+    return;
+  }
+  const teamFull1 = state.teams.p1.length>=5;
+  const teamFull2 = state.teams.p2.length>=5;
+  if(teamFull1 && teamFull2){ finishAuction(state); return; }
+
+  const currentId = state.pool[state.poolIndex];
+  const c = charById(currentId);
+  if(!c){ // safety
+    advanceCharacter(state); return;
+  }
+
+  const iAmLeading = state.currentBid.by === ("p"+MY_SLOT);
+  const oppSlot = MY_SLOT===1?"p2":"p1";
+  const oppPassed = state.passed[oppSlot];
+  const myPassed = state.passed["p"+MY_SLOT];
+  const myBudget = state.budget["p"+MY_SLOT];
+  const myTeamFull = state.teams["p"+MY_SLOT].length>=5;
+
+  app.innerHTML = `
+    <div class="eyebrow">Leilão — ${state.poolIndex+1} / ${state.pool.length}</div>
+    <h1>Disputa em andamento</h1>
+    <div class="card">
+      <div class="char-hero flash">
+        <div class="badge ${c.level}">${c.level==='weak'?'Fraco':c.level==='medium'?'Mediano':'Forte'}</div>
+        <span class="badge ${c.type}">${c.type==='physical'?'Físico':c.type==='magic'?'Mágico':'Híbrido'}</span>
+        ${c.ultimate?'<span class="badge ult">Ultimate</span>':''}
+        <div class="name" style="margin-top:8px;">${c.name}</div>
+        <div class="anime">${c.anime}</div>
+        <div class="stat-row">
+          <div class="stat"><div class="val">${c.life}</div><div class="lbl">Vida</div></div>
+          <div class="stat"><div class="val">${c.physShield}</div><div class="lbl">Escudo Físico</div></div>
+          <div class="stat"><div class="val">${c.magShield}</div><div class="lbl">Escudo Mágico</div></div>
+        </div>
+      </div>
+      <div class="attacks">
+        ${c.attacks.map(a=>`
+          <div class="attack">
+            <div>
+              <div class="an">${a.name} ${a.onceOnly?'<span class="badge once">Uso único</span>':''}</div>
+              <div class="ad">${a.category==='melee'?'Corpo a corpo · sem cooldown':'Especial · CD '+a.cooldown+' turnos'} ${a.dmg?'· '+a.dmg+' dano ('+(a.dmgType==='physical'?'físico':'mágico')+')':''}${a.effect?' · '+describeEffect(a.effect):''}</div>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:10px;">Lance atual: <span class="money">R$ ${state.currentBid.amount}</span> ${state.currentBid.by?`(liderando: Jogador ${state.currentBid.by.slice(1)})`:'(nenhum lance ainda)'}</h3>
+      ${myTeamFull ? `<p class="status-line">Seu time já está completo (5/5) — você não pode mais dar lances.</p>` :
+        myPassed ? `<p class="status-line">Você desistiu desse personagem. Aguardando o outro jogador.</p>` :
+        `<div class="bid-controls">
+          <input type="number" id="bidAmt" min="${state.currentBid.amount+1}" max="${myBudget}" placeholder="Valor do lance (R$)">
+          <button class="btn primary" onclick="placeBid()">Dar lance</button>
+          <button class="btn danger" onclick="passBid()">Desistir</button>
+        </div>
+        <p class="hint">Seu saldo: R$ ${myBudget} · Vagas restantes no seu time: ${5-state.teams['p'+MY_SLOT].length}</p>`
+      }
+    </div>
+
+    <div class="players-grid">
+      ${renderPlayerPanel(state,1)}
+      ${renderPlayerPanel(state,2)}
+    </div>
+
+    <div class="log">
+      ${state.log.slice(0,10).map(l=>`<div>${l}</div>`).join("")}
+    </div>
+  `;
+}
+
+function describeEffect(e){
+  if(e.type==="shield") return "+"+e.value+" de escudo";
+  if(e.type==="heal") return "cura "+e.value+" de vida";
+  if(e.type==="debuff") return "-"+e.value+" no escudo do alvo";
+  if(e.type==="stun") return "atordoa por 1 turno";
+  return "";
+}
+
+function renderPlayerPanel(state, slot){
+  const key="p"+slot;
+  const isMe = MY_SLOT===slot;
+  const leading = state.currentBid.by===key;
+  return `
+    <div class="player-panel ${leading?'leader':''}">
+      <h3>Jogador ${slot} ${isMe?'(você)':''} <span class="money">R$ ${state.budget[key]}</span></h3>
+      <ul class="team-list">
+        ${Array.from({length:5}).map((_,i)=>{
+          const cid=state.teams[key][i];
+          if(!cid) return `<li class="slot-empty">Vaga ${i+1} — vazia</li>`;
+          const ch=charById(cid);
+          return `<li><span>${ch.name}</span><span class="badge ${ch.level}" style="font-size:9px;">${ch.level[0].toUpperCase()}</span></li>`;
+        }).join("")}
+      </ul>
+    </div>
+  `;
+}
+
+async function placeBid(){
+  const state = await loadRoom(ROOM_CODE);
+  const input = document.getElementById("bidAmt");
+  const amt = parseInt(input.value,10);
+  const myKey = "p"+MY_SLOT;
+  const myBudget = state.budget[myKey];
+  if(!amt || amt<=state.currentBid.amount){ alert("O lance precisa ser maior que o atual."); return; }
+  if(amt>myBudget){ alert("Você não tem saldo suficiente."); return; }
+  state.currentBid = {amount:amt, by:myKey};
+  state.passed = {p1:false, p2:false};
+  state.passed[myKey]=false;
+  const oppKey = MY_SLOT===1?"p2":"p1";
+  state.passed[oppKey]=false;
+  const c = charById(state.pool[state.poolIndex]);
+  state.log.unshift(`Jogador ${MY_SLOT} deu um lance de R$${amt} em ${c.name}.`);
+  await saveRoom(state);
+  render();
+}
+
+async function passBid(){
+  const state = await loadRoom(ROOM_CODE);
+  const myKey = "p"+MY_SLOT;
+  const oppKey = MY_SLOT===1?"p2":"p1";
+  state.passed[myKey]=true;
+  const c = charById(state.pool[state.poolIndex]);
+  state.log.unshift(`Jogador ${MY_SLOT} desistiu de ${c.name}.`);
+
+  if(state.currentBid.amount>0 && state.currentBid.by===oppKey){
+    // opponent wins
+    await awardCharacter(state, oppKey, c);
+  } else if(state.currentBid.amount===0 && state.passed.p1 && state.passed.p2){
+    state.log.unshift(`Ninguém deu lance em ${c.name} — ele fica de fora.`);
+    advanceCharacter(state);
+  } else if(state.currentBid.amount>0 && state.currentBid.by===myKey && state.passed[oppKey]){
+    await awardCharacter(state, myKey, c);
+  }
+  await saveRoom(state);
+  render();
+}
+
+async function awardCharacter(state, winnerKey, c){
+  state.teams[winnerKey].push(c.id);
+  state.budget[winnerKey] -= state.currentBid.amount;
+  state.log.unshift(`Jogador ${winnerKey.slice(1)} levou ${c.name} por R$${state.currentBid.amount}!`);
+  advanceCharacter(state);
+}
+
+function advanceCharacter(state){
+  state.poolIndex += 1;
+  state.currentBid = {amount:0, by:null};
+  state.passed = {p1:false, p2:false};
+  if(state.teams.p1.length>=5) state.passed.p1=true;
+  if(state.teams.p2.length>=5) state.passed.p2=true;
+}
+
+function finishAuction(state){
+  state.phase = "ultimate";
+  saveRoom(state).then(render);
+}
+
+function renderUltimate(state){
+  const myKey = "p"+MY_SLOT;
+  const myTeam = state.teams[myKey].map(id=>charById(id));
+  const ultCandidates = myTeam.filter(c=>c.ultimate);
+  const chosen = state.ultimateChoice[myKey];
+  const oppKey = MY_SLOT===1?"p2":"p1";
+  const oppReady = !!state.ultimateChoice[oppKey] || state.teams[oppKey].filter(c=>charById(c).ultimate).length===0;
+
+  app.innerHTML = `
+    <div class="eyebrow">Montagem final</div>
+    <h1>Escolha seu Ultimate</h1>
+    <p class="sub">Só um personagem do seu time pode ativar a transformação/ataque Ultimate na partida.</p>
+    <div class="card">
+      <h3>Seu time</h3>
+      <div class="roster-grid">
+        ${myTeam.map(c=>`
+          <div class="mini-card">
+            <div class="mn">${c.name} ${c.ultimate?'<span class="badge ult">Ultimate</span>':''}</div>
+            <div class="ma">${c.anime} · ${c.level==='weak'?'Fraco':c.level==='medium'?'Mediano':'Forte'} · ${c.type==='physical'?'Físico':c.type==='magic'?'Mágico':'Híbrido'}</div>
+            <div style="font-size:11px; color:var(--text-dim);">Vida ${c.life} · Esc.Fís ${c.physShield} · Esc.Mág ${c.magShield}</div>
+          </div>`).join("")}
+      </div>
+      ${ultCandidates.length===0 ? `<p class="status-line" style="margin-top:14px;">Nenhum personagem do seu time possui Ultimate — siga em frente.</p>` : `
+      <div class="divider"></div>
+      <label>Ativar Ultimate em:</label>
+      <select id="ultSelect" onchange="chooseUltimate(this.value)">
+        <option value="">Selecione um personagem</option>
+        ${ultCandidates.map(c=>`<option value="${c.id}" ${chosen===c.id?'selected':''}>${c.name}</option>`).join("")}
+      </select>
+      ${chosen ? (()=>{ const cc=charById(chosen); return `<div class="ultimate-box"><strong>${cc.ultimate.name}</strong><br>${cc.ultimate.desc}<br>+${cc.ultimate.lifeBonus} vida máxima, +${cc.ultimate.dmgBonus} de dano enquanto ativo.</div>`; })() : ''}
+      `}
+      <div style="margin-top:16px; text-align:center;">
+        <button class="btn primary" onclick="confirmReady()">${chosen || ultCandidates.length===0 ? 'Confirmar time' : 'Confirmar sem Ultimate'}</button>
+      </div>
+      <p class="status-line">${oppReady?'O outro jogador já está pronto.':'Aguardando o outro jogador escolher...'}</p>
+    </div>
+  `;
+}
+
+async function chooseUltimate(val){
+  const state = await loadRoom(ROOM_CODE);
+  state.ultimateChoice["p"+MY_SLOT] = val || null;
+  await saveRoom(state);
+}
+
+async function confirmReady(){
+  const state = await loadRoom(ROOM_CODE);
+  const myKey="p"+MY_SLOT;
+  if(state.ultimateChoice[myKey]===undefined) state.ultimateChoice[myKey]=null;
+  state["_ready"+myKey] = true;
+  if(state["_readyp1"] && state["_readyp2"]) state.phase="coinflip";
+  await saveRoom(state);
+  render();
+}
+
+/* ============ COIN FLIP ============ */
+function renderCoinflip(state){
+  const result = state.coinResult;
+  app.innerHTML = `
+    <div class="eyebrow">Quem começa</div>
+    <h1>Cara ou coroa</h1>
+    <p class="sub">O time vencedor escolhe qual personagem age primeiro na batalha.</p>
+    <div class="card coin-stage">
+      <div class="coin ${result?'flipping':''}" id="coinEl">${result?(result==='p1'?'J1':'J2'):'?'}</div>
+      ${result ? `<p class="status-line" style="margin-top:14px; font-size:15px;"><strong>Jogador ${result.slice(1)}</strong> venceu o sorteio e começa a batalha!</p>
+        <button class="btn primary" style="margin-top:12px;" onclick="beginBattle()">Iniciar batalha</button>`
+      : (MY_SLOT===1 ? `<button class="btn primary" style="margin-top:16px;" onclick="flipCoin()">Jogar a moeda</button>`
+        : `<p class="status-line" style="margin-top:16px;">Aguardando o Jogador 1 jogar a moeda...</p>`)}
+    </div>
+  `;
+}
+
+async function flipCoin(){
+  const state = await loadRoom(ROOM_CODE);
+  if(state.coinResult){ render(); return; }
+  const result = Math.random()<0.5 ? "p1" : "p2";
+  state.coinResult = result;
+  await saveRoom(state);
+  render();
+}
+
+/* ============ BATTLE ENGINE ============ */
+function initBattle(state){
+  const battle = {
+    currentTurn: state.coinResult,
+    hp:{}, cooldowns:{}, onceUsed:{}, stunned:{}, shields:{}, dmgBonus:{}, maxLifeBonus:{}, ultimateUsed:{},
+    log:["A batalha começou!"]
+  };
+  [...state.teams.p1, ...state.teams.p2].forEach(id=>{
+    const c = charById(id);
+    battle.hp[id]=c.life;
+    battle.shields[id]={phys:c.physShield, mag:c.magShield};
+    battle.cooldowns[id]=[0,0,0];
+    battle.onceUsed[id]=[false,false,false];
+    battle.stunned[id]=false;
+    battle.dmgBonus[id]=0;
+    battle.maxLifeBonus[id]=0;
+  });
+  return battle;
+}
+
+function maxLifeOf(state, id){
+  const c = charById(id);
+  return c.life + (state.battle.maxLifeBonus[id]||0);
+}
+
+function teamOf(state,id){
+  return state.teams.p1.includes(id) ? "p1" : "p2";
+}
+
+function aliveIds(state, key){
+  return state.teams[key].filter(id=>state.battle.hp[id]>0);
+}
+
+async function beginBattle(){
+  const state = await loadRoom(ROOM_CODE);
+  state.battle = initBattle(state);
+  state.phase = "battle";
+  await saveRoom(state);
+  pendingAttacker=null; pendingAttackIdx=null;
+  render();
+}
+
+let pendingAttacker = null;
+let pendingAttackIdx = null;
+
+function renderBattle(state){
+  const myKey="p"+MY_SLOT;
+  const oppKey = MY_SLOT===1?"p2":"p1";
+  const myTurn = state.battle.currentTurn===myKey;
+  const myTeam = state.teams[myKey];
+  const oppTeam = state.teams[oppKey];
+
+  const attackerChar = pendingAttacker ? charById(pendingAttacker) : null;
+  const chosenAttack = (attackerChar && pendingAttackIdx!=null) ? attackerChar.attacks[pendingAttackIdx] : null;
+  const needsTarget = chosenAttack && !['shield','heal'].includes(chosenAttack.effect && chosenAttack.effect.type);
+  const targetMode = myTurn && chosenAttack && needsTarget;
+
+  app.innerHTML = `
+    <div class="eyebrow">Batalha</div>
+    <h1>Arena</h1>
+    <div class="turn-banner ${myTurn?'':'opp'}">${myTurn ? 'Sua vez de agir' : 'Vez do Jogador '+state.battle.currentTurn.slice(1)}</div>
+
+    <div class="card">
+      <h3>Time inimigo ${targetMode?'— clique em quem vai atacar':''}</h3>
+      <div class="arena-row">
+        ${oppTeam.map(id=>fighterCardHTML(state,id, targetMode)).join("")}
+      </div>
+      <div class="divider"></div>
+      <h3>Seu time ${myTurn && !pendingAttacker ? '— escolha quem age' : ''}</h3>
+      <div class="arena-row">
+        ${myTeam.map(id=>fighterCardHTML(state,id, myTurn && !pendingAttacker, true)).join("")}
+      </div>
+
+      ${myTurn && attackerChar ? `
+      <div class="action-panel">
+        <h3>${attackerChar.name} — escolha o ataque</h3>
+        ${attackerChar.attacks.map((a,i)=>{
+          const cdLeft = state.battle.cooldowns[pendingAttacker][i];
+          const usedOnce = a.onceOnly && state.battle.onceUsed[pendingAttacker][i];
+          const disabled = cdLeft>0 || usedOnce;
+          return `<button class="atk-btn" ${disabled?'disabled':''} onclick="selectAttack(${i})">
+            <div class="an">${a.name} ${a.onceOnly?'<span class="badge once">único</span>':''} ${pendingAttackIdx===i?'✓':''}</div>
+            <div class="ad">${disabled ? (usedOnce?'já usado nessa partida':'em cooldown ('+cdLeft+' turnos)') : (a.category==='melee'?'corpo a corpo':'especial '+(a.dmg?'· '+a.dmg+' dano':'')+(a.effect?' · '+describeEffect(a.effect):''))}</div>
+          </button>`;
+        }).join("")}
+        ${chosenAttack && !needsTarget ? `<button class="btn primary" onclick="executeSelfAction()">Confirmar</button>` : ''}
+        ${state.ultimateChoice[myKey]===pendingAttacker && !state.battle.ultimateUsed[pendingAttacker] ? `
+          <div class="ultimate-box">
+            <strong>${attackerChar.ultimate.name}</strong> — ${attackerChar.ultimate.desc}<br>
+            +${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.dmgBonus} dano
+            <div style="margin-top:8px;"><button class="btn danger" onclick="useUltimate()">Ativar Ultimate (usa o turno)</button></div>
+          </div>` : ''}
+        <button class="btn" onclick="cancelSelection()">Cancelar seleção</button>
+      </div>` : ''}
+
+      ${myTurn && !pendingAttacker ? `<p class="hint" style="margin-top:10px;">Toque em um personagem do seu time pra escolher quem vai agir.</p>`:''}
+    </div>
+
+    <div class="log">
+      ${state.battle.log.slice(0,12).map(l=>`<div>${l}</div>`).join("")}
+    </div>
+  `;
+}
+
+function fighterCardHTML(state, id, clickable, mine){
+  const c = charById(id);
+  const hp = state.battle.hp[id];
+  const alive = hp>0;
+  const maxHp = maxLifeOf(state,id);
+  const pct = Math.max(0,Math.round((hp/maxHp)*100));
+  const shields = state.battle.shields[id];
+  const isSelected = pendingAttacker===id;
+  const isStunned = state.battle.stunned[id];
+  const classes = ["fighter-card"];
+  if(!alive) classes.push("dead");
+  if(isSelected) classes.push("selected");
+  if(clickable && alive) classes.push(mine?"":"targetable");
+  if(isStunned && alive) classes.push("stunned");
+  const clickAttr = (clickable && alive) ? `onclick="${mine?`selectAttacker('${id}')`:`selectTarget('${id}')`}"` : "";
+  return `
+    <div class="${classes.join(' ')}" ${clickAttr}>
+      ${stickFigureSVG(c.type, alive)}
+      <div class="fn">${c.name}</div>
+      <div class="fa">${c.anime}</div>
+      <div class="hpbar"><div class="hpbar-fill" style="width:${alive?pct:0}%;"></div></div>
+      <div class="hp-txt">${alive?hp:0}/${maxHp} HP ${isStunned&&alive?'· atordoado':''}</div>
+      <div class="shield-mini"><span>🛡️F ${shields.phys}</span><span>🛡️M ${shields.mag}</span></div>
+    </div>`;
+}
+
+function stickFigureSVG(type, alive){
+  const color = !alive ? "#4a4d57" : type==="physical" ? "#e0b559" : type==="magic" ? "#a29bea" : "#e0b559";
+  const color2 = !alive ? "#4a4d57" : type==="magic" ? "#7f77dd" : "#c79a3f";
+  return `<svg class="stick" width="40" height="52" viewBox="0 0 40 52">
+    <circle cx="20" cy="10" r="7" fill="${color}"/>
+    <line x1="20" y1="17" x2="20" y2="34" stroke="${color2}" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="21" x2="9" y2="30" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="20" y1="21" x2="31" y2="30" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="20" y1="34" x2="11" y2="48" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="20" y1="34" x2="29" y2="48" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
+    ${!alive?'<line x1="12" y1="4" x2="28" y2="18" stroke="#d1495b" stroke-width="2.5"/><line x1="28" y1="4" x2="12" y2="18" stroke="#d1495b" stroke-width="2.5"/>':''}
+  </svg>`;
+}
+
+function selectAttacker(id){
+  if(LAST_STATE && LAST_STATE.battle.stunned[id]){ alert("Esse personagem está atordoado e não pode agir nesse turno."); return; }
+  pendingAttacker = id; pendingAttackIdx=null;
+  render();
+}
+function selectAttack(i){
+  pendingAttackIdx = i;
+  render();
+}
+function cancelSelection(){
+  pendingAttacker=null; pendingAttackIdx=null;
+  render();
+}
+
+async function executeSelfAction(){
+  const state = await loadRoom(ROOM_CODE);
+  applyAction(state, pendingAttacker, pendingAttackIdx, null);
+  await postAction(state);
+}
+async function selectTarget(targetId){
+  if(!pendingAttacker || pendingAttackIdx==null) return;
+  const state = await loadRoom(ROOM_CODE);
+  applyAction(state, pendingAttacker, pendingAttackIdx, targetId);
+  await postAction(state);
+}
+
+async function postAction(state){
+  pendingAttacker=null; pendingAttackIdx=null;
+  const p1Alive = aliveIds(state,"p1").length>0;
+  const p2Alive = aliveIds(state,"p2").length>0;
+  if(!p1Alive || !p2Alive){
+    state.phase="battleover";
+    state.winner = p1Alive ? "p1" : "p2";
+  }
+  await saveRoom(state);
+  render();
+}
+
+function applyAction(state, attackerId, atkIdx, targetId){
+  const c = charById(attackerId);
+  const atk = c.attacks[atkIdx];
+  const b = state.battle;
+  for(let i=0;i<3;i++){ if(b.cooldowns[attackerId][i]>0) b.cooldowns[attackerId][i]--; }
+  if(b.cooldowns[attackerId][atkIdx]>0 || (atk.onceOnly && b.onceUsed[attackerId][atkIdx])){
+    b.log.unshift(`${c.name} tentou usar ${atk.name}, mas ainda não está pronto.`);
+  } else {
+    if(atk.dmg>0 && targetId){
+      const tgt = charById(targetId);
+      const shieldKey = atk.dmgType==="physical"?"phys":"mag";
+      const shieldVal = b.shields[targetId][shieldKey];
+      const dmg = Math.max(1, (atk.dmg + (b.dmgBonus[attackerId]||0)) - shieldVal);
+      b.hp[targetId] = Math.max(0, b.hp[targetId]-dmg);
+      b.log.unshift(`${c.name} usou ${atk.name} em ${tgt.name}: ${dmg} de dano.`);
+      if(b.hp[targetId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
+    }
+    if(atk.effect){
+      if(atk.effect.type==="shield"){
+        b.shields[attackerId].phys += atk.effect.value;
+        b.shields[attackerId].mag += atk.effect.value;
+        b.log.unshift(`${c.name} reforça a defesa (+${atk.effect.value}).`);
+      } else if(atk.effect.type==="heal"){
+        const cap = maxLifeOf(state, attackerId);
+        b.hp[attackerId] = Math.min(cap, b.hp[attackerId]+atk.effect.value);
+        b.log.unshift(`${c.name} recupera ${atk.effect.value} de vida.`);
+      } else if(atk.effect.type==="debuff" && targetId){
+        const tgt = charById(targetId);
+        const shieldKey = atk.dmgType==="physical"?"phys":"mag";
+        b.shields[targetId][shieldKey] = Math.max(0, b.shields[targetId][shieldKey]-atk.effect.value);
+        b.log.unshift(`${tgt.name} teve o escudo reduzido em ${atk.effect.value}.`);
+      } else if(atk.effect.type==="stun" && targetId){
+        const tgt = charById(targetId);
+        b.stunned[targetId]=true;
+        b.log.unshift(`${tgt.name} ficou atordoado!`);
+      }
+    }
+    if(atk.cooldown>0) b.cooldowns[attackerId][atkIdx]=atk.cooldown;
+    if(atk.onceOnly) b.onceUsed[attackerId][atkIdx]=true;
+  }
+  b.stunned[attackerId]=false;
+  state.battle.currentTurn = teamOf(state,attackerId)==="p1" ? "p2" : "p1";
+}
+
+async function useUltimate(){
+  const state = await loadRoom(ROOM_CODE);
+  const myKey="p"+MY_SLOT;
+  const ultId = state.ultimateChoice[myKey];
+  if(!ultId || state.battle.ultimateUsed[ultId]) return;
+  const c = charById(ultId);
+  const b = state.battle;
+  b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
+  b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
+  b.dmgBonus[ultId] = c.ultimate.dmgBonus;
+  b.ultimateUsed[ultId]=true;
+  b.log.unshift(`${c.name} ativa o Ultimate: ${c.ultimate.name}!`);
+  state.battle.currentTurn = MY_SLOT===1?"p2":"p1";
+  pendingAttacker=null; pendingAttackIdx=null;
+  await postAction(state);
+}
+
+function renderBattleOver(state){
+  const winner = state.winner;
+  app.innerHTML = `
+    <div class="eyebrow">Fim de jogo</div>
+    <h1>Jogador ${winner.slice(1)} venceu a batalha!</h1>
+    <div class="card">
+      <div class="log">${state.battle.log.slice(0,20).map(l=>`<div>${l}</div>`).join("")}</div>
+    </div>
+    <div class="center"><button class="btn primary" onclick="location.reload()">Jogar novamente</button></div>
+  `;
+}
+
+function renderDone(state){
+  app.innerHTML = `
+    <div class="eyebrow">Times prontos</div>
+    <h1>Equipes finais</h1>
+    <div class="players-grid">
+      ${[1,2].map(slot=>{
+        const key="p"+slot;
+        const team = state.teams[key].map(id=>charById(id));
+        const ultId = state.ultimateChoice[key];
+        return `<div class="player-panel">
+          <h3>Jogador ${slot} <span class="money">R$${state.budget[key]} restante</span></h3>
+          ${team.map(c=>`
+            <div class="mini-card" style="margin-top:8px;">
+              <div class="mn">${c.name} ${ultId===c.id?'<span class="badge ult">Ultimate ativo</span>':''}</div>
+              <div class="ma">${c.anime} · Vida ${c.life}</div>
+            </div>`).join("")}
+        </div>`;
+      }).join("")}
+    </div>
+    <p class="hint center">Times completos! Usem essas fichas pra jogar a batalha (turno a turno, respeitando cooldowns, tipos de dano e habilidades de uso único) — igual ao formato que vocês já vinham jogando no chat.</p>
+  `;
+}
+
+render();
+</script>
+</body>
+</html>
