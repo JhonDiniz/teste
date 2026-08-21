@@ -103,10 +103,19 @@
   .badge.hybrid{background:rgba(224,181,89,.12); color:#c9b98a;}
   .badge.ult{background:rgba(209,73,91,.25); color:#ff8a9a; border:1px solid var(--crimson-dim);}
   .badge.once{background:rgba(224,181,89,.12); color:var(--gold); border:1px solid var(--gold-dim);}
-  .badge.rank-S{background:rgba(224,181,89,.28); color:#ffd97a; border:1px solid var(--gold);}
-  .badge.rank-A{background:rgba(209,73,91,.2); color:#ff8a9a; border:1px solid var(--crimson);}
-  .badge.rank-B{background:rgba(79,179,169,.2); color:#7fd8cd; border:1px solid var(--teal);}
-  .badge.rank-C{background:rgba(122,129,148,.2); color:#b7bcc9; border:1px solid var(--weak);}
+
+  /* ---- Raridade (antigo S/A/B/C) ----
+     mitico > lendario > raro > comum. A hierarquia é lida pela cor E pelo brilho:
+     só o topo (mítico) recebe glow, exatamente pra que "mítico" nunca seja
+     confundido com "lendário" numa olhada rápida no celular. */
+  .badge.rank-comum{background:rgba(122,129,148,.18); color:#b7bcc9; border:1px solid #5b6273;}
+  .badge.rank-raro{background:rgba(79,140,224,.18); color:#8fc0ff; border:1px solid #3f6fb0;}
+  .badge.rank-lendario{background:rgba(224,181,89,.2); color:#ffd97a; border:1px solid var(--gold);}
+  .badge.rank-mitico{
+    background:linear-gradient(120deg, rgba(178,92,255,.28), rgba(224,90,160,.28));
+    color:#e9c2ff; border:1px solid #b25cff; box-shadow:0 0 10px rgba(178,92,255,.45);
+  }
+
   .char-hero{
     text-align:center; padding: 22px 0 10px;
   }
@@ -189,14 +198,252 @@
   }
   .turn-banner.opp{background:rgba(209,73,91,.08); border-color:var(--crimson-dim);}
 
-  .duel-arena{display:flex; gap:6px; align-items:stretch; justify-content:center; padding:8px 0;}
-  .duel-bar{display:flex; flex-direction:column; gap:6px; width:50px; flex:0 0 auto;}
-  .duel-bar-label{font-size:8.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-dim); text-align:center; margin-bottom:1px;}
-  .duel-mini{
-    width:50px; background:var(--panel2); border:1.5px solid var(--line); border-radius:8px;
-    padding:3px 2px 4px; text-align:center; position:relative; cursor:default;
+  /* =========================================================================
+     ARENA DE BATALHA — camada visual nova
+     Composição: adversário no alto (visto de frente), jogador embaixo (visto de
+     costas), com bastante ar entre os dois. O HUD de cada lado fica no canto
+     OPOSTO ao seu lutador, pra que nenhuma barra de vida cubra um sprite.
+     ========================================================================= */
+  .battle-stage{
+    position:relative; height:380px; border-radius:14px; overflow:hidden;
+    border:1px solid var(--line);
+    background:
+      radial-gradient(ellipse 420px 150px at 70% 30%, rgba(209,73,91,.12), transparent 70%),
+      radial-gradient(ellipse 420px 150px at 30% 78%, rgba(79,179,169,.12), transparent 70%),
+      linear-gradient(180deg, #171b26 0%, #10131b 55%, #0b0d13 100%);
+    margin-bottom:12px;
   }
-  .duel-mini .stick{width:26px; height:auto; display:block; margin:0 auto;}
+  @media(max-width:600px){ .battle-stage{height:320px;} }
+  /* linha de horizonte discreta: separa "fundo" de "chão" sem desenhar cenário */
+  .stage-horizon{
+    position:absolute; left:0; right:0; top:52%; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(224,181,89,.18), transparent);
+  }
+  .stage-slot{position:absolute; display:flex; flex-direction:column; align-items:center; z-index:2;}
+  .slot-enemy{top:12px; right:7%;}
+  .slot-player{bottom:24px; left:7%;}
+  /* elipse de chão: ancora o sprite no piso em vez de deixá-lo flutuando */
+  .stage-pad{
+    position:absolute; border-radius:50%; z-index:1;
+    background:radial-gradient(ellipse at center, rgba(224,181,89,.16) 0%, rgba(224,181,89,.05) 55%, transparent 72%);
+  }
+  /* As medidas abaixo não são arbitrárias: cada elipse fica centrada exatamente
+     no pé do sprite correspondente (altura do sprite = largura x 44/32). Se a
+     largura de um sprite mudar, o "top"/"bottom" da sua elipse muda junto. */
+  .pad-enemy{width:150px; height:40px; top:130px; right:calc(7% - 15px);}
+  .pad-player{width:190px; height:48px; bottom:0px; left:calc(7% - 16px);}
+  @media(max-width:600px){
+    .slot-enemy{top:12px;}
+    .slot-player{bottom:22px;}
+    .pad-enemy{width:120px; height:32px; top:104px; right:calc(7% - 12px);}
+    .pad-player{width:155px; height:40px; bottom:0px; left:calc(7% - 12px);}
+  }
+
+  .sprite-box{position:relative; display:block;}
+  .sprite-img{
+    display:block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,.55));
+  }
+  /* Arte final tem anti-aliasing e é exibida um pouco MENOR que o original.
+     Nearest-neighbor numa redução joga pixels fora e serrilha tudo — então a
+     arte em bitmap escala suave, e só o gerador procedural fica pixelado. */
+  .sprite-bitmap{ image-rendering: auto; }
+  /* Dimensionado por ALTURA, não por largura: a arte de frente e a de costas
+     têm larguras diferentes, e usar largura faria o lutador mudar de tamanho
+     ao virar de costas. O jogador é maior porque está mais perto da câmera.
+     Os valores garantem que as duas caixas nunca se toquem: 130 + 172 + folga
+     cabem nos 380px do palco. */
+  .sprite-enemy{height:140px; width:auto;}
+  .sprite-player{height:185px; width:auto;}
+  @media(max-width:600px){ .sprite-enemy{height:112px;} .sprite-player{height:150px;} }
+
+  /* --- animações de sprite --- */
+  @keyframes idleBreath{
+    0%,100%{transform:translateY(0) scaleY(1);}
+    50%{transform:translateY(-1.5px) scaleY(1.02);}
+  }
+  .anim-idle{animation: idleBreath 2.6s ease-in-out infinite; transform-origin:50% 100%;}
+  @keyframes enterFromBack{ from{opacity:0; transform:translate(38px,-14px) scale(.7);} to{opacity:1; transform:none;} }
+  @keyframes enterFromFront{ from{opacity:0; transform:translate(-38px,16px) scale(.7);} to{opacity:1; transform:none;} }
+  .anim-enter-enemy{animation: enterFromBack .42s ease-out;}
+  .anim-enter-player{animation: enterFromFront .42s ease-out;}
+  /* o jogador avança PRA CIMA (rumo ao inimigo), o inimigo avança PRA BAIXO */
+  @keyframes lungeUp{
+    0%{transform:none;} 35%{transform:translate(26px,-40px) scale(1.06);}
+    55%{transform:translate(26px,-40px) scale(1.06);} 100%{transform:none;}
+  }
+  @keyframes lungeDown{
+    0%{transform:none;} 35%{transform:translate(-26px,40px) scale(1.06);}
+    55%{transform:translate(-26px,40px) scale(1.06);} 100%{transform:none;}
+  }
+  .anim-attack-player{animation: lungeUp .5s ease-in-out;}
+  .anim-attack-enemy{animation: lungeDown .5s ease-in-out;}
+  @keyframes hitRecoil{
+    0%,100%{transform:translateX(0);}
+    15%{transform:translateX(-6px);} 35%{transform:translateX(5px);}
+    55%{transform:translateX(-4px);} 75%{transform:translateX(3px);}
+  }
+  @keyframes hitFlash{ 0%,100%{filter:none;} 30%{filter:brightness(4) saturate(0);} 60%{filter:none;} }
+  .anim-hit{animation: hitRecoil .42s ease-in-out, hitFlash .42s steps(2,end);}
+  @keyframes koFall{
+    0%{transform:none; opacity:1;}
+    30%{transform:translateY(-4px) rotate(-6deg); opacity:1;}
+    100%{transform:translateY(26px) rotate(-78deg); opacity:0;}
+  }
+  .anim-ko{animation: koFall .75s ease-in forwards; transform-origin:50% 100%;}
+  @media(prefers-reduced-motion: reduce){
+    .anim-idle,.anim-enter-enemy,.anim-enter-player,.anim-attack-player,
+    .anim-attack-enemy,.anim-hit,.anim-ko{animation:none !important;}
+  }
+
+  /* --- aura de transformação (Ultimate) --- */
+  .sprite-aura{
+    position:absolute; inset:-16% -22%; border-radius:50%; z-index:-1; pointer-events:none;
+    background:radial-gradient(ellipse at center, var(--aura) 0%, transparent 68%);
+    opacity:.55; animation: auraPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes auraPulse{ 0%,100%{opacity:.42; transform:scale(1);} 50%{opacity:.7; transform:scale(1.07);} }
+  .aura-spark{
+    position:absolute; width:2px; height:9px; border-radius:2px; background:var(--aura);
+    z-index:3; pointer-events:none; animation: sparkRise 1.1s linear infinite;
+  }
+  @keyframes sparkRise{ 0%{opacity:0; transform:translateY(6px) scaleY(.5);} 35%{opacity:1;} 100%{opacity:0; transform:translateY(-26px) scaleY(1.3);} }
+
+  /* =======================================================================
+     TRANSFORMAÇÃO (Ultimate)
+     Duas fases: carrega ki (tremor + aura azul + motes subindo), depois estoura
+     num clarão e vira a forma transformada. A arte de carga já traz a aura azul
+     pintada, então a aura dourada de CSS fica escondida durante essa fase —
+     senão as duas se sobrepõem e viram uma sopa de cor.
+     ======================================================================= */
+  .stage-charging{ animation: chargeQuake .16s linear infinite; }
+  @keyframes chargeQuake{
+    0%,100%{transform:translate(0,0);} 25%{transform:translate(-1.5px,1px);}
+    50%{transform:translate(1.5px,-1px);} 75%{transform:translate(-1px,-1.5px);}
+  }
+  .charge-glow{
+    position:absolute; inset:0; z-index:1; pointer-events:none;
+    background: radial-gradient(ellipse 55% 50% at var(--gx) var(--gy), rgba(90,190,255,.42), transparent 72%);
+    animation: chargePulse .42s ease-in-out infinite alternate;
+  }
+  @keyframes chargePulse{ from{opacity:.45;} to{opacity:1;} }
+  .ki-mote{
+    position:absolute; width:4px; height:11px; border-radius:2px; pointer-events:none;
+    background:linear-gradient(180deg,#d6f2ff,#3aa6ff); box-shadow:0 0 9px #58c0ff;
+    animation: kiRise 1s ease-in forwards;
+  }
+  @keyframes kiRise{
+    0%{opacity:0; transform:translateY(0) scaleY(.6);}
+    20%{opacity:1;}
+    100%{opacity:0; transform:translateY(-95px) scaleY(1.6);}
+  }
+  .sprite-box.charging .sprite-aura, .sprite-box.charging .aura-spark{ display:none; }
+
+  /* Faixa do título. O deslize é rápido nas pontas e lento no centro — daí a
+     curva (.1,.8,.9,.2), que sobe depressa, chapa no meio e dispara de novo.
+     Deslocamento e opacidade são DUAS animações separadas de propósito: cada
+     uma precisa da sua própria curva de tempo. */
+  .ult-title{
+    position:fixed; left:0; right:0; top:36%; z-index:9999; pointer-events:none;
+    text-align:center; white-space:nowrap; font-style:italic;
+    font-size:clamp(30px, 10vw, 74px); font-weight:900; letter-spacing:3px;
+    color:#fff6c4;
+    text-shadow:0 0 8px #ffd54a, 0 0 26px #ff9d2e, 0 4px 0 #7a4a00, 0 8px 20px rgba(0,0,0,.75);
+    animation: ultSweep 3.4s cubic-bezier(.1,.8,.9,.2) forwards,
+               ultFade  3.4s linear forwards;
+  }
+  @keyframes ultSweep{ from{transform:translateX(-125vw);} to{transform:translateX(125vw);} }
+  @keyframes ultFade{ 0%{opacity:0;} 9%{opacity:1;} 88%{opacity:1;} 100%{opacity:0;} }
+  @media(prefers-reduced-motion: reduce){
+    .stage-charging{animation:none !important;}
+    .ult-title{animation: ultFade 3.4s linear forwards !important; transform:none !important;}
+  }
+
+  /* --- HUD de combate --- */
+  .hud{
+    position:absolute; z-index:4; width:190px; padding:8px 10px 9px; border-radius:10px;
+    background:linear-gradient(180deg, rgba(30,34,46,.94), rgba(18,20,28,.94));
+    border:1px solid var(--line); backdrop-filter:blur(2px);
+  }
+  .hud-enemy{top:14px; left:14px; border-left:3px solid var(--crimson);}
+  .hud-player{bottom:14px; right:14px; border-right:3px solid var(--teal);}
+  @media(max-width:600px){ .hud{width:150px; padding:6px 8px 7px;} .hud-enemy{top:10px; left:10px;} .hud-player{bottom:10px; right:10px;} }
+  .hud-top{display:flex; justify-content:space-between; align-items:baseline; gap:6px;}
+  .hud-name{font-weight:700; font-size:12.5px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .hud-hp-num{font-size:10.5px; color:var(--text-dim); font-variant-numeric:tabular-nums; flex:0 0 auto;}
+  .hud-bar{height:7px; background:#05060a; border-radius:4px; overflow:hidden; margin-top:5px; border:1px solid rgba(0,0,0,.6);}
+  .hud-bar-fill{height:100%; border-radius:3px; transition:width .45s ease;}
+  .hp-high{background:linear-gradient(90deg,#2f8f4a,#5fd07a);}
+  .hp-mid{background:linear-gradient(90deg,#a9822f,#e0b559);}
+  .hp-low{background:linear-gradient(90deg,#7a2b34,#d1495b);}
+  .hud-tags{display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; font-size:9px; color:var(--text-dim);}
+  .hud-tag{padding:1px 5px; border-radius:20px; background:rgba(255,255,255,.06); white-space:nowrap;}
+
+  /* --- efeitos elementais e de impacto --- */
+  .fx-layer{position:absolute; inset:0; pointer-events:none; z-index:5; overflow:hidden;}
+  .fx-anchor{position:absolute; width:0; height:0;}
+  .fx-burst{
+    position:absolute; left:-34px; top:-34px; width:68px; height:68px; border-radius:50%;
+    background:radial-gradient(circle, var(--fx) 0%, transparent 62%);
+    animation: burstPop .55s ease-out forwards; opacity:0;
+  }
+  @keyframes burstPop{ 0%{opacity:0; transform:scale(.3);} 30%{opacity:.85; transform:scale(1);} 100%{opacity:0; transform:scale(1.5);} }
+  .fx-particle{
+    position:absolute; width:4px; height:4px; border-radius:50%; background:var(--fx);
+    animation: particleFly .6s ease-out forwards; box-shadow:0 0 5px var(--fx);
+  }
+  @keyframes particleFly{ 0%{opacity:1; transform:translate(0,0) scale(1);} 100%{opacity:0; transform:translate(var(--px),var(--py)) scale(.2);} }
+  /* gelo e metal viram cacos angulares em vez de bolinhas */
+  .fx-particle.shard{border-radius:0; width:3px; height:8px;}
+  /* elétrico: risco reto em vez de partícula */
+  .fx-bolt{
+    position:absolute; width:2px; height:30px; background:var(--fx); box-shadow:0 0 6px var(--fx);
+    animation: boltFlick .34s steps(3,end) forwards;
+  }
+  @keyframes boltFlick{ 0%{opacity:1;} 100%{opacity:0;} }
+  .fx-slash{
+    position:absolute; left:-26px; top:-3px; width:52px; height:5px; border-radius:4px;
+    background:linear-gradient(90deg, transparent, var(--fx), transparent);
+    animation: slashSweep .35s ease-out forwards;
+  }
+  @keyframes slashSweep{ 0%{opacity:0; transform:scaleX(.2) rotate(-24deg);} 40%{opacity:1;} 100%{opacity:0; transform:scaleX(1.3) rotate(-24deg);} }
+  .fx-dmg{
+    position:absolute; font-weight:800; font-size:19px; color:#fff; z-index:6;
+    text-shadow:0 2px 0 #6b1420, 0 0 10px rgba(0,0,0,.8); pointer-events:none;
+    animation: dmgFloat .95s ease-out forwards;
+  }
+  .fx-dmg.heal{color:#8fe0a0; text-shadow:0 2px 0 #14401f;}
+  @keyframes dmgFloat{ 0%{opacity:0; transform:translate(-50%,4px) scale(.6);} 20%{opacity:1; transform:translate(-50%,-8px) scale(1.15);} 100%{opacity:0; transform:translate(-50%,-38px) scale(1);} }
+  /* meteoro: clarão de tela inteira + tremor da arena */
+  .stage-flash{position:absolute; inset:0; background:var(--fx); opacity:0; z-index:7; pointer-events:none; animation: stageFlash .7s ease-out forwards;}
+  @keyframes stageFlash{ 0%{opacity:0;} 18%{opacity:.72;} 100%{opacity:0;} }
+  @keyframes stageQuake{
+    0%,100%{transform:translate(0,0);}
+    10%{transform:translate(-5px,3px);} 25%{transform:translate(5px,-3px);}
+    40%{transform:translate(-4px,-2px);} 55%{transform:translate(4px,3px);}
+    70%{transform:translate(-3px,1px);} 85%{transform:translate(3px,-1px);}
+  }
+  .stage-quake{animation: stageQuake .6s ease-in-out;}
+  .meteor-streak{
+    position:absolute; top:-40px; width:5px; height:56px; border-radius:4px;
+    background:linear-gradient(180deg, transparent, var(--fx));
+    box-shadow:0 0 14px var(--fx); animation: meteorDrop .55s ease-in forwards;
+  }
+  @keyframes meteorDrop{ 0%{opacity:0; transform:translateY(0) rotate(14deg);} 20%{opacity:1;} 100%{opacity:0; transform:translateY(340px) rotate(14deg);} }
+
+  /* --- barra de reservas --- */
+  .bench{display:flex; gap:8px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;}
+  .bench-side{flex:1; min-width:150px;}
+  .bench-label{font-size:9.5px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:5px;}
+  .bench-row{display:flex; gap:6px;}
+  .duel-mini{
+    flex:1; min-width:0; background:var(--panel2); border:1.5px solid var(--line); border-radius:8px;
+    padding:4px 2px 5px; text-align:center; position:relative; cursor:default;
+  }
+  .duel-mini .stick, .duel-mini .sprite-img{width:24px; height:auto; display:block; margin:0 auto;}
   .duel-mini.dead{opacity:.3;}
   .duel-mini.active{border-color:var(--gold); box-shadow:0 0 0 2px var(--gold);}
   .duel-mini.switchable{cursor:pointer;}
@@ -204,60 +451,7 @@
   .duel-mini.switchable:hover{box-shadow:0 0 0 2px var(--teal);}
   .duel-mini-hp{height:4px; background:#000; border-radius:3px; overflow:hidden; margin-top:3px;}
   .duel-mini-hp-fill{height:100%; background:linear-gradient(90deg,#7a2b34,var(--crimson));}
-  .duel-center{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; max-width:240px; margin:0 auto;}
-  .duel-active{
-    width:100%; background:linear-gradient(180deg,var(--panel2),var(--panel));
-    border:1.5px solid var(--line); border-radius:12px; padding:10px 8px; text-align:center; position:relative;
-  }
-  .duel-active .stick{width:56px; height:auto; margin:0 auto;}
-  .duel-active.mine{border-color:var(--teal); box-shadow:0 0 0 1px var(--teal) inset;}
-  .duel-active.theirs{border-color:var(--crimson-dim); box-shadow:0 0 0 1px var(--crimson-dim) inset;}
-  .duel-active.ko{opacity:.35;}
-  .duel-active-name{font-weight:700; font-size:13px; margin-top:2px;}
-  .vs-label{font-weight:800; color:var(--gold); font-size:12px; letter-spacing:1.5px;}
-  .arena-row{display:flex; gap:10px; overflow-x:auto; padding:16px 2px 14px; justify-content:center; flex-wrap:wrap; position:relative;}
-  .fighter-card{
-    flex:0 0 auto; width:96px; background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1.5px solid var(--line);
-    border-radius:12px; padding:8px 6px; text-align:center; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s;
-    position:relative;
-  }
-  .fighter-card:hover{border-color:var(--gold-dim); transform:translateY(-2px);}
-  .fighter-card.active-turn{border-color:var(--gold); box-shadow:0 0 0 2px var(--gold), 0 6px 18px rgba(224,181,89,.25); transform:scale(1.06);}
-  .active-tag{
-    position:absolute; top:-11px; left:50%; transform:translateX(-50%);
-    background:var(--gold); color:#1a1509; font-size:8.5px; font-weight:800; text-transform:uppercase;
-    letter-spacing:.4px; padding:2px 7px; border-radius:20px; white-space:nowrap;
-  }
-  @keyframes impactFall{
-    0%{transform:translate(-50%,-38px) scale(.3) rotate(-25deg); opacity:0;}
-    45%{transform:translate(-50%,2px) scale(1.35) rotate(10deg); opacity:1;}
-    70%{transform:translate(-50%,-3px) scale(1.05) rotate(-5deg); opacity:1;}
-    100%{transform:translate(-50%,0) scale(.9) rotate(0deg); opacity:0;}
-  }
-  @keyframes shakeHit{
-    0%,100%{transform:translateX(0);}
-    20%{transform:translateX(-4px);}
-    40%{transform:translateX(4px);}
-    60%{transform:translateX(-3px);}
-    80%{transform:translateX(3px);}
-  }
-  .impact-fx{
-    position:absolute; top:14px; left:50%; font-size:26px; line-height:1;
-    pointer-events:none; z-index:6; filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));
-    animation:impactFall .65s ease-out forwards;
-  }
-  .impact-fx.big{font-size:38px; animation-duration:.85s;}
-  .fighter-card.hit-shake{animation:shakeHit .4s ease-in-out;}
-  .fighter-card.targetable{border-color:var(--crimson); box-shadow:0 0 0 2px var(--crimson-dim);}
-  .fighter-card.targetable:hover{box-shadow:0 0 0 2px var(--crimson), 0 6px 18px rgba(209,73,91,.3);}
-  .fighter-card.dead{opacity:.3; cursor:not-allowed;}
-  .fighter-card.stunned{border-color:#a29bea;}
-  .fighter-card .fn{font-size:10.5px; font-weight:700; margin-top:4px; line-height:1.2; height:24px; overflow:hidden;}
-  .fighter-card .fa{font-size:8.5px; color:var(--text-dim); margin-bottom:4px;}
-  .hpbar{height:6px; background:#000; border-radius:4px; overflow:hidden; margin-top:6px;}
-  .hpbar-fill{height:100%; background:linear-gradient(90deg,#7a2b34,var(--crimson));}
-  .hp-txt{font-size:9px; color:var(--text-dim); margin-top:3px;}
-  .shield-mini{display:flex; justify-content:center; gap:6px; font-size:8.5px; color:var(--text-dim); margin-top:2px;}
+
   .action-panel{margin-top:14px;}
   .atk-btn{
     display:block; width:100%; text-align:left; background:var(--panel2); border:1px solid var(--line);
@@ -279,6 +473,7 @@
     width:26px; height:26px; flex:0 0 auto; border-radius:50%; background:var(--gold); color:#1a1509;
     font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center;
   }
+  .order-item .sprite-img{width:28px;}
   .order-info{flex:1; min-width:0;}
   .order-name{font-weight:700; font-size:13.5px;}
   .order-sub{font-size:11px; color:var(--text-dim); margin-top:2px;}
@@ -291,9 +486,26 @@
     border:1px solid var(--line); border-radius:10px; padding:8px 10px; cursor:pointer; transition:border-color .15s;
   }
   .index-row:hover{border-color:var(--gold-dim);}
+  .index-row .sprite-img{width:30px;}
   .index-info{flex:1; min-width:0;}
   .index-name{font-weight:700; font-size:13.5px;}
   .index-sub{font-size:11px; color:var(--text-dim); margin-top:2px;}
+  .badge.spr{background:rgba(178,92,255,.16); color:#d9b3ff; border:1px solid #7d3fc0;}
+
+  /* --- visor frente/costas do índice --- */
+  .sprite-viewer{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    background:radial-gradient(ellipse 220px 90px at 50% 82%, rgba(224,181,89,.13), transparent 70%),
+               linear-gradient(180deg,#171b26,#101319);
+    border:1px solid var(--line); border-radius:12px; padding:18px 12px 14px; margin-top:12px;
+  }
+  .sprite-viewer .sprite-img{width:150px;}
+  .view-toggle{display:inline-flex; background:var(--panel2); border:1px solid var(--line); border-radius:22px; padding:3px; gap:3px;}
+  .view-toggle button{
+    background:none; border:none; color:var(--text-dim); font-weight:700; font-size:11.5px;
+    text-transform:uppercase; letter-spacing:1px; padding:6px 16px; border-radius:20px; cursor:pointer;
+  }
+  .view-toggle button.active{background:var(--gold); color:#1a1509;}
 
   .badge.element-Fogo{background:rgba(224,90,45,.18); color:#ff9d6b;}
   .badge.element-Gelo{background:rgba(111,179,217,.18); color:#a6d9f2;}
@@ -367,15 +579,6 @@ const RAW = {
 "JoJo's Bizarre Adventure":[["Koichi Hirose","weak","hybrid"],["Josuke Higashikata","medium","hybrid"],["Giorno Giovanna","strong","magic","ult"],["Dio Brando","strong","hybrid","ult"],["Jotaro Kujo","strong","hybrid","ult"]]
 };
 
-// CHAR_KIT: hand-authored per-character stats + attacks, same order as APPEARANCE/RAW.
-// Each entry: {life, physShield, magShield, attacks:[melee, spec1, spec2]}
-// Power scaling both within each anime AND across anime verses (Dragon Ball >> most,
-// Saitama/Solo Leveling/Frieren/JJK top-tier near the top but not absurd, grounded
-// non-combat series like Death Note/Kaguya-sama/Horimiya/Your Name/Haikyuu/Blue Lock
-// sit much lower). Shields kept low and asymmetric (physical vs magic) per character.
-// Effects (shield/heal/debuff/stun) are assigned only where they fit the character —
-// most specials are plain damage with no effect.
-
 function E(type,value){ return value!==undefined ? {type,value} : {type}; }
 function A(name,dmgType,dmg,cooldown,effect,onceOnly){
   return {name, dmgType, category: cooldown===0?"melee":"special", dmg, cooldown, effect: effect||null, onceOnly: !!onceOnly};
@@ -383,987 +586,906 @@ function A(name,dmgType,dmg,cooldown,effect,onceOnly){
 
 const CHAR_KIT = [
 
-// ===== NARUTO (tier ~6) =====
+// ===== NARUTO =====
 {life:40,physShield:11,magShield:4,attacks:[
   A("Soco Direto","physical",8,0),
   A("Rasengan Incompleto","physical",19,3,null),
-  A("Sexy Jutsu: Distração","physical",0,3,E("debuff",6))]}, // Konohamaru
+  A("Sexy Jutsu: Distração","physical",0,3,E("debuff",6))]},
 {life:41,physShield:10,magShield:4,attacks:[
   A("Corte com Kunai","physical",8,0),
   A("Chuva de Armas Ninja","physical",20,2,null),
-  A("Rolo Celestial","physical",18,3,E("debuff",7))]}, // Tenten
+  A("Rolo Celestial","physical",18,3,E("debuff",7))]},
 {life:50,physShield:11,magShield:13,attacks:[
   A("Golpe Corpo a Corpo","physical",9,0),
   A("Kagemane no Jutsu","magic",0,3,E("stun")),
-  A("Estrangulamento das Sombras","magic",23,3,null)]}, // Shikamaru
+  A("Estrangulamento das Sombras","magic",23,3,null)]},
 {life:76,physShield:19,magShield:5,attacks:[
   A("Soco da Juventude","physical",14,0),
   A("Konoha Reppuu","physical",32,3,null),
-  A("Chute Dinâmico de Entrada","physical",24,2,E("stun"))]}, // Might Guy [ULT]
+  A("Chute Dinâmico de Entrada","physical",24,2,E("stun"))]},
 {life:68,physShield:16,magShield:22,attacks:[
   A("Golpe com Kunai","physical",12,0),
   A("Tsukuyomi","magic",0,4,E("stun")),
-  A("Amaterasu","magic",34,3,null)]}, // Itachi [ULT]
+  A("Amaterasu","magic",34,3,null)]},
 
-// ===== DRAGON BALL (tier ~10, top of the scale) =====
+// ===== DRAGON BALL =====
 {life:52,physShield:12,magShield:5,attacks:[
   A("Soco Terrestre","physical",10,0),
   A("Kamehameha Fraco","physical",24,3,null),
-  A("Lobo Espiritual","physical",20,3,E("debuff",8))]}, // Yamcha
+  A("Lobo Espiritual","physical",20,3,E("debuff",8))]},
 {life:64,physShield:15,magShield:8,attacks:[
   A("Golpe de Quatro Braços","physical",12,0),
   A("Kikoho","physical",30,3,null),
-  A("Taiyoken","physical",0,3,E("stun"))]}, // Tenshinhan
+  A("Taiyoken","physical",0,3,E("stun"))]},
 {life:66,physShield:17,magShield:6,attacks:[
   A("Chute Perfeito","physical",13,0),
   A("Rajada de Energia","physical",29,2,null),
-  A("Absorção de Energia","physical",22,3,E("heal",16))]}, // Android 18
+  A("Absorção de Energia","physical",22,3,E("heal",16))]},
 {life:92,physShield:24,magShield:10,attacks:[
   A("Soco Saiyajin","physical",16,0),
   A("Big Bang Attack","physical",42,3,null),
-  A("Galick Gun","physical",34,3,E("debuff",12))]}, // Vegeta [ULT]
+  A("Galick Gun","physical",34,3,E("debuff",12))]},
 {life:96,physShield:22,magShield:12,attacks:[
   A("Soco Saiyajin","physical",16,0),
   A("Kamehameha","physical",44,3,null),
-  A("Kaio-ken x3: Investida","physical",32,2,null)]}, // Goku [ULT]
+  A("Kaio-ken x3: Investida","physical",32,2,null)]},
 
-// ===== ONE PIECE (tier ~7-8) =====
+// ===== ONE PIECE =====
 {life:44,physShield:10,magShield:4,attacks:[
   A("Soco Fraco","physical",8,0),
   A("Investida com Bastão","physical",19,2,null),
-  A("Grito de Socorro","physical",0,3,E("shield",9))]}, // Coby
+  A("Grito de Socorro","physical",0,3,E("shield",9))]},
 {life:58,physShield:11,magShield:16,attacks:[
   A("Chute Simples","physical",9,0),
   A("Cien Fleur: Wrist","magic",26,3,E("debuff",9)),
-  A("Gigantesco Braço Fantasma","magic",22,3,E("stun"))]}, // Nico Robin
+  A("Gigantesco Braço Fantasma","magic",22,3,E("stun"))]},
 {life:63,physShield:14,magShield:6,attacks:[
   A("Chute Giratório","physical",13,0),
   A("Diable Jambe: Flambage Shot","physical",29,3,null),
-  A("Collier Strike","physical",21,2,E("stun"))]}, // Sanji
+  A("Collier Strike","physical",21,2,E("stun"))]},
 {life:80,physShield:20,magShield:6,attacks:[
   A("Corte de Katana","physical",15,0),
   A("Onigiri","physical",34,2,null),
-  A("Ashura: Ichibugin","physical",30,3,E("debuff",12))]}, // Zoro (Wano)
+  A("Ashura: Ichibugin","physical",30,3,E("debuff",12))]},
 {life:88,physShield:19,magShield:9,attacks:[
   A("Soco de Borracha","physical",15,0),
   A("Gomu Gomu no King Kong Gun","physical",38,3,null),
-  A("Gear 4: Boundman","physical",0,4,E("shield",18))]}, // Luffy [ULT]
+  A("Gear 4: Boundman","physical",0,4,E("shield",18))]},
 
-// ===== ATTACK ON TITAN (tier ~6) =====
+// ===== ATTACK ON TITAN =====
 {life:46,physShield:12,magShield:3,attacks:[
   A("Golpe com Lâmina","physical",9,0),
   A("Manobra 3D: Rajada","physical",21,2,null),
-  A("Grito de Alerta","physical",0,3,E("shield",8))]}, // Sasha
+  A("Grito de Alerta","physical",0,3,E("shield",8))]},
 {life:50,physShield:13,magShield:3,attacks:[
   A("Golpe com Lâmina","physical",10,0),
   A("Manobra 3D: Investida","physical",22,2,null),
-  A("Corte Duplo","physical",18,2,E("debuff",7))]}, // Jean
+  A("Corte Duplo","physical",18,2,E("debuff",7))]},
 {life:47,physShield:11,magShield:8,attacks:[
   A("Golpe com Lâmina","physical",9,0),
   A("Titã Colossal: Explosão de Vapor","magic",28,4,E("stun")),
-  A("Plano Tático","magic",0,3,E("debuff",10))]}, // Armin (hybrid)
+  A("Plano Tático","magic",0,3,E("debuff",10))]},
 {life:70,physShield:17,magShield:5,attacks:[
   A("Golpe com Lâmina","physical",12,0),
   A("Titã Blindado: Investida","physical",36,3,null),
-  A("Postura Blindada","physical",0,3,E("shield",16))]}, // Reiner
+  A("Postura Blindada","physical",0,3,E("shield",16))]},
 {life:74,physShield:16,magShield:11,attacks:[
   A("Golpe com Lâmina","physical",13,0),
   A("Titã de Ataque: Fúria","magic",37,3,null),
-  A("Grito de Coordenação","magic",0,4,E("stun"))]}, // Eren [ULT]
+  A("Grito de Coordenação","magic",0,4,E("stun"))]},
 
-// ===== ONE PUNCH MAN (tier ~9, Saitama capped high but not absurd) =====
+// ===== ONE PUNCH MAN =====
 {life:48,physShield:13,magShield:4,attacks:[
   A("Soco de Ferro","physical",9,0),
   A("Investida de Bicicleta","physical",18,2,null),
-  A("Grito Motivacional","physical",0,3,E("shield",9))]}, // Mumen Rider
+  A("Grito Motivacional","physical",0,3,E("shield",9))]},
 {life:65,physShield:8,magShield:20,attacks:[
   A("Empurrão Psíquico","magic",13,0),
   A("Telecinese: Esmagar","magic",30,3,null),
-  A("Barreira Psíquica","magic",0,3,E("shield",17))]}, // Tornado
+  A("Barreira Psíquica","magic",0,3,E("shield",17))]},
 {life:50,physShield:12,magShield:5,attacks:[
   A("Soco de Pânico","physical",10,0),
   A("Fama Emprestada: Blefe","physical",0,3,E("debuff",9)),
-  A("Recuo Estratégico","physical",17,2,null)]}, // King
+  A("Recuo Estratégico","physical",17,2,null)]},
 {life:78,physShield:18,magShield:10,attacks:[
   A("Soco Cyborg","physical",14,0),
   A("Incineração Total","physical",33,3,null),
-  A("Autorreparo","physical",0,4,E("heal",22))]}, // Genos
+  A("Autorreparo","physical",0,4,E("heal",22))]},
 {life:82,physShield:17,magShield:7,attacks:[
   A("Soco Selvagem","physical",15,0),
   A("Investida de Caçador de Monstros","physical",35,3,null),
-  A("Fúria Crescente","physical",26,2,E("debuff",11))]}, // Garou
+  A("Fúria Crescente","physical",26,2,E("debuff",11))]},
 
-// ===== SOLO LEVELING (tier ~8) =====
+// ===== SOLO LEVELING =====
 {life:52,physShield:14,magShield:5,attacks:[
   A("Soco de Investigador","physical",10,0),
   A("Tiro Certeiro","physical",22,2,null),
-  A("Análise de Fraquezas","physical",0,3,E("debuff",9))]}, // Woo Jinchul
+  A("Análise de Fraquezas","physical",0,3,E("debuff",9))]},
 {life:64,physShield:16,magShield:8,attacks:[
   A("Corte de Espada","physical",13,0),
   A("Dança da Espada Dourada","physical",30,3,null),
-  A("Postura Defensiva de Elite","physical",0,3,E("shield",15))]}, // Cha Hae-in
+  A("Postura Defensiva de Elite","physical",0,3,E("shield",15))]},
 {life:60,physShield:15,magShield:9,attacks:[
   A("Golpe de Bastão","physical",11,0),
   A("Ordem de Comando","physical",0,3,E("shield",14)),
-  A("Ataque Coordenado","physical",25,3,null)]}, // Go Gunhee
+  A("Ataque Coordenado","physical",25,3,null)]},
 {life:76,physShield:20,magShield:6,attacks:[
   A("Soco Nacional","physical",15,0),
   A("Investida do Guardião Nacional","physical",36,3,null),
-  A("Postura Inabalável","physical",0,3,E("shield",18))]}, // Thomas Andre
+  A("Postura Inabalável","physical",0,3,E("shield",18))]},
 {life:98,physShield:12,magShield:24,attacks:[
   A("Adaga das Sombras","physical",14,0),
   A("Exército das Sombras","magic",36,3,E("debuff",12)),
-  A("Monarca das Sombras: Domínio","magic",0,4,E("heal",20))]}, // Sung Jinwoo [ULT]
+  A("Monarca das Sombras: Domínio","magic",0,4,E("heal",20))]},
 
-// ===== HUNTER X HUNTER (tier ~7) =====
+// ===== HUNTER X HUNTER =====
 {life:44,physShield:11,magShield:5,attacks:[
   A("Soco Básico","physical",8,0),
   A("Ataque Desesperado","physical",18,2,null),
-  A("Blefe de Advogado","physical",0,3,E("debuff",6))]}, // Leorio
+  A("Blefe de Advogado","physical",0,3,E("debuff",6))]},
 {life:62,physShield:11,magShield:16,attacks:[
   A("Golpe Rápido","physical",11,0),
   A("Godspeed","magic",29,2,null),
-  A("Vento Divino: Rajada Contínua","magic",25,3,E("stun"))]}, // Killua
+  A("Vento Divino: Rajada Contínua","magic",25,3,E("stun"))]},
 {life:70,physShield:17,magShield:10,attacks:[
   A("Soco de Treinadora","physical",13,0),
   A("Explosão de Aura","physical",31,3,null),
-  A("Reforço de Aura","physical",0,3,E("shield",16))]}, // Biscuit
+  A("Reforço de Aura","physical",0,3,E("shield",16))]},
 {life:72,physShield:13,magShield:19,attacks:[
   A("Golpe com Livro","physical",12,0),
   A("Skill Hunter: Roubo de Habilidade","magic",0,3,E("debuff",14)),
-  A("Judgment Chain","magic",33,4,E("stun"))]}, // Chrollo
+  A("Judgment Chain","magic",33,4,E("stun"))]},
 {life:99,physShield:18,magShield:16,attacks:[
   A("Golpe de Rei","physical",17,0),
   A("Punição Nova","magic",40,3,null),
-  A("Regeneração de Formiga","magic",0,4,E("heal",24))]}, // Meruem [ULT]
+  A("Regeneração de Formiga","magic",0,4,E("heal",24))]},
 
-// ===== BLUE LOCK (tier ~2, pure athletes, no powers) =====
+// ===== BLUE LOCK =====
 {life:32,physShield:7,magShield:2,attacks:[
   A("Chute de Bola","physical",7,0),
   A("Finalização Precisa","physical",14,2,null),
-  A("Grito de Torcida","physical",0,3,E("shield",5))]}, // Aoshi
+  A("Grito de Torcida","physical",0,3,E("shield",5))]},
 {life:34,physShield:8,magShield:2,attacks:[
   A("Cabeceio","physical",7,0),
   A("Chute de Potência","physical",15,2,null),
-  A("Marcação Firme","physical",0,3,E("debuff",5))]}, // Rensuke
+  A("Marcação Firme","physical",0,3,E("debuff",5))]},
 {life:33,physShield:6,magShield:3,attacks:[
   A("Drible Ginga","physical",7,0),
   A("Finalização Imprevisível","physical",16,2,E("stun")),
-  A("Improviso Caótico","physical",13,2,null)]}, // Bachira
+  A("Improviso Caótico","physical",13,2,null)]},
 {life:35,physShield:8,magShield:2,attacks:[
   A("Passe Longo","physical",7,0),
   A("Chute de Canhão","physical",16,2,null),
-  A("Provocação","physical",0,3,E("debuff",6))]}, // Shoei Baro
+  A("Provocação","physical",0,3,E("debuff",6))]},
 {life:38,physShield:8,magShield:3,attacks:[
   A("Toque Elegante","physical",8,0),
   A("Finalização Egoísta","physical",17,2,null),
-  A("Visão de Jogo","physical",0,3,E("debuff",7))]}, // Nagi
+  A("Visão de Jogo","physical",0,3,E("debuff",7))]},
 
-// ===== DEATH NOTE (tier ~1, zero physical combat power) =====
+// ===== DEATH NOTE =====
 {life:30,physShield:6,magShield:2,attacks:[
   A("Golpe de Investigador","physical",6,0),
   A("Tiro de Serviço","physical",13,2,null),
-  A("Ordem Policial","physical",0,3,E("shield",6))]}, // Soichiro
+  A("Ordem Policial","physical",0,3,E("shield",6))]},
 {life:29,physShield:4,magShield:6,attacks:[
   A("Tapa","physical",5,0),
   A("Olhos de Shinigami","magic",0,3,E("debuff",10),true),
-  A("Manipulação Emocional","magic",16,3,null)]}, // Misa
+  A("Manipulação Emocional","magic",16,3,null)]},
 {life:31,physShield:5,magShield:7,attacks:[
   A("Empurrão","physical",5,0),
   A("Dedução: Provas Ocultas","magic",0,3,E("debuff",11),true),
-  A("Jogo de Robôs","magic",15,2,null)]}, // Near
+  A("Jogo de Robôs","magic",15,2,null)]},
 {life:33,physShield:5,magShield:8,attacks:[
   A("Chute Desajeitado","physical",6,0),
   A("Dedução Absoluta","magic",0,4,E("debuff",14),true),
-  A("Armadilha Investigativa","magic",18,2,null)]}, // L
+  A("Armadilha Investigativa","magic",18,2,null)]},
 {life:32,physShield:5,magShield:9,attacks:[
   A("Empurrão Frio","physical",5,0),
   A("Death Note: Escreve o Nome","magic",26,5,E("stun"),true),
-  A("Manipulação Fria","magic",17,3,null)]}, // Light
+  A("Manipulação Fria","magic",17,3,null)]},
 
-// ===== FRIEREN (tier ~8) =====
+// ===== FRIEREN =====
 {life:44,physShield:11,magShield:8,attacks:[
   A("Golpe com Cajado","physical",9,0),
   A("Feitiço de Cura Menor","magic",0,3,E("heal",14)),
-  A("Feitiço Ofensivo Básico","magic",19,2,null)]}, // Sein
+  A("Feitiço Ofensivo Básico","magic",19,2,null)]},
 {life:60,physShield:8,magShield:20,attacks:[
   A("Golpe com Cajado","physical",10,0),
   A("Magia Amaldiçoada","magic",30,3,null),
-  A("Manipulação Sombria","magic",0,3,E("debuff",12))]}, // Übel
+  A("Manipulação Sombria","magic",0,3,E("debuff",12))]},
 {life:64,physShield:17,magShield:9,attacks:[
   A("Golpe de Machado","physical",13,0),
   A("Investida Guerreira","physical",29,2,null),
-  A("Postura de Guerreiro","physical",0,3,E("shield",15))]}, // Stark
+  A("Postura de Guerreiro","physical",0,3,E("shield",15))]},
 {life:70,physShield:8,magShield:24,attacks:[
   A("Golpe com Cajado","physical",10,0),
   A("Zoltraak Aprimorado","magic",32,2,null),
-  A("Barreira Mágica","magic",0,3,E("shield",18))]}, // Fern
+  A("Barreira Mágica","magic",0,3,E("shield",18))]},
 {life:80,physShield:6,magShield:29,attacks:[
   A("Golpe com Cajado","physical",9,0),
   A("Zoltraak","magic",34,2,null),
-  A("Barreira Élfica Milenar","magic",0,4,E("shield",22))]}, // Frieren [ULT]
+  A("Barreira Élfica Milenar","magic",0,4,E("shield",22))]},
 
-// ===== AKAME GA KILL (tier ~5) =====
+// ===== AKAME GA KILL =====
 {life:60,physShield:16,magShield:6,attacks:[
   A("Soco de Lança","physical",12,0),
   A("Incursio: Investida","physical",28,3,null),
-  A("Postura de Armadura","physical",0,3,E("shield",15))]}, // Bulat
+  A("Postura de Armadura","physical",0,3,E("shield",15))]},
 {life:56,physShield:14,magShield:5,attacks:[
   A("Garras Felinas","physical",12,0),
   A("Lionelle: Fúria","physical",27,3,null),
-  A("Regeneração de Fera","physical",0,4,E("heal",17))]}, // Leone
+  A("Regeneração de Fera","physical",0,4,E("heal",17))]},
 {life:42,physShield:9,magShield:5,attacks:[
   A("Golpe com Fio","physical",8,0),
   A("Cross Tail: Emaranhar","physical",18,3,E("stun")),
-  A("Armadilha de Fios","physical",15,2,E("debuff",7))]}, // Lubbock
+  A("Armadilha de Fios","physical",15,2,E("debuff",7))]},
 {life:78,physShield:14,magShield:20,attacks:[
   A("Golpe com Espada de Gelo","physical",14,0),
   A("Mahapadma: Congelamento Absoluto","magic",0,4,E("stun")),
-  A("Lança de Gelo","magic",34,3,null)]}, // Esdeath
+  A("Lança de Gelo","magic",34,3,null)]},
 {life:66,physShield:15,magShield:7,attacks:[
   A("Corte de Espada","physical",13,0),
   A("Murasame: Veneno Mortal","physical",25,3,E("debuff",13)),
-  A("Um Corte Só","physical",31,3,null)]}, // Akame
+  A("Um Corte Só","physical",31,3,null)]},
 
-// ===== BLACK CLOVER (tier ~7) =====
+// ===== BLACK CLOVER =====
 {life:52,physShield:9,magShield:15,attacks:[
   A("Golpe Elétrico","physical",10,0),
   A("Magia de Raio: Pantera","magic",26,3,null),
-  A("Reflexo Elétrico","magic",0,3,E("shield",13))]}, // Luck
+  A("Reflexo Elétrico","magic",0,3,E("shield",13))]},
 {life:50,physShield:9,magShield:14,attacks:[
   A("Golpe de Machado","physical",10,0),
   A("Magia do Fogo: Explosão","magic",25,3,null),
-  A("Sopro de Fumaça","magic",0,3,E("debuff",9))]}, // Magna
+  A("Sopro de Fumaça","magic",0,3,E("debuff",9))]},
 {life:66,physShield:10,magShield:20,attacks:[
   A("Golpe com Adaga","physical",12,0),
   A("Magia de Vento: Rajada Cortante","magic",30,3,null),
-  A("Armadura de Vento","magic",0,3,E("shield",17))]}, // Noelle
+  A("Armadura de Vento","magic",0,3,E("shield",17))]},
 {life:74,physShield:10,magShield:22,attacks:[
   A("Golpe com Espada de Luz","physical",13,0),
   A("Magia de Luz: Zephyros","magic",34,3,null),
-  A("Contra-Ataque com Vento","magic",0,3,E("stun"))]}, // Yuno
+  A("Contra-Ataque com Vento","magic",0,3,E("stun"))]},
 {life:80,physShield:12,magShield:19,attacks:[
   A("Corte de Espadão","physical",14,0),
   A("Corte Negro Dimensional","magic",32,3,null),
-  A("Manto das Trevas","magic",0,4,E("shield",16))]}, // Asta [ULT]
+  A("Manto das Trevas","magic",0,4,E("shield",16))]},
 
-// ===== BOKU NO HERO ACADEMIA (tier ~6) =====
+// ===== BOKU NO HERO ACADEMIA =====
 {life:46,physShield:9,magShield:14,attacks:[
   A("Choque de Curto Alcance","physical",9,0),
   A("Descarga Indiscriminada","magic",0,3,E("stun")),
-  A("Choque Direcionado","magic",22,3,null)]}, // Denki
+  A("Choque Direcionado","magic",22,3,null)]},
 {life:54,physShield:14,magShield:6,attacks:[
   A("Soco Leve","physical",11,0),
   A("Zero Gravity: Arremesso","physical",0,3,E("debuff",10)),
-  A("Investida Flutuante","physical",23,2,null)]}, // Ochaco
+  A("Investida Flutuante","physical",23,2,null)]},
 {life:66,physShield:11,magShield:20,attacks:[
   A("Chute de Gelo","physical",11,0),
   A("Meio-Frio Meio-Quente","magic",29,3,E("stun")),
-  A("Muralha de Gelo","magic",0,2,E("shield",18))]}, // Todoroki
+  A("Muralha de Gelo","magic",0,2,E("shield",18))]},
 {life:70,physShield:10,magShield:22,attacks:[
   A("Soco Explosivo Leve","physical",13,0),
   A("Stun Grenade","magic",0,3,E("stun")),
-  A("AP Shot: Howitzer Impact","magic",36,3,null)]}, // Bakugo [ULT]
+  A("AP Shot: Howitzer Impact","magic",36,3,null)]},
 {life:88,physShield:22,magShield:6,attacks:[
   A("Soco Direto","physical",16,0),
   A("Detroit Smash","physical",42,3,null),
-  A("United States of Smash","physical",30,2,null)]}, // All Might [ULT]
+  A("United States of Smash","physical",30,2,null)]},
 
-// ===== BLEACH (tier ~7) =====
+// ===== BLEACH =====
 {life:38,physShield:9,magShield:3,attacks:[
   A("Soco de Aluno","physical",8,0),
   A("Chute Nervoso","physical",16,2,null),
-  A("Fanfarronice","physical",0,3,E("debuff",6))]}, // Keigo
+  A("Fanfarronice","physical",0,3,E("debuff",6))]},
 {life:64,physShield:14,magShield:12,attacks:[
   A("Corte de Zanpakuto","physical",12,0),
   A("Hihio Zabimaru","magic",28,3,null),
-  A("Baboon Bone Trident","magic",0,3,E("shield",13))]}, // Renji
+  A("Baboon Bone Trident","magic",0,3,E("shield",13))]},
 {life:52,physShield:9,magShield:17,attacks:[
   A("Corte de Zanpakuto","physical",10,0),
   A("Some no Mai: Tsukishiro","magic",25,3,E("stun")),
-  A("Kido de Contenção","magic",0,3,E("debuff",11))]}, // Rukia
+  A("Kido de Contenção","magic",0,3,E("debuff",11))]},
 {life:74,physShield:9,magShield:24,attacks:[
   A("Corte de Zanpakuto","physical",12,0),
   A("Senbonzakura Kageyoshi","magic",36,3,null),
-  A("Postura Nobre","magic",0,3,E("shield",19))]}, // Byakuya
+  A("Postura Nobre","magic",0,3,E("shield",19))]},
 {life:84,physShield:16,magShield:18,attacks:[
   A("Corte de Zangetsu","physical",15,0),
   A("Getsuga Tenshou","magic",38,3,null),
-  A("Bankai: Investida","magic",30,2,E("debuff",12))]}, // Ichigo [ULT]
+  A("Bankai: Investida","magic",30,2,E("debuff",12))]},
 
-// ===== RE:ZERO (tier ~5, wide range) =====
+// ===== RE:ZERO =====
 {life:36,physShield:8,magShield:4,attacks:[
   A("Golpe com Bastão","physical",7,0),
   A("Negociação Habilidosa","physical",0,3,E("debuff",6)),
-  A("Ataque Oportunista","physical",15,2,null)]}, // Otto
+  A("Ataque Oportunista","physical",15,2,null)]},
 {life:56,physShield:8,magShield:18,attacks:[
   A("Golpe com Marreta","physical",11,0),
   A("Fogo Ursino","magic",26,3,null),
-  A("Devoção Curativa","magic",0,4,E("heal",19))]}, // Rem
+  A("Devoção Curativa","magic",0,4,E("heal",19))]},
 {life:62,physShield:16,magShield:6,attacks:[
   A("Corte de Espada Veterana","physical",12,0),
   A("Técnica da Espada: Golpe Certeiro","physical",27,3,null),
-  A("Postura de Veterano","physical",0,3,E("shield",15))]}, // Wilhelm
+  A("Postura de Veterano","physical",0,3,E("shield",15))]},
 {life:90,physShield:23,magShield:8,attacks:[
   A("Corte do Espadachim Mais Forte","physical",17,0),
   A("Divine Blade: Corte Absoluto","physical",42,3,null),
-  A("Reflexo Perfeito","physical",0,3,E("shield",20))]}, // Reinhard [ULT]
+  A("Reflexo Perfeito","physical",0,3,E("shield",20))]},
 {life:54,physShield:8,magShield:19,attacks:[
   A("Golpe com Cajado de Gelo","physical",10,0),
   A("El Hymen: Explosão de Gelo","magic",27,3,null),
-  A("Espíritos do Gelo: Cura","magic",0,4,E("heal",18))]}, // Emilia
+  A("Espíritos do Gelo: Cura","magic",0,4,E("heal",18))]},
 
-// ===== FULLMETAL ALCHEMIST (tier ~5) =====
+// ===== FULLMETAL ALCHEMIST =====
 {life:52,physShield:13,magShield:6,attacks:[
   A("Soco Reforçado","physical",11,0),
   A("Transmutação: Lança de Aço","physical",24,3,null),
-  A("Muralha de Alquimia","physical",0,3,E("shield",13))]}, // Alphonse
+  A("Muralha de Alquimia","physical",0,3,E("shield",13))]},
 {life:48,physShield:12,magShield:4,attacks:[
   A("Coronhada","physical",10,0),
   A("Tiro Certeiro de Pistola","physical",23,2,null),
-  A("Rajada de Precisão","physical",19,2,E("debuff",8))]}, // Riza
+  A("Rajada de Precisão","physical",19,2,E("debuff",8))]},
 {life:58,physShield:8,magShield:19,attacks:[
   A("Golpe com Luva","physical",10,0),
   A("Alquimia de Chamas: Estalo","magic",29,3,null),
-  A("Explosão Direcionada","magic",25,3,E("stun"))]}, // Mustang
+  A("Explosão Direcionada","magic",25,3,E("stun"))]},
 {life:62,physShield:14,magShield:15,attacks:[
   A("Soco Automail","physical",12,0),
   A("Transmutação: Lâmina de Aço","magic",28,3,null),
-  A("Reconstrução Alquímica","magic",0,4,E("heal",17))]}, // Edward
+  A("Reconstrução Alquímica","magic",0,4,E("heal",17))]},
 {life:70,physShield:19,magShield:9,attacks:[
   A("Soco Colossal","physical",15,0),
   A("Transmutação: Canhão de Pedra","physical",33,3,null),
-  A("Brilho de Confiança","physical",0,3,E("debuff",11))]}, // Armstrong
+  A("Brilho de Confiança","physical",0,3,E("debuff",11))]},
 
-// ===== RECORD OF RAGNAROK (tier ~9, literal gods & humanity's strongest) =====
+// ===== RECORD OF RAGNAROK =====
 {life:56,physShield:14,magShield:6,attacks:[
   A("Corte de Faca","physical",11,0),
   A("Fúria Assassina","physical",27,3,null),
-  A("Investida nas Sombras","physical",22,2,E("debuff",10))]}, // Jack the Ripper
+  A("Investida nas Sombras","physical",22,2,E("debuff",10))]},
 {life:94,physShield:23,magShield:8,attacks:[
   A("Soco Divino","physical",17,0),
   A("Doze Trabalhos: Nemean Khora","physical",44,3,null),
-  A("Vigor Sobre-humano","physical",0,3,E("heal",20))]}, // Hercules
+  A("Vigor Sobre-humano","physical",0,3,E("heal",20))]},
 {life:68,physShield:17,magShield:7,attacks:[
   A("Corte de Katana","physical",13,0),
   A("Tsubame Gaeshi","physical",31,2,null),
-  A("Golpe da Andorinha Tripla","physical",26,3,E("stun"))]}, // Sasaki Kojiro
+  A("Golpe da Andorinha Tripla","physical",26,3,E("stun"))]},
 {life:80,physShield:16,magShield:16,attacks:[
   A("Soco do Primeiro Humano","physical",15,0),
   A("Fúria Original","magic",36,3,null),
-  A("Instinto de Sobrevivência","magic",0,3,E("shield",17))]}, // Adam
+  A("Instinto de Sobrevivência","magic",0,3,E("shield",17))]},
 {life:90,physShield:12,magShield:26,attacks:[
   A("Toque Sereno","physical",13,0),
   A("Vazio Infinito","magic",38,4,E("stun")),
-  A("Iluminação: Cura Universal","magic",0,4,E("heal",24))]}, // Buddha
+  A("Iluminação: Cura Universal","magic",0,4,E("heal",24))]},
 
-// ===== BAKI (tier ~4, peak human, no magic, absurd durability) =====
+// ===== BAKI =====
 {life:58,physShield:16,magShield:3,attacks:[
   A("Golpe de Mestre","physical",12,0),
   A("Técnica Ancestral","physical",26,3,null),
-  A("Leitura de Movimento","physical",0,3,E("debuff",10))]}, // Kosho
+  A("Leitura de Movimento","physical",0,3,E("debuff",10))]},
 {life:78,physShield:20,magShield:4,attacks:[
   A("Soco Selvagem","physical",15,0),
   A("Fúria Bestial","physical",34,3,null),
-  A("Couraça Muscular","physical",0,3,E("shield",17))]}, // Jack Hanma
+  A("Couraça Muscular","physical",0,3,E("shield",17))]},
 {life:86,physShield:21,magShield:4,attacks:[
   A("Soco de Ogre","physical",16,0),
   A("Explosão Muscular","physical",38,3,null),
-  A("Regeneração de Combate","physical",0,4,E("heal",19))]}, // Baki [ULT]
+  A("Regeneração de Combate","physical",0,4,E("heal",19))]},
 {life:68,physShield:18,magShield:4,attacks:[
   A("Chute Karatê","physical",13,0),
   A("Técnica Secreta: Punho Fantasma","physical",29,3,null),
-  A("Postura Imóvel","physical",0,3,E("shield",15))]}, // Doppo
+  A("Postura Imóvel","physical",0,3,E("shield",15))]},
 {life:50,physShield:14,magShield:3,attacks:[
   A("Golpe de Palma","physical",10,0),
   A("Toque da Morte","physical",24,3,E("debuff",11)),
-  A("Respiração Curativa","physical",0,4,E("heal",15))]}, // Retsu
+  A("Respiração Curativa","physical",0,4,E("heal",15))]},
 
-// ===== HAIKYUU (tier ~2, pure athletes) =====
+// ===== HAIKYUU =====
 {life:36,physShield:9,magShield:2,attacks:[
   A("Recepção Relâmpago","physical",8,0),
   A("Defesa Impossível","physical",0,3,E("shield",8)),
-  A("Contra-Ataque Rápido","physical",16,2,null)]}, // Nishinoya
+  A("Contra-Ataque Rápido","physical",16,2,null)]},
 {life:38,physShield:10,magShield:2,attacks:[
   A("Bloqueio de Força","physical",8,0),
   A("Cortada de Potência","physical",17,2,null),
-  A("Grito Intimidador","physical",0,3,E("debuff",6))]}, // Tanaka
+  A("Grito Intimidador","physical",0,3,E("debuff",6))]},
 {life:34,physShield:7,magShield:3,attacks:[
   A("Toque Preguiçoso","physical",7,0),
   A("Levantamento Estratégico","physical",0,3,E("debuff",7)),
-  A("Combinação Rápida","physical",15,2,null)]}, // Kenma
+  A("Combinação Rápida","physical",15,2,null)]},
 {life:37,physShield:8,magShield:3,attacks:[
   A("Salto Explosivo","physical",8,0),
   A("Cortada Relâmpago","physical",17,2,null),
-  A("Velocidade Decolagem","physical",0,3,E("stun"))]}, // Hinata
+  A("Velocidade Decolagem","physical",0,3,E("stun"))]},
 {life:39,physShield:9,magShield:3,attacks:[
   A("Levantamento Perfeito","physical",8,0),
   A("Combinação Rápida com Hinata","physical",18,2,null),
-  A("Ajuste Tático","physical",0,3,E("debuff",7))]}, // Kageyama
+  A("Ajuste Tático","physical",0,3,E("debuff",7))]},
 
-// ===== NANATSU NO TAIZAI (tier ~7) =====
+// ===== NANATSU NO TAIZAI =====
 {life:56,physShield:10,magShield:16,attacks:[
   A("Golpe com Machadinha","physical",11,0),
   A("Chastiefol: Investida","magic",27,3,null),
-  A("Chastiefol: Cura da Floresta","magic",0,4,E("heal",18))]}, // King
+  A("Chastiefol: Cura da Floresta","magic",0,4,E("heal",18))]},
 {life:64,physShield:17,magShield:6,attacks:[
   A("Soco de Gigante","physical",13,0),
   A("Punho da Terra","physical",30,3,null),
-  A("Escudo de Pedra","physical",0,3,E("shield",16))]}, // Diane
+  A("Escudo de Pedra","physical",0,3,E("shield",16))]},
 {life:72,physShield:16,magShield:10,attacks:[
   A("Corte de Espada Quebrada","physical",14,0),
   A("Snatch: Roubo de Poder","magic",0,3,E("debuff",13)),
-  A("Fúria da Raposa","magic",32,3,null)]}, // Ban
+  A("Fúria da Raposa","magic",32,3,null)]},
 {life:88,physShield:14,magShield:20,attacks:[
   A("Golpe Solar","physical",15,0),
   A("O Um: Sunshine","magic",40,3,null),
-  A("Compressão de Poder","magic",0,4,E("debuff",16))]}, // Escanor
+  A("Compressão de Poder","magic",0,4,E("debuff",16))]},
 {life:76,physShield:9,magShield:24,attacks:[
   A("Toque Mágico","physical",12,0),
   A("Magia Composta: Escuridão","magic",34,3,E("stun")),
-  A("Cura Suprema","magic",0,4,E("heal",22))]}, // Merlin
+  A("Cura Suprema","magic",0,4,E("heal",22))]},
 
-// ===== KAGUYA-SAMA (tier ~1, zero real combat, all "battle" is social) =====
+// ===== KAGUYA-SAMA =====
 {life:30,physShield:6,magShield:2,attacks:[
   A("Empurrão Nervoso","physical",6,0),
   A("Argumento Lógico","physical",0,3,E("debuff",6)),
-  A("Contra-Ataque Ansioso","physical",13,2,null)]}, // Ishigami
+  A("Contra-Ataque Ansioso","physical",13,2,null)]},
 {life:33,physShield:6,magShield:3,attacks:[
   A("Abraço Surpresa","physical",6,0),
   A("Energia Contagiante","physical",0,3,E("debuff",7)),
-  A("Investida Animada","physical",14,2,null)]}, // Chika
+  A("Investida Animada","physical",14,2,null)]},
 {life:32,physShield:7,magShield:2,attacks:[
   A("Golpe Discreto","physical",6,0),
   A("Manipulação nos Bastidores","physical",0,3,E("debuff",8)),
-  A("Ataque Calculado","physical",14,2,null)]}, // Ai Hayasaka
+  A("Ataque Calculado","physical",14,2,null)]},
 {life:34,physShield:6,magShield:4,attacks:[
   A("Postura Presidencial","physical",6,0),
   A("Discurso Convincente","physical",0,3,E("debuff",7)),
-  A("Jogada Política","physical",15,2,null)]}, // Miyuki
+  A("Jogada Política","physical",15,2,null)]},
 {life:35,physShield:6,magShield:4,attacks:[
   A("Golpe Refinado","physical",6,0),
   A("Jogo Psicológico dos 10 mil anos","physical",0,3,E("debuff",9)),
-  A("Ataque de Orgulho","physical",15,2,null)]}, // Kaguya
+  A("Ataque de Orgulho","physical",15,2,null)]},
 
-// ===== JUJUTSU KAISEN (tier ~8) =====
+// ===== JUJUTSU KAISEN =====
 {life:56,physShield:13,magShield:9,attacks:[
   A("Soco Reforçado","physical",12,0),
   A("Divergent Fist","magic",28,3,null),
-  A("Black Flash","magic",0,4,E("debuff",14))]}, // Yuji
+  A("Black Flash","magic",0,4,E("debuff",14))]},
 {life:52,physShield:12,magShield:10,attacks:[
   A("Golpe com Martelo","physical",11,0),
   A("Straw Doll Technique: Resonance","magic",0,3,E("debuff",13)),
-  A("Hairpin","magic",27,3,null)]}, // Nobara
+  A("Hairpin","magic",27,3,null)]},
 {life:60,physShield:11,magShield:17,attacks:[
   A("Golpe Corpo a Corpo","physical",11,0),
   A("Divine Dogs: Investida","magic",29,3,null),
-  A("Nue: Ataque Aéreo","magic",25,3,E("stun"))]}, // Megumi
+  A("Nue: Ataque Aéreo","magic",25,3,E("stun"))]},
 {life:100,physShield:16,magShield:20,attacks:[
   A("Golpe Devastador","physical",17,0),
   A("Malevolent Shrine","magic",46,4,null),
-  A("Fire Arrow","magic",34,2,E("debuff",16))]}, // Sukuna [ULT]
+  A("Fire Arrow","magic",34,2,E("debuff",16))]},
 {life:96,physShield:14,magShield:26,attacks:[
   A("Toque Casual","physical",15,0),
   A("Hollow Purple","magic",44,3,null),
-  A("Infinito: Bloqueio Absoluto","magic",0,4,E("shield",24))]}, // Gojo [ULT]
+  A("Infinito: Bloqueio Absoluto","magic",0,4,E("shield",24))]},
 
-// ===== DEMON SLAYER (tier ~6) =====
+// ===== DEMON SLAYER =====
 {life:42,physShield:11,magShield:5,attacks:[
   A("Golpe Trêmulo","physical",9,0),
   A("Respiração do Trovão: Primeira Forma","physical",22,3,null),
-  A("Colapso de Medo","physical",0,3,E("debuff",8))]}, // Zenitsu
+  A("Colapso de Medo","physical",0,3,E("debuff",8))]},
 {life:58,physShield:16,magShield:5,attacks:[
   A("Marretada Selvagem","physical",12,0),
   A("Respiração da Fera","physical",27,3,null),
-  A("Faro Aguçado","physical",0,3,E("debuff",10))]}, // Inosuke
+  A("Faro Aguçado","physical",0,3,E("debuff",10))]},
 {life:78,physShield:18,magShield:7,attacks:[
   A("Corte Flamejante","physical",15,0),
   A("Respiração da Chama: Nono Corte","physical",36,3,null),
-  A("Ardor Inabalável","physical",0,3,E("shield",17))]}, // Rengoku [ULT]
+  A("Ardor Inabalável","physical",0,3,E("shield",17))]},
 {life:74,physShield:17,magShield:8,attacks:[
   A("Corte Silencioso","physical",14,0),
   A("Respiração da Água: Undécimo Corte","physical",33,3,null),
-  A("Concentração Total Constante","physical",0,3,E("shield",16))]}, // Giyu
+  A("Concentração Total Constante","physical",0,3,E("shield",16))]},
 {life:70,physShield:16,magShield:9,attacks:[
   A("Corte Rápido","physical",13,0),
   A("Respiração do Sol: Dança do Deus do Fogo","magic",35,3,null),
-  A("Instinto Aguçado","magic",0,3,E("stun"))]}, // Tanjiro (Hi) [ULT]
+  A("Instinto Aguçado","magic",0,3,E("stun"))]},
 
-// ===== HELL'S PARADISE (tier ~4) =====
+// ===== HELL'S PARADISE =====
 {life:44,physShield:12,magShield:4,attacks:[
   A("Golpe com Foice","physical",10,0),
   A("Investida Brutal","physical",21,2,null),
-  A("Grito de Guerra","physical",0,3,E("debuff",8))]}, // Chobei
+  A("Grito de Guerra","physical",0,3,E("debuff",8))]},
 {life:48,physShield:11,magShield:8,attacks:[
   A("Golpe com Kunai","physical",10,0),
   A("Técnica Ninja: Veneno Silencioso","magic",23,3,E("debuff",10)),
-  A("Passos Silenciosos","magic",0,3,E("shield",13))]}, // Yuzuriha
+  A("Passos Silenciosos","magic",0,3,E("shield",13))]},
 {life:50,physShield:12,magShield:7,attacks:[
   A("Corte de Lâmina de Execução","physical",11,0),
   A("Golpe Sentencial","magic",24,3,null),
-  A("Postura de Executora","magic",0,3,E("shield",13))]}, // Sagiri
+  A("Postura de Executora","magic",0,3,E("shield",13))]},
 {life:66,physShield:17,magShield:6,attacks:[
   A("Soco de Presidiário","physical",13,0),
   A("Regeneração de Tatuagem","physical",0,4,E("heal",19)),
-  A("Fúria Contida","physical",29,3,null)]}, // Gabimaru [ULT]
+  A("Fúria Contida","physical",29,3,null)]},
 {life:58,physShield:15,magShield:7,attacks:[
   A("Corte Certeiro","physical",12,0),
   A("Técnica de Execução Perfeita","physical",27,3,null),
-  A("Julgamento Frio","physical",0,3,E("debuff",11))]}, // Tenza
+  A("Julgamento Frio","physical",0,3,E("debuff",11))]},
 
-// ===== YOUR NAME (tier ~1, ordinary people, no combat) =====
+// ===== YOUR NAME =====
 {life:28,physShield:5,magShield:2,attacks:[
   A("Empurrão Tímido","physical",5,0),
   A("Conselho Sincero","physical",0,3,E("debuff",5)),
-  A("Reação Nervosa","physical",12,2,null)]}, // Teshigawara
+  A("Reação Nervosa","physical",12,2,null)]},
 {life:27,physShield:5,magShield:2,attacks:[
   A("Tapa Fraco","physical",5,0),
   A("Fofoca Estratégica","physical",0,3,E("debuff",5)),
-  A("Empurrão de Susto","physical",11,2,null)]}, // Tessie
+  A("Empurrão de Susto","physical",11,2,null)]},
 {life:29,physShield:5,magShield:3,attacks:[
   A("Empurrão Educado","physical",5,0),
   A("Charme Adulto","physical",0,3,E("debuff",6)),
-  A("Reação Calculada","physical",12,2,null)]}, // Miki
+  A("Reação Calculada","physical",12,2,null)]},
 {life:33,physShield:5,magShield:5,attacks:[
   A("Empurrão Determinado","physical",6,0),
   A("Conexão dos Fios do Destino","magic",0,4,E("heal",16)),
-  A("Ritual Ancestral","magic",18,3,null)]}, // Mitsuha
+  A("Ritual Ancestral","magic",18,3,null)]},
 {life:31,physShield:6,magShield:3,attacks:[
   A("Soco Desajeitado","physical",6,0),
   A("Determinação Repentina","physical",0,3,E("debuff",6)),
-  A("Corrida Contra o Tempo","physical",14,2,null)]}, // Taki
+  A("Corrida Contra o Tempo","physical",14,2,null)]},
 
-// ===== HORIMIYA (tier ~1, slice of life, zero combat) =====
+// ===== HORIMIYA =====
 {life:29,physShield:5,magShield:2,attacks:[
   A("Empurrão Casual","physical",5,0),
   A("Piada Sem Graça","physical",0,3,E("debuff",5)),
-  A("Reação Exagerada","physical",12,2,null)]}, // Tooru
+  A("Reação Exagerada","physical",12,2,null)]},
 {life:30,physShield:5,magShield:2,attacks:[
   A("Tapa de Indignação","physical",5,0),
   A("Grito Assustador","physical",0,3,E("stun")),
-  A("Investida Brava","physical",12,2,null)]}, // Yuki
+  A("Investida Brava","physical",12,2,null)]},
 {life:31,physShield:5,magShield:3,attacks:[
   A("Empurrão Gentil","physical",5,0),
   A("Sorriso Desarmante","physical",0,3,E("debuff",6)),
-  A("Reação Rápida","physical",13,2,null)]}, // Remi
+  A("Reação Rápida","physical",13,2,null)]},
 {life:34,physShield:7,magShield:3,attacks:[
   A("Soco Silencioso","physical",7,0),
   A("Rebeldia Contida","physical",0,3,E("debuff",7)),
-  A("Explosão Reprimida","physical",15,2,null)]}, // Izumi
+  A("Explosão Reprimida","physical",15,2,null)]},
 {life:32,physShield:6,magShield:3,attacks:[
   A("Tapa Duplo Padrão","physical",6,0),
   A("Faceta Oculta","physical",0,3,E("debuff",7)),
-  A("Investida Decidida","physical",14,2,null)]}, // Kyoko
+  A("Investida Decidida","physical",14,2,null)]},
 
-// ===== JOJO'S BIZARRE ADVENTURE (tier ~7) =====
+// ===== JOJO'S BIZARRE ADVENTURE =====
 {life:48,physShield:9,magShield:14,attacks:[
   A("Soco de Echoes","physical",10,0),
   A("Echoes Act 1: Sound Slap","magic",22,3,null),
-  A("Echoes Act 2: Impacto","magic",0,3,E("debuff",10))]}, // Koichi
+  A("Echoes Act 2: Impacto","magic",0,3,E("debuff",10))]},
 {life:60,physShield:11,magShield:16,attacks:[
   A("Soco Corpo a Corpo","physical",12,0),
   A("Crazy Diamond: Reparo Ofensivo","magic",28,3,null),
-  A("Crazy Diamond: Cura","magic",0,4,E("heal",19))]}, // Josuke
+  A("Crazy Diamond: Cura","magic",0,4,E("heal",19))]},
 {life:82,physShield:12,magShield:22,attacks:[
   A("Soco Elegante","physical",14,0),
   A("Gold Experience Requiem: Reset","magic",0,4,E("stun")),
-  A("Gold Experience: Vida","magic",36,3,null)]}, // Giorno [ULT]
+  A("Gold Experience: Vida","magic",36,3,null)]},
 {life:90,physShield:13,magShield:23,attacks:[
   A("Soco Aristocrático","physical",15,0),
   A("The World: Tempo Parado","magic",0,4,E("stun")),
-  A("Road Roller: Investida","magic",40,3,null)]}, // Dio [ULT]
+  A("Road Roller: Investida","magic",40,3,null)]},
 {life:86,physShield:15,magShield:19,attacks:[
   A("Soco Direto","physical",15,0),
   A("Star Platinum: ORAORAORA","magic",38,3,null),
-  A("Star Platinum: Reflexo Perfeito","magic",0,3,E("shield",18))]} // Jotaro [ULT]
+  A("Star Platinum: Reflexo Perfeito","magic",0,3,E("shield",18))]}
 
 ];
 
-// Curated appearance per character: [skin, hairColor, hairStyle, outfit, outfit2]
-// Order matches RAW's anime/character order exactly (same order CHARACTERS are built in).
+// Aparência curada por personagem: [pele, cor do cabelo, estilo, roupa, roupa2]
+// Usada pelo stick figure (fallback) e como base de paleta para quem ainda não
+// tem sprite de pixel art dedicado.
 const APPEARANCE = [
-  // Naruto
-  ["#d99a6c","#5c3a21","spiky","#2e4a7a","#7a2b34"],   // Konohamaru
-  ["#e8b184","#5c3a21","long","#b3324f","#7a1f2b"],    // Tenten
-  ["#d99a6c","#1a1a1a","spiky","#3a5a3a","#1a1a1a"],   // Shikamaru Nara
-  ["#d99a6c","#1a1a1a","short","#2f8f4a","#2f8f4a"],   // Might Guy
-  ["#f4c9a0","#1a1a1a","long","#1a1a1a","#7a2b34"],    // Itachi Uchiha
-  // Dragon Ball
-  ["#d99a6c","#1a1a1a","spiky","#d9752e","#2e4a7a"],   // Yamcha
-  ["#d99a6c","#1a1a1a","bald","#2e4a7a","#1f3355"],    // Tenshinhan
-  ["#f4c9a0","#e8c250","short","#3a5fa0","#e8e8e8"],   // Android 18
-  ["#f4c9a0","#1a1a1a","spiky","#1f3f7a","#e8e8e8"],   // Vegeta
-  ["#d99a6c","#1a1a1a","spiky","#d9752e","#2e4a7a"],   // Son Goku
-  // One Piece
-  ["#f4c9a0","#6fb3d9","short","#1f3a6b","#1f3a6b"],   // Coby
-  ["#d99a6c","#1a1a1a","long","#6b3fa0","#5a3390"],    // Nico Robin
-  ["#f4c9a0","#e8c250","short","#1a1a1a","#e8e8e8"],   // Sanji
-  ["#d99a6c","#3a8f4a","spiky","#2a4a2a","#1a1a1a"],   // Roronoa Zoro
-  ["#d99a6c","#1a1a1a","short","#b32424","#2e4a7a"],   // Monkey D. Luffy
-  // Attack on Titan
-  ["#f4c9a0","#7a5a3a","short","#4a5a3a","#5c3a21"],   // Sasha Blouse
-  ["#f4c9a0","#b39a6b","short","#5c3a21","#4a5a3a"],   // Jean Kirstein
-  ["#f4c9a0","#e8c250","short","#5c3a21","#4a5a3a"],   // Armin Arlert
-  ["#e8b184","#e8c250","short","#5c3a21","#4a5a3a"],   // Reiner Braun
-  ["#f4c9a0","#5c3a21","short","#5c3a21","#4a5a3a"],   // Eren Yeager
-  // One Punch Man
-  ["#f4c9a0","#1a1a1a","short","#d9b93a","#2e4a7a"],   // Mumen Rider
-  ["#f4c9a0","#8a6fbf","long","#1a1a1a","#1a1a1a"],    // Tornado
-  ["#c17f4f","#1a1a1a","short","#1a1a1a","#6a6a6a"],   // King (fama)
-  ["#d8dde6","#e8c250","spiky","#1a1a1a","#c9c9c9"],   // Genos
-  ["#f4c9a0","#1a1a1a","short","#2a4a2a","#1a1a1a"],   // Garou
-  // Solo Leveling
-  ["#d99a6c","#1a1a1a","short","#1a1a1a","#1a1a1a"],   // Woo Jinchul
-  ["#f4c9a0","#e8c250","long","#e8e8e8","#d9a92e"],    // Cha Hae-in
-  ["#e8b184","#9a9a9a","short","#4a4a4a","#1a1a1a"],   // Go Gunhee
-  ["#f4c9a0","#e8c250","short","#e8e8e8","#d9a92e"],   // Thomas Andre
-  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#5a3390"],   // Sung Jinwoo
-  // Hunter x Hunter
-  ["#d99a6c","#1a1a1a","short","#3a5a3a","#1a1a1a"],   // Leorio
-  ["#f4c9a0","#e8e8e8","spiky","#6b3fa0","#5a3390"],   // Killua Zoldyck
-  ["#f4c9a0","#e8c250","long","#e07ba8","#d15f96"],    // Biscuit Krueger
-  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#1a1a1a"],   // Chrollo Lucilfer
-  ["#6b2b2b","#1a1a1a","bald","#6b2b2b","#1a1a1a"],    // Meruem
-  // Blue Lock
-  ["#d99a6c","#5c3a21","short","#2e6fd9","#e8e8e8"],   // Aoshi Tokimitsu
-  ["#d99a6c","#1a1a1a","spiky","#2e6fd9","#e8e8e8"],   // Rensuke Kunigami
-  ["#f4c9a0","#2fa89e","spiky","#2e6fd9","#e8e8e8"],   // Meguru Bachira
-  ["#d99a6c","#3a2318","short","#2e6fd9","#e8e8e8"],   // Shoei Baro
-  ["#f4c9a0","#24406b","short","#2e6fd9","#e8e8e8"],   // Seishiro Nagi
-  // Death Note
-  ["#f4c9a0","#3a2318","short","#5a5a5a","#1a1a1a"],   // Soichiro Yagami
-  ["#f4c9a0","#e8c250","long","#1a1a1a","#d15f96"],    // Misa Amane
-  ["#f5f0e6","#f0f0f0","short","#e8e8e8","#e8e8e8"],   // Near
-  ["#f5f0e6","#1a1a1a","spiky","#e8e8e8","#2e4a7a"],   // L Lawliet
-  ["#f4c9a0","#5c3a21","short","#1a1a1a","#e8e8e8"],   // Light Yagami
-  // Frieren
-  ["#d99a6c","#5c3a21","short","#5c3a21","#d99a6c"],   // Sein
-  ["#f5f0e6","#1a1a1a","short","#3a2a5a","#1a1a1a"],   // Übel
-  ["#d99a6c","#d9522e","spiky","#5c3a21","#3a5a3a"],   // Stark
-  ["#f5f0e6","#f0e0a0","short","#1a1a1a","#1a1a1a"],   // Fern
-  ["#f5f0e6","#e8e8e8","long","#1a1a1a","#2a4a2a"],    // Frieren
-  // Akame ga Kill
-  ["#d99a6c","#1a1a1a","short","#1a1a1a","#6a6a6a"],   // Bulat
-  ["#e8b184","#e8c250","long","#1a1a1a","#d9a92e"],    // Leone
-  ["#f4c9a0","#2fa89e","short","#4a4a4a","#7a2b34"],   // Lubbock
-  ["#f5f0e6","#6fb3d9","long","#e8e8e8","#2e4a7a"],    // Esdeath
-  ["#f5f0e6","#1a1a1a","long","#1a1a1a","#7a2b34"],    // Akame
-  // Black Clover
-  ["#f4c9a0","#e07ba8","spiky","#1a1a1a","#d9752e"],   // Luck Voltia
-  ["#d99a6c","#6b3fa0","spiky","#1a1a1a","#7a2b34"],   // Magna Swing
-  ["#f4c9a0","#e8e8e8","long","#1a1a1a","#2e6fd9"],    // Noelle Silva
-  ["#f4c9a0","#e8e0a0","short","#1a1a1a","#3a8f4a"],   // Yuno Grinberryall
-  ["#d99a6c","#1a1a1a","spiky","#1a1a1a","#e8e8e8"],   // Asta
-  // Boku no Hero
-  ["#f4c9a0","#e8c250","spiky","#d9b93a","#1a1a1a"],   // Denki Kaminari
-  ["#f4c9a0","#5c3a21","short","#e07ba8","#1a1a1a"],   // Ochaco Uraraka
-  ["#f4c9a0","#f0f0f0","short","#2e6fd9","#e8e8e8"],   // Shoto Todoroki
-  ["#f4c9a0","#e8c250","spiky","#4a5a2a","#1a1a1a"],   // Katsuki Bakugo
-  ["#f4c9a0","#e8c250","spiky","#2e4a9a","#b32424"],   // All Might
-  // Bleach
-  ["#d99a6c","#5c3a21","short","#6a6a6a","#2e4a7a"],   // Keigo Asano
-  ["#d99a6c","#b32424","long","#1a1a1a","#1a1a1a"],    // Renji Abarai
-  ["#f5f0e6","#1a1a1a","short","#1a1a1a","#1a1a1a"],   // Rukia Kuchiki
-  ["#f5f0e6","#1a1a1a","long","#e8e8e8","#1a1a1a"],    // Byakuya Kuchiki
-  ["#f4c9a0","#d9752e","spiky","#1a1a1a","#1a1a1a"],   // Ichigo Kurosaki
-  // Re:Zero
-  ["#d99a6c","#2fa89e","short","#5c3a21","#d99a6c"],   // Otto Suwen
-  ["#f5f0e6","#2e6fd9","short","#1a1a1a","#e8e8e8"],   // Rem
-  ["#d99a6c","#9a9a9a","short","#4a4a4a","#1a1a1a"],   // Wilhelm van Astrea
-  ["#f4c9a0","#e8e8e8","short","#e8e8e8","#c9c9c9"],   // Reinhard van Astrea
-  ["#f5f0e6","#e8e8e8","long","#e8e8e8","#8a6fbf"],    // Emilia
-  // Fullmetal Alchemist
-  ["#f4c9a0","#e8c250","short","#1a1a1a","#1a1a1a"],   // Alphonse Elric
-  ["#f4c9a0","#e8c250","short","#2e4a7a","#2e4a7a"],   // Riza Hawkeye
-  ["#f4c9a0","#1a1a1a","short","#2e4a7a","#2e4a7a"],   // Roy Mustang
-  ["#f4c9a0","#e8c250","long","#b32424","#1a1a1a"],    // Edward Elric
-  ["#e8b184","#e8c250","short","#2e4a7a","#2e4a7a"],   // Alex Louis Armstrong
-  // Record of Ragnarok
-  ["#f5f0e6","#1a1a1a","short","#3a3a3a","#1a1a1a"],   // Jack the Ripper
-  ["#e8b184","#d9a92e","short","#a5673c","#d9a92e"],   // Hercules
-  ["#d99a6c","#1a1a1a","short","#e8e8e8","#7a2b34"],   // Sasaki Kojiro
-  ["#e8b184","#5c3a21","short","#e8e8e8","#e8e8e8"],   // Adam
-  ["#d9a05e","#1a1a1a","bald","#d9752e","#d9a92e"],    // Buddha
-  // Baki
-  ["#d99a6c","#f0f0f0","short","#6a6a6a","#6a6a6a"],   // Kosho Shibukawa
-  ["#e8b184","#e8c250","spiky","#3a3a3a","#1a1a1a"],   // Jack Hanma
-  ["#d99a6c","#1a1a1a","spiky","#1a1a1a","#1a1a1a"],   // Baki Hanma
-  ["#d99a6c","#9a9a9a","short","#e8e8e8","#e8e8e8"],   // Doppo Orochi
-  ["#d99a6c","#1a1a1a","bald","#b32424","#d9a92e"],    // Retsu Kaioh
-  // Haikyuu
-  ["#d99a6c","#1a1a1a","spiky","#d9752e","#1a1a1a"],   // Yu Nishinoya
-  ["#d99a6c","#1a1a1a","bald","#d9752e","#1a1a1a"],    // Ryunosuke Tanaka
-  ["#f4c9a0","#e8c250","short","#1a1a1a","#7a2b34"],   // Kenma Kozume
-  ["#d99a6c","#d9752e","spiky","#d9752e","#1a1a1a"],   // Shoyo Hinata
-  ["#f4c9a0","#1a1a1a","short","#d9752e","#1a1a1a"],   // Tobio Kageyama
-  // Nanatsu no Taizai
-  ["#f4c9a0","#e8c250","short","#3a8f4a","#3a8f4a"],   // King
-  ["#d99a6c","#d9752e","long","#d9752e","#5c3a21"],    // Diane
-  ["#d99a6c","#1a1a1a","spiky","#d9752e","#1a1a1a"],   // Ban
-  ["#e8b184","#e8c250","long","#d9752e","#7a2b34"],    // Escanor
-  ["#f5f0e6","#f0e0a0","long","#6b3fa0","#1a1a1a"],    // Merlin
-  // Kaguya-sama
-  ["#f4c9a0","#3a2318","spiky","#1a1a1a","#e8e8e8"],   // Yu Ishigami
-  ["#f4c9a0","#e8c250","short","#2e4a7a","#e8e8e8"],   // Chika Fujiwara
-  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Ai Hayasaka
-  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#e8e8e8"],   // Miyuki Shirogane
-  ["#f5f0e6","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Kaguya Shinomiya
-  // Jujutsu Kaisen
-  ["#d99a6c","#d94f9e","short","#1a1a1a","#e8e8e8"],   // Yuji Itadori
-  ["#d99a6c","#d9752e","long","#1a1a1a","#e8e8e8"],    // Nobara Kugisaki
-  ["#f4c9a0","#24406b","short","#1f3a6b","#e8e8e8"],   // Megumi Fushiguro
-  ["#d99a6c","#f0f0f0","short","#7a2b34","#1a1a1a"],   // Sukuna
-  ["#f4c9a0","#f0f0f0","spiky","#1f3a6b","#1a1a1a"],   // Satoru Gojo
-  // Demon Slayer
-  ["#f4c9a0","#e8c250","spiky","#d9b93a","#1a1a1a"],   // Zenitsu Agatsuma
-  ["#d99a6c","#9a9a9a","spiky","#3a8f4a","#e8e8e8"],   // Inosuke Hashibira
-  ["#d99a6c","#d9522e","spiky","#d9752e","#d9b93a"],   // Kyojuro Rengoku
-  ["#f4c9a0","#1a1a1a","short","#2fa89e","#1a1a1a"],   // Giyu Tomioka
-  ["#d99a6c","#1a1a1a","spiky","#3a8f4a","#1a1a1a"],   // Tanjiro Kamado
-  // Hell's Paradise
-  ["#d99a6c","#1a1a1a","bald","#5c3a21","#5c3a21"],    // Chobei
-  ["#f4c9a0","#1a1a1a","long","#6b3fa0","#1a1a1a"],    // Yuzuriha
-  ["#f5f0e6","#1a1a1a","long","#e8e8e8","#1a1a1a"],    // Sagiri Asaemon
-  ["#d99a6c","#1a1a1a","short","#5c3a21","#6a6a6a"],   // Gabimaru
-  ["#f4c9a0","#1a1a1a","short","#e8e8e8","#1a1a1a"],   // Yamada Asaemon Tenza
-  // Your Name
-  ["#d99a6c","#1a1a1a","short","#1f3a6b","#e8e8e8"],   // Katsuhiko Teshigawara
-  ["#d99a6c","#1a1a1a","short","#1f3a6b","#e8e8e8"],   // Tessie
-  ["#f4c9a0","#1a1a1a","long","#6a6a6a","#e8e8e8"],    // Miki Okudera
-  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Mitsuha Miyamizu
-  ["#f4c9a0","#1a1a1a","spiky","#1f3a6b","#e8e8e8"],   // Taki Tachibana
-  // Horimiya
-  ["#d99a6c","#5c3a21","short","#1f3a6b","#e8e8e8"],   // Tooru Ishikawa
-  ["#f4c9a0","#5c3a21","short","#1f3a6b","#e8e8e8"],   // Yuki Yoshikawa
-  ["#f4c9a0","#e8c250","short","#1f3a6b","#e8e8e8"],   // Remi Ayasaki
-  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Izumi Miyamura
-  ["#f4c9a0","#5c3a21","long","#1f3a6b","#e8e8e8"],    // Kyoko Hori
-  // JoJo's Bizarre Adventure
-  ["#f4c9a0","#1a1a1a","spiky","#1f3a6b","#d9a92e"],   // Koichi Hirose
-  ["#d99a6c","#1a1a1a","spiky","#6b3fa0","#d9b93a"],   // Josuke Higashikata
-  ["#f4c9a0","#d9a92e","long","#1a1a1a","#d9a92e"],    // Giorno Giovanna
-  ["#f5f0e6","#e8c250","long","#d9b93a","#6b3fa0"],    // Dio Brando
-  ["#d99a6c","#1a1a1a","short","#1a1a1a","#2e4a7a"]    // Jotaro Kujo
+  ["#d99a6c","#5c3a21","spiky","#2e4a7a","#7a2b34"],
+  ["#e8b184","#5c3a21","long","#b3324f","#7a1f2b"],
+  ["#d99a6c","#1a1a1a","spiky","#3a5a3a","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","short","#2f8f4a","#2f8f4a"],
+  ["#f4c9a0","#1a1a1a","long","#1a1a1a","#7a2b34"],
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#2e4a7a"],
+  ["#d99a6c","#1a1a1a","bald","#2e4a7a","#1f3355"],
+  ["#f4c9a0","#e8c250","short","#3a5fa0","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","spiky","#1f3f7a","#e8e8e8"],
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#2e4a7a"],
+  ["#f4c9a0","#6fb3d9","short","#1f3a6b","#1f3a6b"],
+  ["#d99a6c","#1a1a1a","long","#6b3fa0","#5a3390"],
+  ["#f4c9a0","#e8c250","short","#1a1a1a","#e8e8e8"],
+  ["#d99a6c","#3a8f4a","spiky","#2a4a2a","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","short","#b32424","#2e4a7a"],
+  ["#f4c9a0","#7a5a3a","short","#4a5a3a","#5c3a21"],
+  ["#f4c9a0","#b39a6b","short","#5c3a21","#4a5a3a"],
+  ["#f4c9a0","#e8c250","short","#5c3a21","#4a5a3a"],
+  ["#e8b184","#e8c250","short","#5c3a21","#4a5a3a"],
+  ["#f4c9a0","#5c3a21","short","#5c3a21","#4a5a3a"],
+  ["#f4c9a0","#1a1a1a","short","#d9b93a","#2e4a7a"],
+  ["#f4c9a0","#8a6fbf","long","#1a1a1a","#1a1a1a"],
+  ["#c17f4f","#1a1a1a","short","#1a1a1a","#6a6a6a"],
+  ["#d8dde6","#e8c250","spiky","#1a1a1a","#c9c9c9"],
+  ["#f4c9a0","#1a1a1a","short","#2a4a2a","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","short","#1a1a1a","#1a1a1a"],
+  ["#f4c9a0","#e8c250","long","#e8e8e8","#d9a92e"],
+  ["#e8b184","#9a9a9a","short","#4a4a4a","#1a1a1a"],
+  ["#f4c9a0","#e8c250","short","#e8e8e8","#d9a92e"],
+  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#5a3390"],
+  ["#d99a6c","#1a1a1a","short","#3a5a3a","#1a1a1a"],
+  ["#f4c9a0","#e8e8e8","spiky","#6b3fa0","#5a3390"],
+  ["#f4c9a0","#e8c250","long","#e07ba8","#d15f96"],
+  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#1a1a1a"],
+  ["#6b2b2b","#1a1a1a","bald","#6b2b2b","#1a1a1a"],
+  ["#d99a6c","#5c3a21","short","#2e6fd9","#e8e8e8"],
+  ["#d99a6c","#1a1a1a","spiky","#2e6fd9","#e8e8e8"],
+  ["#f4c9a0","#2fa89e","spiky","#2e6fd9","#e8e8e8"],
+  ["#d99a6c","#3a2318","short","#2e6fd9","#e8e8e8"],
+  ["#f4c9a0","#24406b","short","#2e6fd9","#e8e8e8"],
+  ["#f4c9a0","#3a2318","short","#5a5a5a","#1a1a1a"],
+  ["#f4c9a0","#e8c250","long","#1a1a1a","#d15f96"],
+  ["#f5f0e6","#f0f0f0","short","#e8e8e8","#e8e8e8"],
+  ["#f5f0e6","#1a1a1a","spiky","#e8e8e8","#2e4a7a"],
+  ["#f4c9a0","#5c3a21","short","#1a1a1a","#e8e8e8"],
+  ["#d99a6c","#5c3a21","short","#5c3a21","#d99a6c"],
+  ["#f5f0e6","#1a1a1a","short","#3a2a5a","#1a1a1a"],
+  ["#d99a6c","#d9522e","spiky","#5c3a21","#3a5a3a"],
+  ["#f5f0e6","#f0e0a0","short","#1a1a1a","#1a1a1a"],
+  ["#f5f0e6","#e8e8e8","long","#1a1a1a","#2a4a2a"],
+  ["#d99a6c","#1a1a1a","short","#1a1a1a","#6a6a6a"],
+  ["#e8b184","#e8c250","long","#1a1a1a","#d9a92e"],
+  ["#f4c9a0","#2fa89e","short","#4a4a4a","#7a2b34"],
+  ["#f5f0e6","#6fb3d9","long","#e8e8e8","#2e4a7a"],
+  ["#f5f0e6","#1a1a1a","long","#1a1a1a","#7a2b34"],
+  ["#f4c9a0","#e07ba8","spiky","#1a1a1a","#d9752e"],
+  ["#d99a6c","#6b3fa0","spiky","#1a1a1a","#7a2b34"],
+  ["#f4c9a0","#e8e8e8","long","#1a1a1a","#2e6fd9"],
+  ["#f4c9a0","#e8e0a0","short","#1a1a1a","#3a8f4a"],
+  ["#d99a6c","#1a1a1a","spiky","#1a1a1a","#e8e8e8"],
+  ["#f4c9a0","#e8c250","spiky","#d9b93a","#1a1a1a"],
+  ["#f4c9a0","#5c3a21","short","#e07ba8","#1a1a1a"],
+  ["#f4c9a0","#f0f0f0","short","#2e6fd9","#e8e8e8"],
+  ["#f4c9a0","#e8c250","spiky","#4a5a2a","#1a1a1a"],
+  ["#f4c9a0","#e8c250","spiky","#2e4a9a","#b32424"],
+  ["#d99a6c","#5c3a21","short","#6a6a6a","#2e4a7a"],
+  ["#d99a6c","#b32424","long","#1a1a1a","#1a1a1a"],
+  ["#f5f0e6","#1a1a1a","short","#1a1a1a","#1a1a1a"],
+  ["#f5f0e6","#1a1a1a","long","#e8e8e8","#1a1a1a"],
+  ["#f4c9a0","#d9752e","spiky","#1a1a1a","#1a1a1a"],
+  ["#d99a6c","#2fa89e","short","#5c3a21","#d99a6c"],
+  ["#f5f0e6","#2e6fd9","short","#1a1a1a","#e8e8e8"],
+  ["#d99a6c","#9a9a9a","short","#4a4a4a","#1a1a1a"],
+  ["#f4c9a0","#e8e8e8","short","#e8e8e8","#c9c9c9"],
+  ["#f5f0e6","#e8e8e8","long","#e8e8e8","#8a6fbf"],
+  ["#f4c9a0","#e8c250","short","#1a1a1a","#1a1a1a"],
+  ["#f4c9a0","#e8c250","short","#2e4a7a","#2e4a7a"],
+  ["#f4c9a0","#1a1a1a","short","#2e4a7a","#2e4a7a"],
+  ["#f4c9a0","#e8c250","long","#b32424","#1a1a1a"],
+  ["#e8b184","#e8c250","short","#2e4a7a","#2e4a7a"],
+  ["#f5f0e6","#1a1a1a","short","#3a3a3a","#1a1a1a"],
+  ["#e8b184","#d9a92e","short","#a5673c","#d9a92e"],
+  ["#d99a6c","#1a1a1a","short","#e8e8e8","#7a2b34"],
+  ["#e8b184","#5c3a21","short","#e8e8e8","#e8e8e8"],
+  ["#d9a05e","#1a1a1a","bald","#d9752e","#d9a92e"],
+  ["#d99a6c","#f0f0f0","short","#6a6a6a","#6a6a6a"],
+  ["#e8b184","#e8c250","spiky","#3a3a3a","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","spiky","#1a1a1a","#1a1a1a"],
+  ["#d99a6c","#9a9a9a","short","#e8e8e8","#e8e8e8"],
+  ["#d99a6c","#1a1a1a","bald","#b32424","#d9a92e"],
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","bald","#d9752e","#1a1a1a"],
+  ["#f4c9a0","#e8c250","short","#1a1a1a","#7a2b34"],
+  ["#d99a6c","#d9752e","spiky","#d9752e","#1a1a1a"],
+  ["#f4c9a0","#1a1a1a","short","#d9752e","#1a1a1a"],
+  ["#f4c9a0","#e8c250","short","#3a8f4a","#3a8f4a"],
+  ["#d99a6c","#d9752e","long","#d9752e","#5c3a21"],
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#1a1a1a"],
+  ["#e8b184","#e8c250","long","#d9752e","#7a2b34"],
+  ["#f5f0e6","#f0e0a0","long","#6b3fa0","#1a1a1a"],
+  ["#f4c9a0","#3a2318","spiky","#1a1a1a","#e8e8e8"],
+  ["#f4c9a0","#e8c250","short","#2e4a7a","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#e8e8e8"],
+  ["#f5f0e6","#1a1a1a","long","#1f3a6b","#e8e8e8"],
+  ["#d99a6c","#d94f9e","short","#1a1a1a","#e8e8e8"],
+  ["#d99a6c","#d9752e","long","#1a1a1a","#e8e8e8"],
+  ["#f4c9a0","#24406b","short","#1f3a6b","#e8e8e8"],
+  ["#d99a6c","#f0f0f0","short","#7a2b34","#1a1a1a"],
+  ["#f4c9a0","#f0f0f0","spiky","#1f3a6b","#1a1a1a"],
+  ["#f4c9a0","#e8c250","spiky","#d9b93a","#1a1a1a"],
+  ["#d99a6c","#9a9a9a","spiky","#3a8f4a","#e8e8e8"],
+  ["#d99a6c","#d9522e","spiky","#d9752e","#d9b93a"],
+  ["#f4c9a0","#1a1a1a","short","#2fa89e","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","spiky","#3a8f4a","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","bald","#5c3a21","#5c3a21"],
+  ["#f4c9a0","#1a1a1a","long","#6b3fa0","#1a1a1a"],
+  ["#f5f0e6","#1a1a1a","long","#e8e8e8","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","short","#5c3a21","#6a6a6a"],
+  ["#f4c9a0","#1a1a1a","short","#e8e8e8","#1a1a1a"],
+  ["#d99a6c","#1a1a1a","short","#1f3a6b","#e8e8e8"],
+  ["#d99a6c","#1a1a1a","short","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","long","#6a6a6a","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","spiky","#1f3a6b","#e8e8e8"],
+  ["#d99a6c","#5c3a21","short","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#5c3a21","short","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#e8c250","short","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#5c3a21","long","#1f3a6b","#e8e8e8"],
+  ["#f4c9a0","#1a1a1a","spiky","#1f3a6b","#d9a92e"],
+  ["#d99a6c","#1a1a1a","spiky","#6b3fa0","#d9b93a"],
+  ["#f4c9a0","#d9a92e","long","#1a1a1a","#d9a92e"],
+  ["#f5f0e6","#e8c250","long","#d9b93a","#6b3fa0"],
+  ["#d99a6c","#1a1a1a","short","#1a1a1a","#2e4a7a"]
 ];
 
-// [class, elementalType] per character, same order as CHARACTERS/APPEARANCE/CHAR_KIT.
+// [classe, tipo elemental] por personagem, mesma ordem.
 const CLASS_TYPE = [
-  // Naruto
   ["Guerreiro","Fogo"],["Atirador","Metal"],["Estrategista","Sombrio"],["Lutador","Normal"],["Mago","Sombrio"],
-  // Dragon Ball
   ["Lutador","Normal"],["Lutador","Sagrado"],["Guerreiro","Metal"],["Guerreiro","Normal"],["Lutador","Normal"],
-  // One Piece
   ["Guerreiro","Normal"],["Mago","Natureza"],["Lutador","Fogo"],["Espadachim","Normal"],["Lutador","Normal"],
-  // Attack on Titan
   ["Atirador","Normal"],["Guerreiro","Normal"],["Estrategista","Fogo"],["Tanque","Metal"],["Guerreiro","Terra"],
-  // One Punch Man
   ["Atleta","Normal"],["Mago","Psíquico"],["Lutador","Normal"],["Tanque","Fogo"],["Lutador","Sombrio"],
-  // Solo Leveling
   ["Estrategista","Normal"],["Espadachim","Sagrado"],["Tanque","Normal"],["Lutador","Sagrado"],["Mago","Sombrio"],
-  // Hunter x Hunter
   ["Lutador","Normal"],["Assassino","Elétrico"],["Tanque","Normal"],["Mago","Sombrio"],["Tanque","Sombrio"],
-  // Blue Lock
   ["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],
-  // Death Note
   ["Estrategista","Normal"],["Suporte","Sombrio"],["Estrategista","Psíquico"],["Estrategista","Psíquico"],["Mago","Sombrio"],
-  // Frieren
   ["Suporte","Sagrado"],["Mago","Sombrio"],["Guerreiro","Fogo"],["Mago","Sombrio"],["Mago","Espiritual"],
-  // Akame ga Kill
   ["Tanque","Metal"],["Lutador","Normal"],["Assassino","Metal"],["Mago","Gelo"],["Assassino","Venenoso"],
-  // Black Clover
   ["Mago","Elétrico"],["Mago","Fogo"],["Mago","Água"],["Mago","Vento"],["Guerreiro","Sombrio"],
-  // Boku no Hero
   ["Mago","Elétrico"],["Suporte","Normal"],["Mago","Gelo"],["Guerreiro","Fogo"],["Lutador","Normal"],
-  // Bleach
   ["Atleta","Normal"],["Espadachim","Normal"],["Mago","Gelo"],["Espadachim","Metal"],["Espadachim","Sombrio"],
-  // Re:Zero
   ["Estrategista","Normal"],["Guerreiro","Gelo"],["Espadachim","Normal"],["Espadachim","Sagrado"],["Mago","Gelo"],
-  // Fullmetal Alchemist
   ["Guerreiro","Metal"],["Atirador","Normal"],["Mago","Fogo"],["Guerreiro","Metal"],["Tanque","Terra"],
-  // Record of Ragnarok
   ["Assassino","Sombrio"],["Lutador","Sagrado"],["Espadachim","Vento"],["Guerreiro","Normal"],["Mago","Sagrado"],
-  // Baki
   ["Lutador","Normal"],["Lutador","Normal"],["Lutador","Normal"],["Lutador","Normal"],["Lutador","Espiritual"],
-  // Haikyuu
   ["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],
-  // Nanatsu no Taizai
   ["Mago","Natureza"],["Tanque","Terra"],["Lutador","Sombrio"],["Guerreiro","Sagrado"],["Mago","Espiritual"],
-  // Kaguya-sama
   ["Estrategista","Normal"],["Estrategista","Normal"],["Estrategista","Normal"],["Estrategista","Normal"],["Estrategista","Normal"],
-  // Jujutsu Kaisen
   ["Lutador","Sombrio"],["Atirador","Metal"],["Mago","Sombrio"],["Mago","Sombrio"],["Mago","Espiritual"],
-  // Demon Slayer
   ["Espadachim","Elétrico"],["Lutador","Normal"],["Espadachim","Fogo"],["Espadachim","Água"],["Espadachim","Fogo"],
-  // Hell's Paradise
   ["Lutador","Normal"],["Assassino","Venenoso"],["Espadachim","Normal"],["Assassino","Sombrio"],["Espadachim","Sagrado"],
-  // Your Name
   ["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],["Suporte","Espiritual"],["Atleta","Normal"],
-  // Horimiya
   ["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],["Atleta","Normal"],
-  // JoJo
   ["Mago","Espiritual"],["Suporte","Espiritual"],["Mago","Natureza"],["Mago","Sombrio"],["Lutador","Espiritual"]
 ];
 
-// The 4th attack for each character (same order). Cooldown 2-3, tied to elemental type
-// where it fits the character; plain damage where an elemental status wouldn't fit.
+// O 4º ataque de cada personagem (mesma ordem).
 const FOURTH_ATTACK = [
-// Naruto
 A("Elemento Fogo: Bola de Fogo","physical",17,2,E("dot",5)),
 A("Investida com Nunchaku","physical",19,2,null),
 A("Armadilha Tática","physical",0,3,E("debuff",9)),
 A("Chute do Leão Adormecido","physical",26,2,null),
 A("Genjutsu: Ilusão das Trevas","magic",0,3,E("debuff",13)),
-// Dragon Ball
 A("Rajada de Punhos","physical",21,2,null),
 A("Bomba Espírito Fraca","physical",24,2,null),
 A("Chute Twin Chaser","physical",22,2,E("debuff",8)),
 A("Final Flash","physical",38,3,null),
 A("Spirit Bomb","physical",40,3,null),
-// One Piece
 A("Investida com Bastão","physical",18,2,null),
 A("Cien Fleur: Clutch","magic",24,2,E("debuff",9)),
 A("Diable Jambe: Poêle à Frire","physical",25,2,E("dot",4)),
 A("Santoryu: Oni Giri","physical",30,2,null),
 A("Gomu Gomu no Elephant Gun","physical",34,2,null),
-// Attack on Titan
 A("Tiro de Precisão","physical",20,2,null),
 A("Ataque em Grupo","physical",21,2,null),
 A("Plano de Batalha","physical",0,3,E("shield",13)),
 A("Blindagem Total","physical",0,3,E("shield",19)),
 A("Rugido de Comando","magic",0,3,E("stun")),
-// One Punch Man
 A("Investida Corajosa","physical",17,2,null),
 A("Confusão Psíquica","magic",0,3,E("stun")),
 A("Fama Inflada: Recuo Tático","physical",0,3,E("debuff",8)),
 A("Rajada Incendiária","physical",26,2,E("dot",5)),
 A("Fúria Descontrolada","physical",32,2,null),
-// Solo Leveling
 A("Marcação de Alvo","physical",21,2,E("debuff",9)),
 A("Investida Dourada","physical",29,2,null),
 A("Comando de Elite","physical",0,3,E("shield",14)),
 A("Golpe do Guardião","physical",30,2,null),
 A("Adaga Sombria: Execução","magic",30,2,E("dot",7)),
-// Hunter x Hunter
 A("Combo de Braços","physical",18,2,null),
 A("Thunderbolt","magic",27,2,E("stun")),
 A("Golpe de Treinadora Rigorosa","physical",25,2,null),
 A("Skill Hunter: Cópia","magic",0,3,E("debuff",12)),
 A("Fúria de Rei Formiga","magic",34,2,null),
-// Blue Lock
 A("Passe Decisivo","physical",13,2,null),
 A("Muralha Defensiva","physical",0,2,E("shield",6)),
 A("Jogada Imprevisível","physical",14,2,E("debuff",5)),
 A("Chute Curvo","physical",15,2,null),
 A("Visão Panorâmica","physical",0,2,E("debuff",6)),
-// Death Note
 A("Interrogatório","physical",0,3,E("debuff",8)),
 A("Sedução Manipuladora","magic",15,2,null),
 A("Rede de Informantes","magic",0,3,E("debuff",10)),
 A("Cadeia de Dedução","magic",16,2,null),
 A("Jogo Psicológico","magic",0,3,E("debuff",12)),
-// Frieren
 A("Cajado Sagrado: Toque Curativo","magic",0,3,E("heal",13)),
 A("Runa de Amaldiçoamento","magic",22,2,E("debuff",9)),
 A("Investida com Machado","physical",25,2,null),
 A("Magia Negra: Vórtice","magic",26,2,E("dot",5)),
 A("Selo de Tempo Congelante","magic",0,3,E("stun")),
-// Akame ga Kill
 A("Golpe com Lança Incursio","physical",24,2,null),
 A("Salto Felino","physical",23,2,null),
 A("Emboscada de Fios","physical",0,3,E("stun")),
 A("Nevasca Absoluta","magic",0,3,E("stun")),
 A("Corte Envenenado","physical",22,2,E("dot",8)),
-// Black Clover
 A("Descarga Elétrica Total","magic",0,3,E("stun")),
 A("Explosão Incendiária","magic",25,2,E("dot",5)),
 A("Onda Aquática Curativa","magic",0,3,E("heal",15)),
 A("Rajada Cortante de Vento","magic",0,2,E("debuff",10)),
 A("Corte de Espadão","physical",22,2,null),
-// Boku no Hero
 A("Sobrecarga Total: 1.300.000 Volts","magic",0,4,E("stun")),
 A("Comet Home Run","physical",24,2,null),
 A("Parede de Gelo Total","magic",0,2,E("shield",12)),
 A("Explosão em Área","magic",28,2,E("dot",5)),
 A("Carolina Smash","physical",36,3,null),
-// Bleach
 A("Chute Nervoso Duplo","physical",17,2,null),
 A("Higa Zekkou","physical",26,2,null),
 A("Sode no Shirayuki: Congelar","magic",0,3,E("stun")),
 A("Corte de Pétalas Cortantes","magic",28,2,E("debuff",11)),
 A("Getsuga Jujisho","magic",32,2,null),
-// Re:Zero
 A("Golpe Oportunista Duplo","physical",16,2,null),
 A("Garras Curativas","magic",0,3,E("heal",16)),
 A("Golpe Certeiro Veterano","physical",24,2,null),
 A("Corte Absoluto Repetido","physical",30,2,null),
 A("Congelamento Espiritual","magic",0,3,E("stun")),
-// Fullmetal Alchemist
 A("Muralha de Ferro","physical",0,2,E("shield",12)),
 A("Rajada Automática","physical",20,2,E("debuff",8)),
 A("Círculo de Transmutação: Chamas","magic",30,2,E("dot",5)),
 A("Punho de Aço Reforçado","physical",25,2,null),
 A("Pilar de Pedra","physical",0,3,E("shield",16)),
-// Record of Ragnarok
 A("Corte nas Sombras","physical",23,2,null),
 A("Vigor Divino","physical",0,3,E("heal",17)),
 A("Corte no Vento","physical",27,2,null),
 A("Fúria Ancestral","magic",30,2,null),
 A("Cura Iluminada","magic",0,4,E("heal",22)),
-// Baki
 A("Combo Ancestral","physical",22,2,null),
 A("Rugido Selvagem","physical",0,3,E("stun")),
 A("Punho Demolidor","physical",32,2,null),
 A("Golpe Nervoso Preciso","physical",0,3,E("debuff",12)),
 A("Respiração Curativa Profunda","physical",0,3,E("heal",13)),
-// Haikyuu
 A("Cobertura Total da Quadra","physical",0,2,E("shield",7)),
 A("Bloqueio Duplo","physical",0,2,E("shield",7)),
 A("Leitura de Jogo","physical",0,2,E("debuff",6)),
 A("Salto Impossível","physical",18,2,null),
 A("Levantamento Enganoso","physical",0,2,E("debuff",6)),
-// Nanatsu no Taizai
 A("Cura da Floresta Sagrada","magic",0,3,E("heal",17)),
 A("Terremoto Gigante","physical",0,3,E("stun")),
 A("Roubo de Poder Duplo","magic",29,2,E("debuff",11)),
 A("Extinguish Rays","magic",0,3,E("debuff",16)),
 A("Barreira Infinita","magic",0,4,E("shield",20)),
-// Kaguya-sama
 A("Provocação Calculada","physical",0,2,E("debuff",6)),
 A("Distração Animada","physical",13,2,null),
 A("Manipulação Silenciosa","physical",0,2,E("debuff",7)),
 A("Xeque-Mate Social","physical",14,2,null),
 A("Guerra Psicológica Total","physical",0,3,E("debuff",10)),
-// Jujutsu Kaisen
 A("Cursed Energy: Impacto","magic",26,2,E("dot",5)),
 A("Resonance: Golpe Amaldiçoado","physical",25,2,null),
 A("Domain Expansion: Chimera Shadow Garden","magic",0,4,E("stun")),
 A("Cleave","magic",36,2,null),
 A("Blue: Colapso Gravitacional","magic",0,3,E("debuff",15)),
-// Demon Slayer
 A("Respiração do Trovão: Sexta Forma","magic",0,3,E("stun")),
 A("Mordida Selvagem","physical",24,2,E("dot",5)),
 A("Respiração da Chama: Ascensão do Fênix","magic",0,3,E("dot",6)),
 A("Respiração da Água: Dança Serena","physical",28,2,null),
 A("Dança do Deus do Fogo","magic",0,3,E("dot",6)),
-// Hell's Paradise
 A("Golpe Bruto de Prisioneiro","physical",20,2,null),
 A("Névoa Tóxica","magic",0,3,E("dot",6)),
 A("Corte de Execução Duplo","physical",23,2,null),
 A("Regeneração Selvagem","physical",0,3,E("heal",15)),
 A("Sentença Final","physical",28,2,null),
-// Your Name
 A("Reação em Cadeia","physical",11,2,null),
 A("Comentário Afiado","physical",0,2,E("debuff",5)),
 A("Charme Inesperado","physical",11,2,null),
 A("Fio Vermelho do Destino","magic",0,3,E("shield",10)),
 A("Corrida Contra o Tempo Final","physical",13,2,null),
-// Horimiya
 A("Investida Casual","physical",11,2,null),
 A("Grito Definitivo","physical",0,2,E("stun")),
 A("Charme Reconfortante","physical",0,2,E("debuff",5)),
 A("Explosão de Confiança","physical",14,2,null),
 A("Faceta Surpresa","physical",0,2,E("debuff",6)),
-// JoJo
 A("Echoes Act 3: Distorção","magic",0,3,E("debuff",11)),
 A("Crazy Diamond: Soco Restaurador","magic",26,2,null),
 A("Gold Experience: Vida Selvagem","magic",0,3,E("dot",6)),
@@ -1371,8 +1493,7 @@ A("The World: Road Roller","magic",0,4,E("stun")),
 A("Star Platinum: The World Over Heaven","magic",34,2,null)
 ];
 
-// Bespoke Ultimate per S/A-rank character, keyed by exact character name.
-// B/C-rank characters get none at all (checked in the build loop).
+// Ultimate exclusivo por personagem Mítico/Lendário, com chave = nome exato.
 const ULTIMATES = {
 "Sukuna": {kind:"meteor", name:"Domain Expansion: Malevolent Shrine", aoeDmg:29, dmgType:"magic", desc:"Expande seu domínio amaldiçoado longe demais pra conter — corta tudo que está por perto, aliado ou não."},
 "Son Goku": {name:"Super Saiyajin", lifeBonus:32, dmgBonus:14, desc:"Seus cabelos se erguem e ficam dourados — poder e velocidade disparam instantaneamente."},
@@ -1430,6 +1551,467 @@ const ULTIMATES = {
 "Eren Yeager": {name:"Titã Fundador: Grito Ancestral", lifeBonus:24, dmgBonus:12, desc:"Um brado que ecoa por gerações de titãs, dobrando a realidade ao seu redor."}
 };
 
+/* =========================================================================
+   MOTOR DE SPRITES — pixel art procedural
+   =========================================================================
+   ESPECIFICAÇÃO VISUAL (vale para os 135 personagens quando forem migrados):
+
+     Resolução base ........ 48 x 64 px lógicos
+     Proporção ............. cabeça ~17px de 64 => ~1:3.7 (sprite de luta 2D)
+     Pose .................. guarda de combate: pernas afastadas e flexionadas,
+                             punhos erguidos. Nunca posição de sentido.
+     Contorno .............. 1px, #140f14, aplicado automaticamente
+     Luz ................... vinda de cima-esquerda
+     Sombreamento .......... rampa de 4 tons por região, gerada automaticamente:
+                             realce na borda superior-esquerda, base no miolo,
+                             sombra e sombra forte descendo até a borda
+                             inferior-direita. Sem gradiente, sem anti-aliasing.
+     Escala na arena ....... nearest-neighbor (image-rendering: pixelated)
+     Paleta ................ 6 a 9 cores nomeadas por personagem. As variantes
+                             de sombra/realce NÃO são escolhidas à mão: derivam
+                             da cor base, então trocar a paleta troca o
+                             personagem inteiro sem redesenhar um pixel.
+     FRENTE ................ rosto visível, usada pelo ADVERSÁRIO em batalha,
+                             pelo índice e pelas telas de time.
+     COSTAS ................ sem rosto, cabelo visto por trás, emblema/nó das
+                             costas visíveis. Usada pelo lutador DO JOGADOR.
+                             Nunca é o sprite de frente espelhado.
+
+   Por que procedural e não uma imagem por personagem: 135 personagens x 2
+   vistas x 2 poses seriam 540 arquivos. Aqui cada personagem é ~15 linhas de
+   dados, o arquivo continua único, e nada é baixado da rede.
+   ========================================================================= */
+
+const SPR_W = 48, SPR_H = 64;
+const SPR_OUTLINE = "#140f14";
+
+function shadeColor(hex, amt){
+  const n = parseInt(hex.slice(1),16);
+  let r=(n>>16)+amt, g=((n>>8)&0xff)+amt, b=(n&0xff)+amt;
+  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+  return "#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+
+class PixGrid{
+  constructor(w,h){ this.w=w; this.h=h; this.d=new Array(w*h).fill(null); this.tone=new Array(w*h).fill(0); }
+  i(x,y){ return y*this.w+x; }
+  inb(x,y){ return x>=0 && y>=0 && x<this.w && y<this.h; }
+  get(x,y){ return this.inb(x,y) ? this.d[this.i(x,y)] : null; }
+  set(x,y,slot){ if(this.inb(x,y)) this.d[this.i(x,y)] = slot; }
+  // pinta só onde já existe alguma coisa — serve pra dobra de roupa e sombra
+  paintOver(x,y,slot){ if(this.inb(x,y) && this.d[this.i(x,y)]) this.d[this.i(x,y)] = slot; }
+  rect(x,y,w,h,slot){ for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) this.set(i,j,slot); }
+  rectOver(x,y,w,h,slot){ for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) this.paintOver(i,j,slot); }
+  ellipse(cx,cy,rx,ry,slot){
+    for(let j=Math.floor(cy-ry); j<=Math.ceil(cy+ry); j++)
+      for(let i=Math.floor(cx-rx); i<=Math.ceil(cx+rx); i++){
+        const dx=(i-cx)/rx, dy=(j-cy)/ry;
+        if(dx*dx+dy*dy <= 1.02) this.set(i,j,slot);
+      }
+  }
+  limb(x0,y0,x1,y1,w0,w1,slot){
+    const steps = Math.max(Math.abs(x1-x0), Math.abs(y1-y0), 1)*2;
+    for(let s=0; s<=steps; s++){
+      const t=s/steps;
+      const cx=x0+(x1-x0)*t, cy=y0+(y1-y0)*t, w=w0+(w1-w0)*t, half=w/2;
+      for(let i=Math.round(cx-half); i<=Math.round(cx+half); i++)
+        for(let j=Math.round(cy-half*0.55); j<=Math.round(cy+half*0.55); j++)
+          this.set(i,j,slot);
+    }
+  }
+  spike(bx,by,tx,ty,halfW,slot){
+    const steps = Math.max(Math.abs(tx-bx), Math.abs(ty-by), 1)*2;
+    for(let s=0; s<=steps; s++){
+      const t=s/steps;
+      const cx=bx+(tx-bx)*t, cy=by+(ty-by)*t, hw=halfW*(1-t*t)+0.4;
+      for(let i=Math.round(cx-hw); i<=Math.round(cx+hw); i++)
+        for(let j=Math.round(cy-hw*0.5); j<=Math.round(cy+hw*0.5); j++)
+          this.set(i,j,slot);
+    }
+  }
+}
+
+/* Rampa de 4 tons gerada automaticamente:
+     tone 3 = realce  (borda superior-esquerda, onde a luz bate)
+     tone 0 = base
+     tone 1 = sombra  (uma casa pra dentro da borda escura)
+     tone 2 = sombra forte (borda inferior-direita)
+   Isso é o que separa "boneco chapado" de "sprite com volume": um único tom
+   escuro no contorno deixa tudo plano; a rampa dá curvatura ao braço e ao peito. */
+// Regiões pequenas e chapadas por natureza NÃO entram na rampa: um olho de
+// 5x3 px recebendo realce + sombra vira uma bolha cinza em vez de um olho.
+// O mesmo vale para dobras e traços, que já SÃO a sombra.
+const FLAT_SLOTS = new Set(["eye","eyeWhite","mouth","emblemInk","skinShade","topShade","bootsole"]);
+
+function autoShade(g){
+  const out = g.tone;
+  const rim = new Array(g.w*g.h).fill(0); // 1 = borda escura, 2 = borda clara
+  for(let y=0;y<g.h;y++) for(let x=0;x<g.w;x++){
+    const s = g.get(x,y); if(!s || FLAT_SLOTS.has(s)) continue;
+    const dark  = g.get(x+1,y)!==s || g.get(x,y+1)!==s;
+    const light = g.get(x-1,y)!==s || g.get(x,y-1)!==s;
+    if(dark){ rim[g.i(x,y)]=1; out[g.i(x,y)]=2; }
+    else if(light){ rim[g.i(x,y)]=2; out[g.i(x,y)]=3; }
+  }
+  for(let y=0;y<g.h;y++) for(let x=0;x<g.w;x++){
+    const s = g.get(x,y); if(!s || FLAT_SLOTS.has(s) || rim[g.i(x,y)]) continue;
+    if(rim[g.i(x+1,y)]===1 || rim[g.i(x,y+1)]===1) out[g.i(x,y)]=1;
+  }
+}
+
+function autoOutline(g){
+  const add = [];
+  for(let y=0;y<g.h;y++) for(let x=0;x<g.w;x++){
+    if(g.get(x,y)) continue;
+    if(g.get(x-1,y)||g.get(x+1,y)||g.get(x,y-1)||g.get(x,y+1)) add.push([x,y]);
+  }
+  add.forEach(([x,y])=> g.set(x,y,"__outline"));
+}
+
+/* ---------- corpo em pose de luta ---------- */
+// Postura parada de combate, não posição de sentido: pernas afastadas e
+// flexionadas, punhos erguidos na altura do peito. Um sprite de braços colados
+// no corpo lê como "personagem esperando", não como "personagem lutando".
+const BODY = {
+  cx:24,
+  headCy:19, headRx:6, headRy:7,
+  browY:17, eyeY:19, mouthY:24,
+  neckTop:25, neckBot:29,
+  shoulderY:29, shoulderHW:9,
+  waistY:42, waistHW:6,
+  sashTop:41, sashBot:45,
+  hipY:45, ankleY:57,
+  bootTop:55, bootBot:62
+};
+
+function drawBody(g, r, view, pose){
+  const B = BODY, cx = B.cx;
+  const atk = pose==="attack";
+
+  // --- pernas afastadas, com joelho ---
+  const kneeY = 51, footOut = 8;
+  g.limb(cx-3, B.hipY, cx-6, kneeY, 8, 7, "bottom");
+  g.limb(cx-6, kneeY, cx-footOut, B.ankleY, 7, 6, "bottom");
+  g.limb(cx+3, B.hipY, cx+6, kneeY, 8, 7, "bottom");
+  g.limb(cx+6, kneeY, cx+footOut, B.ankleY, 7, 6, "bottom");
+
+  // --- botas ---
+  const bootH = B.bootBot-B.bootTop+1;
+  g.rect(cx-footOut-4, B.bootTop, 8, bootH, "boots");
+  g.rect(cx+footOut-3, B.bootTop, 8, bootH, "boots");
+  g.rect(cx-footOut-4, B.bootTop, 8, 2, "bootcuff");   // cano claro
+  g.rect(cx+footOut-3, B.bootTop, 8, 2, "bootcuff");
+  g.rect(cx-footOut-4, B.bootBot, 8, 1, "bootsole");
+  g.rect(cx+footOut-3, B.bootBot, 8, 1, "bootsole");
+
+  // --- torso: trapézio ombro -> cintura ---
+  for(let y=B.shoulderY; y<=B.waistY; y++){
+    const t=(y-B.shoulderY)/(B.waistY-B.shoulderY);
+    const hw = Math.round(B.shoulderHW + (B.waistHW-B.shoulderHW)*t);
+    g.rect(cx-hw, y, hw*2+1, 1, "top");
+  }
+  // faixa na cintura + nó lateral
+  g.rect(cx-B.waistHW-1, B.sashTop, (B.waistHW+1)*2+1, B.sashBot-B.sashTop+1, "sash");
+  if(view==="front"){
+    g.rect(cx-B.waistHW-2, B.sashTop+1, 3, 3, "sash");
+    g.rect(cx-B.waistHW-2, B.sashBot+1, 2, 3, "sash");
+  } else {
+    g.rect(cx+B.waistHW-1, B.sashTop+1, 3, 3, "sash");
+    g.rect(cx+B.waistHW, B.sashBot+1, 2, 3, "sash");
+  }
+
+  // --- braços: ombro -> cotovelo -> punho ---
+  const fist = (fx,fy)=>{
+    g.rect(fx, fy, 5, 5, "skin");
+    g.rect(fx, fy+5, 5, 3, "band");        // munhequeira
+    g.rect(fx+1, fy+2, 3, 1, "skinShade"); // linha dos nós dos dedos
+  };
+  let L, R;
+  if(atk && view==="front"){        // soco descendo rumo ao jogador
+    L = [[cx-7,31],[cx-14,38],[cx-17,45]];
+    R = [[cx+7,31],[cx+12,34],[cx+13,37]];
+  } else if(atk){                   // de costas: soco subindo rumo ao inimigo
+    L = [[cx-7,31],[cx-12,34],[cx-13,37]];
+    R = [[cx+7,31],[cx+14,25],[cx+17,18]];
+  } else {                          // guarda
+    L = [[cx-7,31],[cx-13,36],[cx-14,40]];
+    R = [[cx+7,31],[cx+13,36],[cx+14,40]];
+  }
+  [[L,-1],[R,1]].forEach(([P,dir])=>{
+    g.limb(P[0][0],P[0][1], P[1][0],P[1][1], 8, 6, "sleeve");
+    g.limb(P[1][0],P[1][1], P[2][0],P[2][1], 6, 5, "skin");
+    fist(P[2][0] + (dir<0 ? -4 : -1), P[2][1]-2);
+  });
+
+  // --- pescoço e cabeça ---
+  g.rect(cx-3, B.neckTop, 7, B.neckBot-B.neckTop, "skin");
+  g.rect(cx-3, B.neckTop, 7, 2, "skinShade"); // sombra do queixo no pescoço
+  g.ellipse(cx, B.headCy, B.headRx, B.headRy, view==="back" ? "hair" : "skin");
+}
+
+function drawFace(g){
+  const B = BODY, cx = B.cx;
+  // Olhos com esclera clara e pupila escura: dois quadrados pretos leem como
+  // "olho fechado". A esclera é o que dá o olhar de anime nesta escala.
+  g.rect(cx-6, B.browY, 5, 1, "hair");
+  g.rect(cx+2, B.browY, 5, 1, "hair");
+  g.rect(cx-6, B.eyeY, 5, 3, "eyeWhite");
+  g.rect(cx+2, B.eyeY, 5, 3, "eyeWhite");
+  g.rect(cx-4, B.eyeY, 3, 3, "eye");
+  g.rect(cx+2, B.eyeY, 3, 3, "eye");
+  g.rect(cx-1, B.eyeY+3, 2, 1, "skinShade"); // nariz
+  g.rect(cx-2, B.mouthY+1, 4, 1, "mouth");   // 2px abaixo do nariz, senão vira bigode
+}
+
+/* ---------- cabelo ----------
+   O cabelo é a assinatura de um personagem de anime e não sai de fórmula: cada
+   espinho aqui é um dado (base, ponta, espessura). Trocar o personagem é trocar
+   essa lista, não reescrever o gerador. */
+const HAIR = {
+  goku(g, view){
+    const B = BODY, cx = B.cx;
+    // Touca COLADA no crânio. Uma touca folgada + espinhos gordos vira afro:
+    // o que faz cabelo de anime ler como espetado é o espaço vazio ENTRE as
+    // mechas, não a quantidade de mechas.
+    const capBottom = view==="back" ? B.headCy+B.headRy : B.browY-1;
+    for(let y=B.headCy-B.headRy-1; y<=capBottom; y++){
+      const dy=(y-B.headCy)/(B.headRy+1);
+      const hw = Math.round((B.headRx+1)*Math.sqrt(Math.max(0,1-dy*dy)));
+      if(hw>0) g.rect(cx-hw, y, hw*2+1, 1, "hair");
+    }
+    // 9 mechas, cada uma um dado [baseX, baseY, pontaX, pontaY, espessura].
+    // Trocar de personagem = trocar esta lista.
+    const S = [
+      [cx-1,  13, cx-3,  0,  2.6],  // mecha central alta
+      [cx-5,  13, cx-9,  1,  2.3],
+      [cx+4,  13, cx+7,  0,  2.3],
+      [cx-7,  14, cx-14, 4,  2.1],
+      [cx+7,  14, cx+13, 3,  2.1],
+      [cx-8,  16, cx-18, 9,  1.9],
+      [cx+8,  16, cx+17, 8,  1.9],
+      [cx+1,  13, cx+2,  3,  1.9],
+      [cx-3,  13, cx-4,  4,  1.7],
+      [cx+6,  15, cx+10, 8,  1.7]
+    ];
+    S.forEach(k=> g.spike(k[0],k[1],k[2],k[3],k[4],"hair"));
+    // costeletas curtas, até a altura do olho
+    g.rect(cx-8, B.browY-1, 2, 5, "hair");
+    g.rect(cx+7, B.browY-1, 2, 5, "hair");
+    if(view==="back"){
+      // Nuca curta: descendo demais, o cabelo engolia o emblema das costas —
+      // que é justamente o que torna a vista traseira reconhecível.
+      g.rect(cx-6, B.headCy+5, 13, 3, "hair");
+      g.spike(cx-3, B.headCy+7, cx-5, B.headCy+11, 2.2, "hair");
+      g.spike(cx+3, B.headCy+7, cx+5, B.headCy+11, 2.2, "hair");
+      g.spike(cx,   B.headCy+7, cx,   B.headCy+10, 2.2, "hair");
+    }
+  }
+};
+
+/* ---------- traje ---------- */
+const OUTFIT = {
+  gi(g, view){
+    const B = BODY, cx = B.cx;
+    if(view==="front"){
+      // gola em V da camisa de baixo + as duas lapelas cruzadas do gi
+      g.rect(cx-4, B.shoulderY,   9, 2, "under");
+      g.rect(cx-3, B.shoulderY+2, 7, 2, "under");
+      g.rect(cx-1, B.shoulderY+4, 3, 2, "under");
+      g.rectOver(cx-7, B.shoulderY+1, 2, 8, "topShade");
+      g.rectOver(cx+6, B.shoulderY+1, 2, 8, "topShade");
+      // dobras verticais do gi
+      g.rectOver(cx-3, B.shoulderY+7, 1, 5, "topShade");
+      g.rectOver(cx+3, B.shoulderY+7, 1, 5, "topShade");
+    } else {
+      const ey = B.shoulderY+7;
+      g.ellipse(cx, ey, 4.4, 4.4, "emblem");
+      g.rect(cx-2, ey-2, 5, 1, "emblemInk");
+      g.rect(cx,   ey-1, 1, 1, "emblemInk");
+      g.rect(cx-2, ey,   5, 1, "emblemInk");
+      g.rect(cx,   ey+1, 1, 1, "emblemInk");
+      g.rect(cx-2, ey+2, 5, 1, "emblemInk");
+      g.rectOver(cx-7, B.shoulderY+1, 2, 9, "topShade");
+      g.rectOver(cx+6, B.shoulderY+1, 2, 9, "topShade");
+    }
+  }
+};
+/* =========================================================================
+   ARTE EXTERNA
+   =========================================================================
+   As artes agora moram em arquivos, não embutidas. O jogo deixou de ser um
+   arquivo único — foi uma troca deliberada: com transformação para vários
+   personagens, embutir tudo faria o HTML passar de vários MB e travar o
+   primeiro carregamento no celular. Em arquivos, o navegador baixa só o que
+   entra em campo e cacheia o resto.
+
+   Estrutura esperada, ao lado do HTML:
+
+     arena-de-leilao.html
+     assets/sprites/<slug>/front.png
+                          back.png
+                          charge-front.png    (opcional)
+                          charge-back.png     (opcional)
+                          ssj-front.png       (opcional)
+                          ssj-back.png        (opcional)
+
+   Acrescentar personagem = soltar a pasta + uma linha em ART. Nada mais.
+
+   TODAS as artes precisam sair do prepare_sprite.py, que normaliza o canvas
+   para 210x245 com a sola dos pés e o centro do corpo ancorados no mesmo ponto.
+   É isso que faz a troca de imagem não deslocar nada durante a transformação.
+   Arte solta, no recorte que veio, faz o personagem pular de tamanho.
+   ========================================================================= */
+const ASSET_BASE = "assets/sprites/";
+const SPRITE_CANVAS = {w:210, h:245};
+
+const STATE_FILE = {
+  front:"front.png", back:"back.png",
+  chargeFront:"charge-front.png", chargeBack:"charge-back.png",
+  ssjFront:"ssj-front.png", ssjBack:"ssj-back.png"
+};
+
+// `states` lista o que existe de verdade na pasta. O jogo nunca pede um arquivo
+// que não foi declarado — assim um personagem pode ter só frente e costas, sem
+// transformação, e nada quebra.
+const ART = {
+  "Son Goku": {
+    slug: "son-goku",
+    states: ["front","back","chargeFront","chargeBack","ssjFront","ssjBack"]
+  }
+};
+
+function artURL(c, state){
+  const a = ART[c.name];
+  if(!a || a.states.indexOf(state) < 0) return null;
+  return ASSET_BASE + a.slug + "/" + STATE_FILE[state];
+}
+function bitmapFor(c, view, transformed){
+  const side = (view==="back" ? "Back" : "Front");
+  if(transformed){
+    const t = artURL(c, "ssj"+side);
+    if(t) return t;
+  }
+  return artURL(c, side.toLowerCase());
+}
+function chargeBitmapFor(c, view){
+  return artURL(c, "charge" + (view==="back" ? "Back" : "Front"));
+}
+function hasArt(c){ return !!ART[c.name]; }
+
+/* Pré-carga: sem isso, o quadro de carga de ki só começa a baixar no instante
+   em que o Ultimate é acionado, e a primeira fase da animação aparece em branco.
+   Só pré-carrega quem está em campo — 135 personagens de uma vez seria pior que
+   o arquivo embutido que estamos justamente removendo. */
+const preloaded = {};
+function preloadArt(c){
+  const a = ART[c.name];
+  if(!a || preloaded[c.name]) return;
+  preloaded[c.name] = true;
+  a.states.forEach(st=>{ const im = new Image(); im.src = artURL(c, st); });
+}
+
+/* Se um arquivo faltar ou falhar, o personagem cai no stick figure em vez de
+   virar um ícone de imagem quebrada. Vale para quem ainda não tem arte pronta. */
+function artFailed(img, charId){
+  const c = charById(charId);
+  if(!c || !img.parentNode) return;
+  const wrap = document.createElement("span");
+  wrap.innerHTML = stickFigureSVG(c, true, false);
+  img.parentNode.replaceChild(wrap.firstChild, img);
+}
+
+/* ---------- registro de sprites ----------
+   Só quem estiver aqui usa pixel art. Todo o resto cai automaticamente no
+   stick figure antigo, então o jogo nunca fica meio quebrado durante a migração. */
+const SPRITES = {
+  "Son Goku": {
+    hair: "goku",
+    outfit: "gi",
+    palette: {
+      skin:"#f2c49a", skinShade:"#d1966b", hair:"#1e181c",
+      eye:"#2b2328", eyeWhite:"#f6f2ec", mouth:"#8a4a42",
+      top:"#ea7d1e", topShade:"#bf5f10", sleeve:"#cf6a12", bottom:"#e37a22",
+      sash:"#2f4f9e", under:"#2f4f9e",
+      boots:"#2f4f9e", bootcuff:"#e8e3d8", bootsole:"#1b2f61",
+      band:"#efeae0", emblem:"#efeae0", emblemInk:"#2a2320"
+    },
+    // Super Saiyajin: só o cabelo muda de slot na paleta. Nenhuma matriz é redesenhada.
+    transformPalette: { hair:"#f6d84e" },
+    auraColor: "#ffe27a"
+  }
+};
+
+const spriteCache = {};
+
+// Gera (e cacheia) o dataURL de um sprite. view: "front" | "back".
+// pose: "idle" | "attack". transformed: aplica a paleta alternativa.
+function spriteURL(c, view, pose, transformed){
+  const def = SPRITES[c.name];
+  if(!def) return null;
+  const key = c.name+"|"+view+"|"+pose+"|"+(transformed?"t":"n");
+  if(spriteCache[key]) return spriteCache[key];
+
+  const g = new PixGrid(SPR_W, SPR_H);
+  drawBody(g, def, view, pose);
+  if(HAIR[def.hair]) HAIR[def.hair](g, view);
+  if(view==="front") drawFace(g, def);
+  if(OUTFIT[def.outfit]) OUTFIT[def.outfit](g, view);
+  autoShade(g);
+  autoOutline(g);
+
+  const pal = Object.assign({}, def.palette, transformed ? (def.transformPalette||{}) : {});
+  const cv = document.createElement("canvas");
+  cv.width = SPR_W; cv.height = SPR_H;
+  const ctx = cv.getContext("2d");
+  const img = ctx.createImageData(SPR_W, SPR_H);
+  for(let i=0;i<g.d.length;i++){
+    const slot = g.d[i];
+    if(!slot) continue;
+    let hex;
+    if(slot==="__outline") hex = SPR_OUTLINE;
+    else {
+      const base = pal[slot] || "#ff00ff"; // magenta = slot faltando na paleta
+      const tone = g.tone[i];
+      hex = tone===1 ? shadeColor(base,-22)
+          : tone===2 ? shadeColor(base,-46)
+          : tone===3 ? shadeColor(base, 24)
+          : base;
+    }
+    const n = parseInt(hex.slice(1),16);
+    img.data[i*4]   = (n>>16)&0xff;
+    img.data[i*4+1] = (n>>8)&0xff;
+    img.data[i*4+2] = n&0xff;
+    img.data[i*4+3] = 255;
+  }
+  ctx.putImageData(img,0,0);
+  const url = cv.toDataURL("image/png");
+  spriteCache[key] = url;
+  return url;
+}
+
+function hasSprite(c){ return hasArt(c) || !!SPRITES[c.name]; }
+
+// Ponto único de renderização de um lutador. Usa pixel art quando existe e
+// stick figure quando não — quem chama não precisa saber qual dos dois veio.
+function fighterArt(c, opts){
+  const o = opts || {};
+  const view = o.view || "front";
+  const pose = o.pose || "idle";
+  const cls  = o.className || "";
+  // Ordem de preferência: arte final > gerador procedural > stick figure.
+  const bmp = bitmapFor(c, view, o.transformed);
+  if(bmp){
+    return `<img class="sprite-img sprite-bitmap ${cls}" src="${bmp}" alt="${c.name}"`
+         + ` draggable="false" onerror="artFailed(this,'${c.id}')">`;
+  }
+  const url = spriteURL(c, view, pose, o.transformed);
+  if(url){
+    return `<img class="sprite-img ${cls}" src="${url}" alt="${c.name}" draggable="false">`;
+  }
+  return stickFigureSVG(c, o.alive!==false, o.transformed);
+}
+
+/* ============ MONTAGEM DOS PERSONAGENS ============ */
 const CHARACTERS = [];
 let cid=1;
 Object.keys(RAW).forEach(anime=>{
@@ -1447,16 +2029,25 @@ Object.keys(RAW).forEach(anime=>{
       life: kit.life, physShield: kit.physShield, magShield: kit.magShield,
       attacks: [...kit.attacks, fourthAtk],
       appearance: ap ? {skin:ap[0], hairColor:ap[1], hairStyle:ap[2], outfit:ap[3], outfit2:ap[4]} : null,
-      ultimate: null // assigned below, only for S/A-rank characters
+      ultimate: null
     };
     CHARACTERS.push(character);
   });
 });
 
-// Rank each character S/A/B/C purely from base combat stats (life, shields, total
-// attack power across all 4 attacks, and how many control/utility effects they carry).
-// Ultimates are NOT part of this score — they're a reward handed out AFTER ranking,
-// only to S/A characters, which is why the two steps must stay in this order.
+/* ---- RARIDADE ----
+   Os quatro tiers antigos (S/A/B/C) agora são Mítico / Lendário / Raro / Comum.
+   Os limiares de percentil e o cálculo do score continuam exatamente os mesmos:
+   a mudança é só de nome e de cor. `rankKey` é a versão sem acento usada em
+   classe CSS; `rank` é o rótulo que aparece na tela. */
+const RANK_TIERS = [
+  {pct:0.15, key:"mitico",   label:"Mítico"},
+  {pct:0.40, key:"lendario", label:"Lendário"},
+  {pct:0.75, key:"raro",     label:"Raro"},
+  {pct:1.01, key:"comum",    label:"Comum"}
+];
+const ULT_TIERS = ["mitico","lendario"]; // só esses dois recebem Ultimate
+
 (function rankCharacters(){
   const scored = CHARACTERS.map(c=>{
     const atkPower = c.attacks.reduce((sum,a)=> sum + (a.dmg||0), 0);
@@ -1467,8 +2058,10 @@ Object.keys(RAW).forEach(anime=>{
   const n = scored.length;
   scored.forEach((entry,i)=>{
     const pct = i/n;
-    entry.c.rank = pct<0.15 ? "S" : pct<0.40 ? "A" : pct<0.75 ? "B" : "C";
-    if(entry.c.rank==="S" || entry.c.rank==="A"){
+    const tier = RANK_TIERS.find(t=> pct < t.pct);
+    entry.c.rank = tier.label;
+    entry.c.rankKey = tier.key;
+    if(ULT_TIERS.includes(tier.key)){
       const u = ULTIMATES[entry.c.name];
       if(u) entry.c.ultimate = u.kind==="meteor"
         ? {name:u.name, kind:"meteor", aoeDmg:u.aoeDmg, dmgType:u.dmgType, desc:u.desc}
@@ -1482,7 +2075,7 @@ Object.keys(RAW).forEach(anime=>{
 
 /* ============ STATE ============ */
 let ROOM_CODE = null;
-let MY_SLOT = null; // 1 or 2
+let MY_SLOT = null;
 let pollTimer = null;
 let LAST_STATE = null;
 let LAST_REV = -1;
@@ -1506,7 +2099,7 @@ function newRoomState(code){
     teams: {p1:[], p2:[]},
     pool,
     poolIndex:0,
-    phase:"lobby", // lobby | coinflip | auction | ultimate | battle | battleover
+    phase:"lobby",
     currentBid:{amount:0, by:null},
     turnToAct:null,
     passedThisChar:{p1:false, p2:false},
@@ -1551,18 +2144,19 @@ function render(){
   });
 }
 
-// Called on the polling interval: only redraws the screen if the room's revision
-// number actually MOVED FORWARD (not just "differs") — a poll fetch that started
-// before your own click can resolve after it, carrying an older revision than
-// what you already committed locally. Using "<=" instead of "!==" here rejects
-// that stale response instead of letting it overwrite your newer screen (this
-// is exactly what made the order-confirm screen look like it "reverted"/bugged).
+// Só redesenha se a revisão da sala AVANÇOU. Um fetch de polling que começou
+// antes do seu clique pode terminar depois dele, trazendo uma revisão mais
+// velha do que a que você já gravou; o "<=" descarta essa resposta atrasada
+// em vez de deixar ela sobrescrever a tela mais nova.
 function poll(){
   if(!ROOM_CODE) return;
+  // Segura o redesenho enquanto uma animação longa está no ar. Não mexe em
+  // LAST_REV: assim que a trava cair, o próximo poll traz e desenha o estado.
+  if(Date.now() < animLock) return;
   return loadRoom(ROOM_CODE).then(state=>{
     if(!state) return;
     const rev = state.rev||0;
-    if(rev<=LAST_REV) return; // stale or unchanged, skip redraw
+    if(rev<=LAST_REV) return;
     LAST_STATE = state;
     LAST_REV = rev;
     draw(state);
@@ -1605,7 +2199,7 @@ function renderHome(){
         <button type="button" class="btn diff-btn active" id="diffEasyBtn" onclick="setDifficulty('easy')">Fácil</button>
         <button type="button" class="btn diff-btn" id="diffHardBtn" onclick="setDifficulty('hard')">Difícil</button>
       </div>
-      <p class="hint" id="diffHint">Fácil: mostra o ranking (S/A/B/C) de cada personagem durante o leilão.</p>
+      <p class="hint" id="diffHint">Fácil: mostra a raridade (Comum a Mítico) de cada personagem durante o leilão.</p>
       <div style="margin-top:12px;"><button class="btn primary" onclick="createRoom()">Criar nova sala</button></div>
     </div>
     <div class="card">
@@ -1630,6 +2224,7 @@ function renderHome(){
 let showingIndex = false;
 let indexSearchTerm = "";
 let indexSelectedId = null;
+let indexView = "front"; // frente/costas no visor do índice
 
 function openCharIndex(){
   showingIndex = true;
@@ -1651,6 +2246,11 @@ function updateIndexSearch(val){
 }
 function selectIndexChar(id){
   indexSelectedId = id;
+  indexView = "front";
+  renderCharIndex();
+}
+function setIndexView(v){
+  indexView = v;
   renderCharIndex();
 }
 
@@ -1668,9 +2268,9 @@ function renderCharIndex(){
     <div class="index-list">
       ${filtered.map(c=>`
         <div class="index-row" onclick="selectIndexChar('${c.id}')">
-          ${stickFigureSVG(c, true)}
+          ${fighterArt(c,{view:"front"})}
           <div class="index-info">
-            <div class="index-name">${c.name} <span class="badge rank-${c.rank}">${c.rank}</span></div>
+            <div class="index-name">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span> ${hasSprite(c)?'<span class="badge spr">Pixel art</span>':''}</div>
             <div class="index-sub">${c.anime} · ${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
           </div>
         </div>`).join("")}
@@ -1681,16 +2281,32 @@ function renderCharIndex(){
 }
 
 function renderCharDetail(c){
+  const spr = hasSprite(c);
+  // Quem tem pixel art ganha o visor com alternador frente/costas; quem ainda
+  // não tem mostra o stick figure e um aviso de que a arte está por vir.
+  const viewer = spr ? `
+    <div class="sprite-viewer">
+      ${fighterArt(c,{view:indexView})}
+      <div class="view-toggle">
+        <button class="${indexView==='front'?'active':''}" onclick="setIndexView('front')">Frente</button>
+        <button class="${indexView==='back'?'active':''}" onclick="setIndexView('back')">Costas</button>
+      </div>
+      <p class="hint" style="margin:0;">${indexView==='front'?'Vista usada pelo adversário em batalha.':'Vista usada pelo seu lutador em batalha.'}</p>
+    </div>` : `
+    <div style="margin-top:14px;">${stickFigureSVG(c, true)}
+      <p class="hint center">Pixel art ainda não feita para este personagem.</p>
+    </div>`;
+
   app.innerHTML = `
     <div class="eyebrow">Índice</div>
     <h1>${c.name}</h1>
     <div class="card">
-      <div class="char-hero">
+      <div class="char-hero" style="padding-top:6px;">
         <span class="badge ${c.type}">${c.type==='physical'?'Físico':c.type==='magic'?'Mágico':'Híbrido'}</span>
-        <span class="badge rank-${c.rank}">${c.rank}</span>
+        <span class="badge rank-${c.rankKey}">${c.rank}</span>
         <div class="anime" style="margin-top:8px;">${c.anime}</div>
         <div class="hint" style="margin-top:4px;">${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
-        <div style="margin-top:14px;">${stickFigureSVG(c, true)}</div>
+        ${viewer}
         <div class="stat-row">
           <div class="stat"><div class="val">${c.life}</div><div class="lbl">Vida</div></div>
           <div class="stat"><div class="val">${c.physShield}</div><div class="lbl">Escudo Físico</div></div>
@@ -1713,7 +2329,7 @@ function renderCharDetail(c){
         <p class="hint">${c.ultimate.kind==="meteor"
           ? `⚠️ Atinge todos em campo: ${c.ultimate.aoeDmg} de dano ${c.ultimate.dmgType==="physical"?"físico":"mágico"} nos inimigos, metade nos aliados. Usa o turno.`
           : `+${c.ultimate.lifeBonus} vida, +${c.ultimate.dmgBonus} dano, -40% de escudo por até 3 rodadas${c.ultimate.growPerHit?`, cresce ao apanhar (até +${c.ultimate.growCap})`:''}${c.ultimate.explodeOnDeath?', explode nos aliados se morrer com poder acumulado':''}${c.ultimate.selfRecoil?`, perde ${c.ultimate.selfRecoil.value} de vida por ${c.ultimate.selfRecoil.turns} rodadas próprias`:''}${c.ultimate.upfrontToll?`, sacrifica ${c.ultimate.upfrontToll} de vida na hora`:''}${c.ultimate.permanentShieldCost?`, -${c.ultimate.permanentShieldCost} de escudo permanente`:''}. Não gasta o turno.`}</p>
-      ` : `<div class="divider"></div><p class="hint">Sem Ultimate (rank B/C).</p>`}
+      ` : `<div class="divider"></div><p class="hint">Sem Ultimate (raridade Raro/Comum).</p>`}
     </div>
     <div class="row" style="gap:8px;">
       <button class="btn" onclick="backToIndexList()">← Lista de personagens</button>
@@ -1731,8 +2347,8 @@ function setDifficulty(mode){
   if(easyBtn) easyBtn.classList.toggle("active", mode==="easy");
   if(hardBtn) hardBtn.classList.toggle("active", mode==="hard");
   if(hint) hint.textContent = mode==="easy"
-    ? "Fácil: mostra o ranking (S/A/B/C) de cada personagem durante o leilão."
-    : "Difícil: o ranking fica escondido — vocês julgam só pelo nome, classe e elemento.";
+    ? "Fácil: mostra a raridade (Comum a Mítico) de cada personagem durante o leilão."
+    : "Difícil: a raridade fica escondida — vocês julgam só pelo nome, classe e elemento.";
 }
 
 function playerName(state,key){
@@ -1796,7 +2412,7 @@ function renderLobby(state){
         <div class="player-panel"><h3>${state.players.p2?state.players.p2.name:'Jogador 2'}</h3><p class="status-line">${state.players.p2?'Conectado':'Aguardando...'}</p></div>
       </div>
       ${bothIn ? `<div style="margin-top:16px; text-align:center;"><button class="btn primary" onclick="goToCoinflip()">Jogar a moeda e iniciar leilão</button></div>` : `<p class="status-line">Aguardando o segundo jogador entrar com o código acima...</p>`}
-      <p class="hint" style="margin-top:10px;">Você é <strong>${playerName(state,'p'+MY_SLOT)}</strong> nessa sala. Dificuldade: <strong>${state.difficulty==="easy"?"Fácil (mostra ranking)":"Difícil (sem ranking)"}</strong>.</p>
+      <p class="hint" style="margin-top:10px;">Você é <strong>${playerName(state,'p'+MY_SLOT)}</strong> nessa sala. Dificuldade: <strong>${state.difficulty==="easy"?"Fácil (mostra raridade)":"Difícil (sem raridade)"}</strong>.</p>
       <div class="center" style="margin-top:14px;"><button class="btn" onclick="leaveRoom()">← Voltar</button></div>
     </div>
   `;
@@ -1811,7 +2427,7 @@ async function goToCoinflip(){
 async function startAuction(){
   if(MY_SLOT!==1) return;
   const state = await loadRoom(ROOM_CODE);
-  if(state.phase!=="coinflip") return; // already started
+  if(state.phase!=="coinflip") return;
   state.phase = "auction";
   setupCharacterTurn(state);
   state.log.unshift("Leilão iniciado — orçamento de R$20 cada, abertura de lance alternando por personagem.");
@@ -1875,11 +2491,11 @@ function renderAuction(state){
     <div class="card">
       <div class="char-hero">
         <span class="badge ${c.type}">${c.type==='physical'?'Físico':c.type==='magic'?'Mágico':'Híbrido'}</span>
-        ${state.difficulty==="easy" ? `<span class="badge rank-${c.rank}">${c.rank}</span>` : ''}
+        ${state.difficulty==="easy" ? `<span class="badge rank-${c.rankKey}">${c.rank}</span>` : ''}
         <div class="name" style="margin-top:8px;">${c.name}</div>
         <div class="anime">${c.anime}</div>
         <div class="hint" style="margin-top:4px;">${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
-        <div style="margin-top:14px;">${stickFigureSVG(c, true)}</div>
+        <div style="margin-top:14px; display:flex; justify-content:center;">${fighterArt(c,{view:"front", className:"sprite-enemy"})}</div>
       </div>
     </div>
 
@@ -2037,7 +2653,7 @@ function renderUltimate(state){
       <div class="roster-grid">
         ${myTeam.map(c=>`
           <div class="mini-card">
-            <div class="mn">${c.name} <span class="badge rank-${c.rank}">${c.rank}</span> ${c.ultimate?'<span class="badge ult">Ultimate</span>':''}</div>
+            <div class="mn">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span> ${c.ultimate?'<span class="badge ult">Ultimate</span>':''}</div>
             <div class="ma">${c.anime} · ${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
             <div style="font-size:11px; color:var(--text-dim);">Vida ${c.life} · Esc.Fís ${c.physShield} · Esc.Mág ${c.magShield}</div>
           </div>`).join("")}
@@ -2078,7 +2694,7 @@ async function confirmReady(){
   await commitAndDraw(state);
 }
 
-/* ============ ATTACK ORDER (pre-battle) ============ */
+/* ============ ORDEM DE ENTRADA (pré-batalha) ============ */
 function renderOrder(state){
   const myKey="p"+MY_SLOT;
   const oppKey = otherKey(myKey);
@@ -2095,8 +2711,8 @@ function renderOrder(state){
           const c=charById(id);
           return `<div class="order-item" draggable="${myReady?'false':'true'}" ondragstart="onOrderDragStart(${i})" ondragover="event.preventDefault()" ondrop="onOrderDrop(${i})">
             <div class="order-pos">${i===0?'🟢':i+1}</div>
-            ${stickFigureSVG(c,true)}
-            <div class="order-info"><div class="order-name">${c.name} <span class="badge rank-${c.rank}">${c.rank}</span> ${i===0?'<span class="badge ult">Começa em campo</span>':''}</div><div class="order-sub">${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div></div>
+            ${fighterArt(c,{view:"front"})}
+            <div class="order-info"><div class="order-name">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span> ${i===0?'<span class="badge ult">Começa em campo</span>':''}</div><div class="order-sub">${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div></div>
             <div class="order-arrows">
               <button class="btn" ${i===0||myReady?'disabled':''} onclick="moveOrderItem(${i},-1)">▲</button>
               <button class="btn" ${i===myOrder.length-1||myReady?'disabled':''} onclick="moveOrderItem(${i},1)">▼</button>
@@ -2149,7 +2765,7 @@ async function confirmOrder(){
   await commitAndDraw(state);
 }
 
-/* ============ COIN FLIP ============ */
+/* ============ CARA OU COROA ============ */
 function renderCoinflip(state){
   const result = state.coinResult;
   app.innerHTML = `
@@ -2177,7 +2793,7 @@ async function flipCoin(){
   await commitAndDraw(state);
 }
 
-/* ============ BATTLE ENGINE ============ */
+/* ============ MOTOR DE BATALHA ============ */
 function initBattle(state){
   const battle = {
     currentTurn: state.coinResult,
@@ -2200,17 +2816,13 @@ function initBattle(state){
   return battle;
 }
 
-// No longer used — the "hole in the order" mechanic below now handles what
-// happened when a character dies; kept as a harmless no-op so existing call
-// sites don't need to be hunted down individually.
 function checkDeathPenalty(state, id, wasAliveBefore){}
 
-// Call right after any hp reduction too: some ultimates (Garou's) make the
-// character genuinely grow stronger the more they get hit, up to a cap.
+// Alguns Ultimates (o do Garou) fazem o personagem crescer conforme apanha, até um teto.
 function checkGrowOnHit(state, id, wasAliveBefore){
   const b = state.battle;
   if(!b.growOnHit || !b.growOnHit[id]) return;
-  if(!wasAliveBefore || b.hp[id]<=0) return; // no growth from a hit that finishes them off
+  if(!wasAliveBefore || b.hp[id]<=0) return;
   const g = b.growOnHit[id];
   if(g.current >= g.cap) return;
   const gain = Math.min(g.perHit, g.cap-g.current);
@@ -2220,12 +2832,10 @@ function checkGrowOnHit(state, id, wasAliveBefore){
   b.log.unshift(`${c.name} fica mais forte ao apanhar! (+${gain} de dano, ${g.current}/${g.cap} acumulado)`);
 }
 
-// Call right after any hp reduction too, right alongside checkGrowOnHit: the
-// consequence side of Garou's mechanic — if he actually falls in battle while
-// carrying accumulated power, that power detonates on his OWN team.
+// O outro lado da mecânica do Garou: se ele cair carregado, o poder explode no próprio time.
 function checkExplodeOnDeath(state, id, wasAliveBefore){
   const b = state.battle;
-  if(!wasAliveBefore || b.hp[id]>0) return; // only fires the instant they die
+  if(!wasAliveBefore || b.hp[id]>0) return;
   const c = charById(id);
   if(!c.ultimate || !c.ultimate.explodeOnDeath) return;
   const grow = b.growOnHit && b.growOnHit[id];
@@ -2242,8 +2852,6 @@ function checkExplodeOnDeath(state, id, wasAliveBefore){
   });
 }
 
-// Ticks a character's own ongoing self-damage from a costly transformation
-// (Might Guy's Eight Gates) — once per round THIS character plays.
 function tickSelfRecoil(state, id){
   const b = state.battle;
   if(!b.selfRecoil || !b.selfRecoil[id]) return;
@@ -2258,11 +2866,8 @@ function tickSelfRecoil(state, id){
   if(r.turnsLeft<=0 || b.hp[id]<=0) delete b.selfRecoil[id];
 }
 
-// Ticks down a transformation once per round THE TRANSFORMED CHARACTER plays
-// (not every global action) — after 3 of their own rounds, the WHOLE effect
-// reverts: bonus life, bonus damage (including any Garou-style accumulated
-// growth), and the defense cut all disappear together. A permanent shield
-// cost (like Edward's) is baked into "original" already and stays forever.
+// Conta as rodadas DO PRÓPRIO personagem transformado. Ao acabar, tudo reverte
+// junto: vida bônus, dano bônus (incluindo o acúmulo estilo Garou) e o corte de defesa.
 function tickTransformDuration(state, id){
   const b = state.battle;
   if(!b.transformActive || !b.transformActive[id]) return;
@@ -2282,9 +2887,6 @@ function tickTransformDuration(state, id){
   }
 }
 
-// Counts down a character's own rounds toward losing their post-stun immunity
-// (call once per round THIS character plays — whether they acted or were
-// skipped for being stunned — never on other characters' rounds).
 function tickStunImmunity(state, id){
   const b = state.battle;
   if(!b.stunImmune || !b.stunImmune[id]) return;
@@ -2297,34 +2899,28 @@ function tickStunImmunity(state, id){
 }
 
 const ELEMENT_ICON = {
-  Fogo:"🔥", Gelo:"❄️", Elétrico:"⚡", Sombrio:"🌑", Sagrado:"✨", Venenoso:"☠️",
+  Fogo:"🔥", Gelo:"❄️", "Elétrico":"⚡", Sombrio:"🌑", Sagrado:"✨", Venenoso:"☠️",
   Espiritual:"👻", "Psíquico":"🌀", Vento:"🌪️", Terra:"🪨", "Água":"💧", Metal:"⚙️", Natureza:"🌿", Normal:"◽"
 };
 
-// Picks the impact icon for an attack's animation — weapon-flavored for physical
-// hits (varies by class), the caster's element for magic hits.
-function pickImpactIcon(c, atk){
-  if(atk.dmgType==="magic") return ELEMENT_ICON[c.element] || "✨";
-  if(c.class==="Espadachim") return "⚔️";
-  if(c.class==="Assassino") return "🗡️";
-  if(c.class==="Atirador") return "🏹";
-  if(c.class==="Lutador") return "👊";
-  return "💥";
-}
-function nextFxNonce(b){ return (b.lastFx ? b.lastFx.nonce : 0) + 1; }
+const ELEMENT_GLOW = {
+  Fogo:"#e05a2d", Gelo:"#6fb3d9", "Elétrico":"#e0b559", Sombrio:"#8a5fd4", Sagrado:"#f0d98a",
+  Venenoso:"#4fbf63", Espiritual:"#a68fe0", "Psíquico":"#e078a8", Vento:"#3fc4b4", Terra:"#c48a52",
+  "Água":"#4a9be0", Metal:"#c9c9c9", Natureza:"#4fbf63", Normal:"#e0b559"
+};
 
-// The character currently on the field for this side (or a dead one, if
-// they just fainted and are waiting on a forced switch — the render layer
-// checks battle.mustSwitch to know when that's the case).
-function activeIdOf(state, key){
-  return state.battle.activeChar[key];
+// Cada elemento tem uma FORMA de partícula, não só uma cor: raio vira risco,
+// gelo e metal viram cacos, o resto vira partícula redonda. É o que faz um
+// Zoltraak parecer diferente de um Thunderbolt sem precisar de sprite de efeito.
+function fxShapeFor(element, dmgType){
+  if(element==="Elétrico") return "bolt";
+  if(element==="Gelo" || element==="Metal") return "shard";
+  if(dmgType==="physical" && (element==="Normal")) return "slash";
+  return "dot";
 }
 
-// If whoever's active is stunned, their turn is auto-skipped and the stun
-// clears right then (this is what keeps stun from ever getting permanently
-// stuck). If whoever's active has fainted, resolution just pauses here —
-// nothing auto-fills their spot; the owning player must choose a replacement
-// via the forced-switch UI before anything else can happen.
+function activeIdOf(state, key){ return state.battle.activeChar[key]; }
+
 function resolveStunSkipsAndAdvance(state){
   let guard=0;
   while(guard++<20){
@@ -2343,11 +2939,6 @@ function resolveStunSkipsAndAdvance(state){
   }
 }
 
-// Call after any damage resolves: if a side's active fighter just fell and
-// they still have someone alive on the bench, flag that they owe a forced
-// switch — checked independently of whose "turn" it technically is, since
-// a fainted-and-replaced fighter isn't a turn at all, just like in the games
-// this is modeled on.
 function checkForcedSwitch(state){
   ["p1","p2"].forEach(key=>{
     const activeId = state.battle.activeChar[key];
@@ -2365,13 +2956,69 @@ function maxLifeOf(state, id){
   const c = charById(id);
   return c.life + (state.battle.maxLifeBonus[id]||0);
 }
+function teamOf(state,id){ return state.teams.p1.includes(id) ? "p1" : "p2"; }
+function aliveIds(state, key){ return state.teams[key].filter(id=>state.battle.hp[id]>0); }
 
-function teamOf(state,id){
-  return state.teams.p1.includes(id) ? "p1" : "p2";
+/* ============ RENDER DA BATALHA ============ */
+let lastActiveSeen = {p1:null, p2:null};
+
+function hpClass(pct){ return pct>55 ? "hp-high" : pct>25 ? "hp-mid" : "hp-low"; }
+
+function hudFor(state, id, side){
+  const c = charById(id);
+  const b = state.battle;
+  const hp = Math.max(0,b.hp[id]);
+  const maxHp = maxLifeOf(state,id);
+  const pct = Math.max(0,Math.round((hp/maxHp)*100));
+  const sh = b.shields[id];
+  const tempMod = b.tempShield && b.tempShield[id];
+  const dPhys = tempMod ? (tempMod.phys||0) : 0;
+  const dMag = tempMod ? (tempMod.mag||0) : 0;
+  const tag = (t)=> `<span class="hud-tag">${t}</span>`;
+  let tags = tag(`🛡️F ${Math.max(0,sh.phys+dPhys)}`) + tag(`🛡️M ${Math.max(0,sh.mag+dMag)}`);
+  if(b.stunned[id] && hp>0) tags += tag("💫 atordoado");
+  if(b.dot && b.dot[id] && hp>0) tags += tag("🔥 "+b.dot[id].source);
+  if(b.stunImmune && b.stunImmune[id] && hp>0) tags += tag("🔰 "+b.stunImmune[id].turnsLeft);
+  if(b.transformed && b.transformed[id] && hp>0) tags += tag("✨ transformado");
+  return `
+    <div class="hud hud-${side}">
+      <div class="hud-top">
+        <span class="hud-name">${c.name}</span>
+        <span class="hud-hp-num">${hp}/${maxHp}</span>
+      </div>
+      <div class="hud-bar"><div class="hud-bar-fill ${hpClass(pct)}" style="width:${pct}%"></div></div>
+      <div class="hud-tags">${tags}</div>
+    </div>`;
 }
 
-function aliveIds(state, key){
-  return state.teams[key].filter(id=>state.battle.hp[id]>0);
+function stageFighter(state, id, side){
+  const c = charById(id);
+  const b = state.battle;
+  const alive = b.hp[id]>0;
+  const isPlayer = side==="player";
+  const view = isPlayer ? "back" : "front";
+  const transformed = !!(b.transformed && b.transformed[id]);
+  const entering = lastActiveSeen[isPlayer?"me":"opp"] !== id;
+  const glow = ELEMENT_GLOW[c.element] || "#e0b559";
+
+  const auraHTML = (transformed && alive) ? `
+    <div class="sprite-aura" style="--aura:${glow};"></div>
+    <div class="aura-spark" style="--aura:${glow}; left:12%; bottom:8%; animation-delay:0s;"></div>
+    <div class="aura-spark" style="--aura:${glow}; left:78%; bottom:14%; animation-delay:.35s;"></div>
+    <div class="aura-spark" style="--aura:${glow}; left:46%; bottom:2%; animation-delay:.7s;"></div>` : "";
+
+  const boxCls = [
+    alive ? "" : "anim-ko",
+    entering && alive ? (isPlayer?"anim-enter-player":"anim-enter-enemy") : ""
+  ].join(" ");
+
+  return `
+    <div class="stage-slot slot-${isPlayer?'player':'enemy'}" data-fighter-id="${id}">
+      <div class="sprite-box ${boxCls}">
+        ${auraHTML}
+        ${fighterArt(c,{view, transformed, alive, className:(isPlayer?'sprite-player':'sprite-enemy')+(alive?' anim-idle':'')})}
+      </div>
+    </div>`;
 }
 
 function renderBattle(state){
@@ -2397,28 +3044,34 @@ function renderBattle(state){
     <h1>Arena</h1>
     <div class="turn-banner ${myTurn?'':'opp'}">${bannerText}</div>
 
-    <div class="card">
-      <div class="duel-arena">
-        <div class="duel-bar">
-          <div class="duel-bar-label">Inimigo</div>
-          ${state.teams[oppKey].map(id=>duelMiniCard(state,id,oppKey,'none')).join("")}
+    <div class="card" style="padding:14px;">
+      <div class="battle-stage" id="battleStage">
+        <div class="stage-horizon"></div>
+        <div class="stage-pad pad-enemy"></div>
+        <div class="stage-pad pad-player"></div>
+        ${hudFor(state, oppActiveId, "enemy")}
+        ${stageFighter(state, oppActiveId, "enemy")}
+        ${stageFighter(state, myActiveId, "player")}
+        ${hudFor(state, myActiveId, "player")}
+        <div class="fx-layer" id="fxLayer"></div>
+      </div>
+
+      <div class="bench">
+        <div class="bench-side">
+          <div class="bench-label">Reservas de ${playerName(state,oppKey)}</div>
+          <div class="bench-row">${state.teams[oppKey].map(id=>duelMiniCard(state,id,oppKey,'none')).join("")}</div>
         </div>
-        <div class="duel-center">
-          ${duelActiveCard(state, oppActiveId, false)}
-          <div class="vs-label">VS</div>
-          ${duelActiveCard(state, myActiveId, true)}
-        </div>
-        <div class="duel-bar">
-          <div class="duel-bar-label">Você</div>
-          ${state.teams[myKey].map(id=>duelMiniCard(state,id,myKey, myMustSwitch?'forced':(myTurn?'voluntary':'none'))).join("")}
+        <div class="bench-side">
+          <div class="bench-label">Suas reservas</div>
+          <div class="bench-row">${state.teams[myKey].map(id=>duelMiniCard(state,id,myKey, myMustSwitch?'forced':(myTurn?'voluntary':'none'))).join("")}</div>
         </div>
       </div>
 
-      ${myMustSwitch ? `<p class="hint center" style="margin-top:10px;">Toque em um lutador vivo no seu time (barra da direita) pra mandar pro campo.</p>` : ''}
+      ${myMustSwitch ? `<p class="hint center" style="margin-top:10px;">Toque em um lutador vivo nas suas reservas pra mandar pro campo.</p>` : ''}
 
       ${myTurn && attackerChar ? `
       <div class="action-panel">
-        <h3>${attackerChar.name} <span class="badge rank-${attackerChar.rank}">${attackerChar.rank}</span> ${isTransformed?'<span class="badge ult">✨ Transformado</span>':''} — escolha o ataque</h3>
+        <h3>${attackerChar.name} <span class="badge rank-${attackerChar.rankKey}">${attackerChar.rank}</span> ${isTransformed?'<span class="badge ult">✨ Transformado</span>':''} — escolha o ataque</h3>
         <p class="hint" style="margin-top:-6px; margin-bottom:10px;">${attackerChar.class} · <span class="badge element-${attackerChar.element}">${ELEMENT_ICON[attackerChar.element]||''} ${attackerChar.element}</span></p>
         ${attackerChar.attacks.map((a,i)=>{
           const cdLeft = state.battle.cooldowns[myActiveId][i];
@@ -2437,7 +3090,7 @@ function renderBattle(state){
             ${attackerChar.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo ignorando escudo — ${attackerChar.ultimate.aoeDmg} de dano ${attackerChar.ultimate.dmgType==="physical"?"físico":"mágico"} nos inimigos, metade nos aliados. Usa o turno.` : `+${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.dmgBonus} dano em cada ataque, -40% de escudo por até 3 rodadas${attackerChar.ultimate.growPerHit?`, e fica ainda mais forte a cada golpe que apanhar (até +${attackerChar.ultimate.growCap} de dano)`:''}. Não gasta o turno.`}
             <div style="margin-top:8px;"><button class="btn danger" onclick="useUltimate()">${attackerChar.ultimate.kind==="meteor"?'Ativar Ultimate (usa o turno)':'Transformar (grátis)'}</button></div>
           </div>` : ''}
-        <p class="hint" style="margin-top:8px;">Toque em outro lutador seu (barra da direita) pra trocar — isso usa sua vez.</p>
+        <p class="hint" style="margin-top:8px;">Toque em outro lutador seu nas reservas pra trocar — isso usa sua vez.</p>
       </div>` : ''}
     </div>
 
@@ -2445,36 +3098,14 @@ function renderBattle(state){
       ${state.battle.log.slice(0,12).map(l=>`<div>${l}</div>`).join("")}
     </div>
   `;
+  lastActiveSeen = {me: myActiveId, opp: oppActiveId};
+  // Puxa a arte dos dois que estão em campo antes que ela seja necessária.
+  preloadArt(charById(myActiveId));
+  preloadArt(charById(oppActiveId));
   triggerBattleFx(state);
 }
 
-function duelActiveCard(state, id, isMine){
-  const c = charById(id);
-  const hp = state.battle.hp[id];
-  const alive = hp>0;
-  const maxHp = maxLifeOf(state,id);
-  const pct = Math.max(0,Math.round((hp/maxHp)*100));
-  const shields = state.battle.shields[id];
-  const tempMod = state.battle.tempShield && state.battle.tempShield[id];
-  const physDelta = tempMod ? (tempMod.phys||0) : 0;
-  const magDelta = tempMod ? (tempMod.mag||0) : 0;
-  const isStunned = state.battle.stunned[id];
-  const hasDot = state.battle.dot && state.battle.dot[id];
-  const isTransformed = state.battle.transformed && state.battle.transformed[id];
-  const stunImmuneTurns = state.battle.stunImmune && state.battle.stunImmune[id] ? state.battle.stunImmune[id].turnsLeft : 0;
-  const deltaTag = (d)=> d ? (d>0 ? ` <b style="color:#8fe0a0">+${d}</b>` : ` <b style="color:#ff8a9a">${d}</b>`) : '';
-  return `
-    <div class="duel-active ${isMine?'mine':'theirs'} ${!alive?'ko':''}" data-fighter-id="${id}">
-      ${stickFigureSVG(c, alive, isTransformed)}
-      <div class="duel-active-name">${c.name} <span class="badge rank-${c.rank}" style="font-size:8px;">${c.rank}</span></div>
-      <div class="hpbar"><div class="hpbar-fill" style="width:${alive?pct:0}%;"></div></div>
-      <div class="hp-txt">${alive?hp:0}/${maxHp} HP ${isStunned&&alive?'· atordoado':''}${hasDot&&alive?' · '+hasDot.source:''}${stunImmuneTurns>0&&alive?' · 🔰('+stunImmuneTurns+')':''}</div>
-      <div class="shield-mini"><span>🛡️F ${shields.phys}${deltaTag(physDelta)}</span><span>🛡️M ${shields.mag}${deltaTag(magDelta)}</span></div>
-    </div>`;
-}
-
-// mode: 'none' (just display, opponent's bar), 'voluntary' (my turn, click = switch that costs the turn),
-// 'forced' (my active fainted, click = free mandatory replacement).
+// mode: 'none' | 'voluntary' (troca gastando a vez) | 'forced' (substituição obrigatória, grátis)
 function duelMiniCard(state, id, sideKey, mode){
   const c = charById(id);
   const hp = state.battle.hp[id];
@@ -2489,40 +3120,211 @@ function duelMiniCard(state, id, sideKey, mode){
   if(clickable) classes.push("switchable");
   const clickAttr = clickable ? `onclick="doSwitch('${id}')"` : "";
   return `<div class="${classes.join(' ')}" ${clickAttr} data-fighter-id="${id}" title="${c.name}">
-    ${stickFigureSVG(c, alive, state.battle.transformed && state.battle.transformed[id])}
+    ${fighterArt(c,{view:"front", alive, transformed: state.battle.transformed && state.battle.transformed[id]})}
     <div class="duel-mini-hp"><div class="duel-mini-hp-fill" style="width:${alive?pct:0}%"></div></div>
   </div>`;
 }
 
+/* ---------- camada de efeitos ---------- */
 let lastFxNonce = null;
-// Plays the impact-icon animation for whatever just happened (a special attack
-// landing, a stun, a heal, a meteor ultimate hitting the whole field, etc). Runs
-// after the DOM is already in place, so it can find each target's card directly.
+const CHARGE_MS = 1900;      // duração da fase de carga de ki
+const TRANSFORM_MS = 3400;   // duração total (a faixa do título é a mais longa)
+let animLock = 0;            // enquanto travado, o polling não redesenha
+
+function boxCenter(stageRect, id){
+  const el = app.querySelector(`.stage-slot[data-fighter-id="${id}"] .sprite-box`);
+  if(!el) return null;
+  const r = el.getBoundingClientRect();
+  return {x: r.left - stageRect.left + r.width/2, y: r.top - stageRect.top + r.height/2, el};
+}
+
+function spawnHitFx(layer, pos, color, shape){
+  const anchor = document.createElement("div");
+  anchor.className = "fx-anchor";
+  anchor.style.left = pos.x+"px";
+  anchor.style.top = pos.y+"px";
+  anchor.style.setProperty("--fx", color);
+
+  const burst = document.createElement("div");
+  burst.className = "fx-burst";
+  anchor.appendChild(burst);
+
+  if(shape==="slash"){
+    const s = document.createElement("div");
+    s.className = "fx-slash";
+    anchor.appendChild(s);
+  } else if(shape==="bolt"){
+    for(let i=0;i<4;i++){
+      const b = document.createElement("div");
+      b.className = "fx-bolt";
+      b.style.left = (-18+i*11)+"px";
+      b.style.top = (-16+(i%2)*8)+"px";
+      b.style.animationDelay = (i*0.05)+"s";
+      anchor.appendChild(b);
+    }
+  } else {
+    const n = shape==="shard" ? 7 : 9;
+    for(let i=0;i<n;i++){
+      const p = document.createElement("div");
+      p.className = "fx-particle" + (shape==="shard"?" shard":"");
+      const ang = (Math.PI*2*i)/n + Math.random()*0.4;
+      const dist = 20+Math.random()*20;
+      p.style.setProperty("--px", Math.cos(ang)*dist+"px");
+      p.style.setProperty("--py", Math.sin(ang)*dist+"px");
+      p.style.left="0px"; p.style.top="0px";
+      p.style.animationDelay=(Math.random()*0.08)+"s";
+      anchor.appendChild(p);
+    }
+  }
+  layer.appendChild(anchor);
+  setTimeout(()=>anchor.remove(), 900);
+}
+
+function spawnNumber(layer, pos, text, isHeal){
+  const el = document.createElement("div");
+  el.className = "fx-dmg" + (isHeal?" heal":"");
+  el.textContent = text;
+  el.style.left = pos.x+"px";
+  el.style.top = (pos.y-14)+"px";
+  layer.appendChild(el);
+  setTimeout(()=>el.remove(), 1000);
+}
+
+/* Animação de transformação em duas fases.
+   Quando isso roda, o estado JÁ diz que o personagem está transformado, então a
+   tela já desenhou a arte final. A animação portanto anda de trás pra frente:
+   volta pra arte de carga, segura, e só então revela a arte que já estava lá.
+   Como as 6 artes compartilham o mesmo canvas ancorado, trocar o src não desloca
+   um pixel — a troca some dentro do clarão. */
+function playTransformation(targetId, ultName){
+  const stage = document.getElementById("battleStage");
+  const layer = document.getElementById("fxLayer");
+  const slot  = app.querySelector(`.stage-slot[data-fighter-id="${targetId}"]`);
+
+  // A faixa do título aparece mesmo sem arte de carga — vale para qualquer
+  // personagem com Ultimate de transformação, não só o Goku.
+  if(ultName){
+    const title = document.createElement("div");
+    title.className = "ult-title";
+    title.textContent = ultName;
+    document.body.appendChild(title);
+    setTimeout(()=>title.remove(), TRANSFORM_MS + 200);
+  }
+  if(!stage || !layer || !slot) return;
+
+  const box = slot.querySelector(".sprite-box");
+  const img = slot.querySelector(".sprite-img");
+  const c   = charById(targetId);
+  const view = slot.classList.contains("slot-player") ? "back" : "front";
+  const charge = chargeBitmapFor(c, view);
+  if(!charge || !img || !box) return;
+
+  animLock = Date.now() + TRANSFORM_MS;
+
+  const finalSrc = img.src;
+  img.src = charge;
+  box.classList.add("charging");
+  stage.classList.add("stage-charging");
+
+  const sr = stage.getBoundingClientRect();
+  const r  = box.getBoundingClientRect();
+  const glow = document.createElement("div");
+  glow.className = "charge-glow";
+  glow.style.setProperty("--gx", ((r.left-sr.left+r.width/2)/sr.width*100)+"%");
+  glow.style.setProperty("--gy", ((r.top-sr.top+r.height/2)/sr.height*100)+"%");
+  stage.appendChild(glow);
+
+  const motes = setInterval(()=>{
+    const m = document.createElement("div");
+    m.className = "ki-mote";
+    m.style.left = (r.left-sr.left + Math.random()*r.width)+"px";
+    m.style.top  = (r.top-sr.top + r.height*(0.5+Math.random()*0.45))+"px";
+    layer.appendChild(m);
+    setTimeout(()=>m.remove(), 1100);
+  }, 65);
+
+  setTimeout(()=>{
+    clearInterval(motes);
+    glow.remove();
+    stage.classList.remove("stage-charging");
+    box.classList.remove("charging");
+    img.src = finalSrc;
+    const flash = document.createElement("div");
+    flash.className = "stage-flash";
+    flash.style.setProperty("--fx", "#ffffff");
+    stage.appendChild(flash);
+    stage.classList.add("stage-quake");
+    setTimeout(()=>{ flash.remove(); stage.classList.remove("stage-quake"); }, 780);
+  }, CHARGE_MS);
+}
+
+// Toca tudo que acabou de acontecer: avanço do atacante, impacto elemental no
+// alvo, número flutuante e, no caso do Ultimate meteoro, clarão + tremor da arena.
 function triggerBattleFx(state){
   const fx = state.battle && state.battle.lastFx;
   if(!fx || fx.nonce===lastFxNonce) return;
   lastFxNonce = fx.nonce;
-  fx.effects.forEach(({targetId, icon, big})=>{
-    // Prefer the big center card when the target is one of the two active
-    // fighters; fall back to their small side-bar icon (benched characters
-    // hit by an AoE ultimate only have the side-bar representation at all).
-    const card = app.querySelector(`.duel-active[data-fighter-id="${targetId}"]`) || app.querySelector(`.duel-mini[data-fighter-id="${targetId}"]`);
-    if(!card) return;
-    const el = document.createElement("div");
-    el.className = "impact-fx" + (big?" big":"");
-    el.textContent = icon;
-    card.appendChild(el);
-    card.classList.add("hit-shake");
-    setTimeout(()=>{ el.remove(); card.classList.remove("hit-shake"); }, big?900:700);
+  if(fx.kind==="transform"){ playTransformation(fx.targetId, fx.name); return; }
+  const stage = document.getElementById("battleStage");
+  const layer = document.getElementById("fxLayer");
+  if(!stage || !layer) return;
+  const sRect = stage.getBoundingClientRect();
+
+  // avanço de quem atacou
+  if(fx.attackerId){
+    const a = boxCenter(sRect, fx.attackerId);
+    if(a){
+      const isMine = fx.attackerId === state.battle.activeChar["p"+MY_SLOT];
+      a.el.classList.add(isMine ? "anim-attack-player" : "anim-attack-enemy");
+      setTimeout(()=>a.el.classList.remove("anim-attack-player","anim-attack-enemy"), 520);
+    }
+  }
+
+  if(fx.meteor){
+    const flash = document.createElement("div");
+    flash.className = "stage-flash";
+    flash.style.setProperty("--fx", fx.color || "#e0b559");
+    stage.appendChild(flash);
+    stage.classList.add("stage-quake");
+    setTimeout(()=>{ flash.remove(); stage.classList.remove("stage-quake"); }, 750);
+    for(let i=0;i<5;i++){
+      const m = document.createElement("div");
+      m.className = "meteor-streak";
+      m.style.setProperty("--fx", fx.color || "#e0b559");
+      m.style.left = (10+i*19)+"%";
+      m.style.animationDelay = (i*0.07)+"s";
+      layer.appendChild(m);
+      setTimeout(()=>m.remove(), 900);
+    }
+  }
+
+  (fx.effects||[]).forEach((e, i)=>{
+    setTimeout(()=>{
+      const pos = boxCenter(sRect, e.targetId);
+      if(!pos) return;
+      if(e.kind==="hit"){
+        spawnHitFx(layer, pos, e.color, e.shape);
+        pos.el.classList.add("anim-hit");
+        setTimeout(()=>pos.el.classList.remove("anim-hit"), 440);
+        if(e.value) spawnNumber(layer, pos, "-"+e.value, false);
+      } else if(e.kind==="heal"){
+        spawnHitFx(layer, pos, "#5fd07a", "dot");
+        if(e.value) spawnNumber(layer, pos, "+"+e.value, true);
+      } else if(e.kind==="shield"){
+        spawnHitFx(layer, pos, "#8fc0ff", "dot");
+      } else if(e.kind==="stun"){
+        spawnHitFx(layer, pos, "#e078a8", "bolt");
+      }
+    }, fx.attackerId ? 190 + i*40 : i*40);
   });
 }
 
+/* ---------- stick figure (fallback dos 134 sem pixel art) ---------- */
 function hashStr(s){
   let h=0;
   for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i))>>>0; }
   return h;
 }
-
 const SKIN_TONES = ["#f4c9a0","#e8b184","#d99a6c","#c17f4f","#a5673c","#8a4f2c"];
 const HAIR_COLORS = ["#2b2320","#4a2f1c","#6b3a1e","#8a5a2b","#c99a3f","#3a2f4a","#7a2b34","#2f4a3a","#c9c9c9","#1a1a1a"];
 const HAIR_STYLES = ["spiky","short","long","mohawk","bald"];
@@ -2530,12 +3332,6 @@ const OUTFIT_PALETTES = {
   physical: ["#c9432f","#a83421","#8a5a2b","#5a3a1e"],
   magic: ["#4a3a8a","#6a2b6b","#2b4a6a","#3a2f6a"],
   hybrid: ["#3a6a4a","#8a5a2b","#6a2b6b","#c9432f"]
-};
-
-const ELEMENT_GLOW = {
-  Fogo:"#e05a2d", Gelo:"#6fb3d9", "Elétrico":"#e0b559", Sombrio:"#8a5fd4", Sagrado:"#f0d98a",
-  Venenoso:"#4fbf63", Espiritual:"#a68fe0", "Psíquico":"#e078a8", Vento:"#3fc4b4", Terra:"#c48a52",
-  "Água":"#4a9be0", Metal:"#c9c9c9", Natureza:"#4fbf63", Normal:"#e0b559"
 };
 
 function stickFigureSVG(c, alive, transformed){
@@ -2548,7 +3344,6 @@ function stickFigureSVG(c, alive, transformed){
     outfit = !alive ? "#4a4d57" : ap.outfit;
     outfit2 = !alive ? "#3a3c46" : (ap.outfit2 || shadeColor(ap.outfit,-18));
   } else {
-    // Fallback for any character missing curated appearance data (shouldn't normally happen)
     const h = hashStr(c.id+c.name);
     skin = !alive ? "#5a5c66" : SKIN_TONES[h%SKIN_TONES.length];
     hairColor = !alive ? "#3a3c46" : HAIR_COLORS[(h>>>3)%HAIR_COLORS.length];
@@ -2591,15 +3386,9 @@ function stickFigureSVG(c, alive, transformed){
   </svg>`;
 }
 
-function shadeColor(hex, amt){
-  const n = parseInt(hex.slice(1),16);
-  let r=(n>>16)+amt, g=((n>>8)&0xff)+amt, b=(n&0xff)+amt;
-  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
-  return "#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
-}
+function nextFxNonce(b){ return (b.lastFx ? b.lastFx.nonce : 0) + 1; }
 
-// Target is automatic in 1x1 — always the opponent's current active fighter —
-// so picking an attack fires it immediately, no separate target-click step.
+// Alvo é automático no 1x1 — sempre o lutador ativo do adversário.
 async function doAttack(i){
   const state = await loadRoom(ROOM_CODE);
   const myKey = "p"+MY_SLOT;
@@ -2611,8 +3400,8 @@ async function doAttack(i){
   await postAction(state);
 }
 
-// Handles BOTH voluntary switches (your turn, costs the turn) and forced
-// switches (your active fighter just fainted, free, doesn't touch turn order).
+// Cobre a troca voluntária (na sua vez, custa o turno) e a obrigatória (seu
+// lutador caiu — é grátis e não mexe na ordem de turnos).
 async function doSwitch(id){
   const state = await loadRoom(ROOM_CODE);
   const myKey = "p"+MY_SLOT;
@@ -2656,6 +3445,8 @@ function applyAction(state, attackerId, atkIdx, targetId){
   const b = state.battle;
   if(!b.tempShield) b.tempShield = {};
   const fxEffects = [];
+  const fxColor = ELEMENT_GLOW[c.element] || "#e0b559";
+  const fxShape = fxShapeFor(c.element, atk.dmgType);
   for(let i=0;i<4;i++){ if(b.cooldowns[attackerId][i]>0) b.cooldowns[attackerId][i]--; }
   if(b.cooldowns[attackerId][atkIdx]>0 || (atk.onceOnly && b.onceUsed[attackerId][atkIdx])){
     b.log.unshift(`${c.name} tentou usar ${atk.name}, mas ainda não está pronto.`);
@@ -2669,24 +3460,25 @@ function applyAction(state, attackerId, atkIdx, targetId){
       const wasAlive = b.hp[targetId]>0;
       b.hp[targetId] = Math.max(0, b.hp[targetId]-dmg);
       b.log.unshift(`${c.name} usou ${atk.name} em ${tgt.name}: ${dmg} de dano.`);
-      // Any temporary shield buff/debuff on the target is used up the moment they take a hit.
+      // Qualquer escudo temporário no alvo é consumido no instante em que ele apanha.
       if(b.tempShield[targetId]){ delete b.tempShield[targetId]; }
       checkDeathPenalty(state, targetId, wasAlive);
       checkGrowOnHit(state, targetId, wasAlive);
       checkExplodeOnDeath(state, targetId, wasAlive);
-      if(atkIdx>0) fxEffects.push({targetId, icon:pickImpactIcon(c,atk), big:false});
+      fxEffects.push({targetId, kind:"hit", color:fxColor, shape:fxShape, value:dmg});
       if(b.hp[targetId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
     }
     if(atk.effect){
       if(atk.effect.type==="shield"){
         b.tempShield[attackerId] = {phys: atk.effect.value, mag: atk.effect.value};
         b.log.unshift(`${c.name} reforça a defesa em +${atk.effect.value} até ser atingido.`);
-        if(atkIdx>0) fxEffects.push({targetId:attackerId, icon:"🛡️", big:false});
+        fxEffects.push({targetId:attackerId, kind:"shield", color:"#8fc0ff"});
       } else if(atk.effect.type==="heal"){
         const cap = maxLifeOf(state, attackerId);
+        const before = b.hp[attackerId];
         b.hp[attackerId] = Math.min(cap, b.hp[attackerId]+atk.effect.value);
         b.log.unshift(`${c.name} recupera ${atk.effect.value} de vida.`);
-        if(atkIdx>0) fxEffects.push({targetId:attackerId, icon:"💚", big:false});
+        fxEffects.push({targetId:attackerId, kind:"heal", value:b.hp[attackerId]-before});
       } else if(atk.effect.type==="debuff" && targetId){
         const tgt = charById(targetId);
         const shieldKey = atk.dmgType==="physical"?"phys":"mag";
@@ -2702,7 +3494,7 @@ function applyAction(state, attackerId, atkIdx, targetId){
           b.stunned[targetId]=true;
           b.stunImmune[targetId] = {turnsLeft:3};
           b.log.unshift(`${tgt.name} ficou atordoado! (imune a novo atordoamento pelas próximas 3 rodadas dele)`);
-          if(atkIdx>0) fxEffects.push({targetId, icon:"💫", big:false});
+          fxEffects.push({targetId, kind:"stun"});
         }
       } else if(atk.effect.type==="dot" && targetId){
         const tgt = charById(targetId);
@@ -2713,12 +3505,12 @@ function applyAction(state, attackerId, atkIdx, targetId){
     if(atk.cooldown>0) b.cooldowns[attackerId][atkIdx]=atk.cooldown;
     if(atk.onceOnly) b.onceUsed[attackerId][atkIdx]=true;
   }
-  if(fxEffects.length){ b.lastFx = {nonce: nextFxNonce(b), effects: fxEffects}; }
+  b.lastFx = {nonce: nextFxNonce(b), attackerId, effects: fxEffects};
   b.stunned[attackerId]=false;
   tickStunImmunity(state, attackerId);
   tickSelfRecoil(state, attackerId);
 
-  // Tick any active damage-over-time effects (queimadura/veneno) once per global turn.
+  // Dano contínuo (queimadura/veneno) tickando uma vez por turno global.
   Object.keys(b.dot).forEach(id=>{
     if(b.hp[id]<=0){ delete b.dot[id]; return; }
     const d = b.dot[id];
@@ -2736,8 +3528,6 @@ function applyAction(state, attackerId, atkIdx, targetId){
 
   tickTransformDuration(state, attackerId);
 
-  // Hand the turn over to the other side — resolving any stun-skips on the
-  // way (this is what keeps stun from ever getting permanently stuck).
   const actingKey = teamOf(state, attackerId);
   state.battle.currentTurn = actingKey==="p1" ? "p2" : "p1";
   resolveStunSkipsAndAdvance(state);
@@ -2757,47 +3547,48 @@ async function useUltimate(){
   if(!b.transformActive) b.transformActive = {};
   if(!b.selfRecoil) b.selfRecoil = {};
   b.ultimateUsed[ultId]=true;
+  const ultColor = ELEMENT_GLOW[c.element] || "#e0b559";
 
   if(c.ultimate.kind==="meteor"){
-    // A single overwhelming attack — it IS the character's action for the turn.
-    // It hits everyone, but a reckless power still comes down harder on enemies
-    // than on the caster's own side — allies take half the damage, not the full hit.
+    // Ataque único e avassalador — É a ação do turno. Atinge todo mundo, mas um
+    // poder descontrolado ainda cai mais pesado no inimigo: aliados levam metade.
     b.log.unshift(`${c.name} ativa o Ultimate: ${c.ultimate.name}! Um poder descontrolado atinge todo mundo em campo, ignorando qualquer escudo.`);
-    const meteorIcon = c.ultimate.dmgType==="physical" ? "☄️" : (ELEMENT_ICON[c.element] || "☄️");
     const fxEffects = [];
     [...state.teams.p1, ...state.teams.p2].filter(id=>id!==ultId && b.hp[id]>0).forEach(otherId=>{
       const tgt = charById(otherId);
       const isAlly = teamOf(state,otherId)===teamOf(state,ultId);
       const baseDmg = isAlly ? Math.round(c.ultimate.aoeDmg*0.5) : c.ultimate.aoeDmg;
-      // Ultimates ignore shields entirely — ${tempShield} isn't touched here either,
-      // since a shield that was never consulted shouldn't be spent by this hit.
+      // Ultimate ignora escudo por completo — e por isso também não consome o
+      // escudo temporário do alvo: um escudo que nunca foi consultado não gasta.
       const dmg = Math.max(5, baseDmg);
       const wasAlive = b.hp[otherId]>0;
       b.hp[otherId] = Math.max(0, b.hp[otherId]-dmg);
       checkDeathPenalty(state, otherId, wasAlive);
       checkGrowOnHit(state, otherId, wasAlive);
       checkExplodeOnDeath(state, otherId, wasAlive);
-      fxEffects.push({targetId:otherId, icon:meteorIcon, big:true});
+      fxEffects.push({targetId:otherId, kind:"hit", color:ultColor, shape:fxShapeFor(c.element, c.ultimate.dmgType), value:dmg});
       b.log.unshift(`${tgt.name} sofre ${dmg} de dano do Ultimate de ${c.name} (ignora escudo)${isAlly?' — aliado, dano reduzido pela metade':''}.`);
       if(b.hp[otherId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
     });
-    if(fxEffects.length){ b.lastFx = {nonce: nextFxNonce(b), effects: fxEffects}; }
+    b.lastFx = {nonce: nextFxNonce(b), attackerId: ultId, meteor:true, color:ultColor, effects: fxEffects};
     tickTransformDuration(state, ultId);
     tickStunImmunity(state, ultId);
     state.battle.currentTurn = MY_SLOT===1?"p2":"p1";
     resolveStunSkipsAndAdvance(state);
     await postAction(state);
   } else {
-    // A transformation — free action: it does NOT consume the turn, so this same
-    // character still picks and lands an attack right after. Every transform pays
-    // SOME price: at minimum the standard temporary defense cut below, and for a
-    // few characters whose own flavor explicitly promises a cost (Might Guy's body,
-    // Tenshinhan's self-sacrifice, Edward's equivalent exchange), a bespoke one too.
+    // Transformação — ação GRÁTIS: não consome o turno, então o mesmo personagem
+    // ainda escolhe e desfere um ataque em seguida. Toda transformação paga
+    // ALGUM preço: no mínimo o corte temporário de defesa abaixo, e para alguns
+    // (Might Guy, Tenshinhan, Edward) um preço extra próprio da história deles.
     b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
     b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
     b.dmgBonus[ultId] = c.ultimate.dmgBonus;
-    b.lastFx = {nonce: nextFxNonce(b), effects:[{targetId:ultId, icon:(ELEMENT_ICON[c.element]||"✨"), big:true}]};
     b.transformed[ultId] = true;
+    // Dispara a animação de duas fases nos DOIS clientes: quem transformou vê
+    // pelo redesenho imediato, o adversário vê quando o polling trouxer a
+    // revisão nova. O nonce garante que cada um toque a animação uma vez só.
+    b.lastFx = {nonce: nextFxNonce(b), kind:"transform", targetId: ultId, name: c.ultimate.name};
 
     let baselinePhys = b.shields[ultId].phys;
     let baselineMag = b.shields[ultId].mag;
@@ -2813,7 +3604,6 @@ async function useUltimate(){
       extraLog += ` Perde ${c.ultimate.upfrontToll} de vida na hora como sacrifício pra ativar.`;
     }
     if(c.ultimate.selfRecoil){
-      if(!b.selfRecoil) b.selfRecoil = {};
       b.selfRecoil[ultId] = {value:c.ultimate.selfRecoil.value, turnsLeft:c.ultimate.selfRecoil.turns};
       extraLog += ` Vai perder ${c.ultimate.selfRecoil.value} de vida a cada rodada própria durante ${c.ultimate.selfRecoil.turns} rodadas.`;
     }
@@ -2857,13 +3647,13 @@ function renderDone(state){
           <h3>Jogador ${slot} <span class="money">R$${state.budget[key]} restante</span></h3>
           ${team.map(c=>`
             <div class="mini-card" style="margin-top:8px;">
-              <div class="mn">${c.name} ${ultId===c.id?'<span class="badge ult">Ultimate ativo</span>':''}</div>
+              <div class="mn">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span> ${ultId===c.id?'<span class="badge ult">Ultimate ativo</span>':''}</div>
               <div class="ma">${c.anime} · Vida ${c.life}</div>
             </div>`).join("")}
         </div>`;
       }).join("")}
     </div>
-    <p class="hint center">Times completos! Usem essas fichas pra jogar a batalha (turno a turno, respeitando cooldowns, tipos de dano e habilidades de uso único) — igual ao formato que vocês já vinham jogando no chat.</p>
+    <p class="hint center">Times completos! Usem essas fichas pra jogar a batalha (turno a turno, respeitando cooldowns, tipos de dano e habilidades de uso único).</p>
   `;
 }
 
