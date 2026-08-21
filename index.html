@@ -548,11 +548,11 @@ function renderAuction(state){
     <div class="eyebrow">Leilão — ${state.poolIndex+1} / ${state.pool.length}</div>
     <h1>Disputa em andamento</h1>
     <div class="card">
-      <div class="char-hero flash">
+      <div class="char-hero">
         <span class="badge ${c.type}">${c.type==='physical'?'Físico':c.type==='magic'?'Mágico':'Híbrido'}</span>
         <div class="name" style="margin-top:8px;">${c.name}</div>
         <div class="anime">${c.anime}</div>
-        <div style="margin-top:14px;">${stickFigureSVG(c.type, true)}</div>
+        <div style="margin-top:14px;">${stickFigureSVG(c, true)}</div>
       </div>
     </div>
 
@@ -880,7 +880,7 @@ function fighterCardHTML(state, id, clickable, mine){
   const clickAttr = (clickable && alive) ? `onclick="${mine?`selectAttacker('${id}')`:`selectTarget('${id}')`}"` : "";
   return `
     <div class="${classes.join(' ')}" ${clickAttr}>
-      ${stickFigureSVG(c.type, alive)}
+      ${stickFigureSVG(c, alive)}
       <div class="fn">${c.name}</div>
       <div class="fa">${c.anime}</div>
       <div class="hpbar"><div class="hpbar-fill" style="width:${alive?pct:0}%;"></div></div>
@@ -889,18 +889,53 @@ function fighterCardHTML(state, id, clickable, mine){
     </div>`;
 }
 
-function stickFigureSVG(type, alive){
-  const color = !alive ? "#4a4d57" : type==="physical" ? "#e0b559" : type==="magic" ? "#a29bea" : "#e0b559";
-  const color2 = !alive ? "#4a4d57" : type==="magic" ? "#7f77dd" : "#c79a3f";
+function hashStr(s){
+  let h=0;
+  for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i))>>>0; }
+  return h;
+}
+
+const SKIN_TONES = ["#f4c9a0","#e8b184","#d99a6c","#c17f4f","#a5673c","#8a4f2c"];
+const HAIR_COLORS = ["#2b2320","#4a2f1c","#6b3a1e","#8a5a2b","#c99a3f","#3a2f4a","#7a2b34","#2f4a3a","#c9c9c9","#1a1a1a"];
+const HAIR_STYLES = ["spiky","short","long","mohawk","bald"];
+const OUTFIT_PALETTES = {
+  physical: ["#c9432f","#a83421","#8a5a2b","#5a3a1e"],
+  magic: ["#4a3a8a","#6a2b6b","#2b4a6a","#3a2f6a"],
+  hybrid: ["#3a6a4a","#8a5a2b","#6a2b6b","#c9432f"]
+};
+
+function stickFigureSVG(c, alive){
+  const h = hashStr(c.id+c.name);
+  const skin = !alive ? "#5a5c66" : SKIN_TONES[h%SKIN_TONES.length];
+  const hairColor = !alive ? "#3a3c46" : HAIR_COLORS[(h>>3)%HAIR_COLORS.length];
+  const hairStyle = HAIR_STYLES[(h>>6)%HAIR_STYLES.length];
+  const palette = OUTFIT_PALETTES[c.type] || OUTFIT_PALETTES.hybrid;
+  const outfit = !alive ? "#4a4d57" : palette[(h>>9)%palette.length];
+  const outfit2 = !alive ? "#3a3c46" : shadeColor(outfit, -18);
+
+  let hairSVG = "";
+  if(hairStyle==="spiky") hairSVG = `<path d="M13 6 L10 -1 L15 4 L18 -3 L20 4 L22 -3 L25 4 L30 -1 L27 6 Z" fill="${hairColor}"/>`;
+  else if(hairStyle==="short") hairSVG = `<path d="M12 8 Q20 -2 28 8 L28 5 Q20 0 12 5 Z" fill="${hairColor}"/>`;
+  else if(hairStyle==="long") hairSVG = `<path d="M12 7 Q20 -2 28 7 L29 22 L25 22 L25 9 Q20 4 15 9 L15 22 L11 22 Z" fill="${hairColor}"/>`;
+  else if(hairStyle==="mohawk") hairSVG = `<path d="M17 6 Q20 -6 23 6 Z" fill="${hairColor}"/>`;
+
   return `<svg class="stick" width="40" height="52" viewBox="0 0 40 52">
-    <circle cx="20" cy="10" r="7" fill="${color}"/>
-    <line x1="20" y1="17" x2="20" y2="34" stroke="${color2}" stroke-width="4" stroke-linecap="round"/>
-    <line x1="20" y1="21" x2="9" y2="30" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
-    <line x1="20" y1="21" x2="31" y2="30" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
-    <line x1="20" y1="34" x2="11" y2="48" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
-    <line x1="20" y1="34" x2="29" y2="48" stroke="${color2}" stroke-width="3.5" stroke-linecap="round"/>
+    <circle cx="20" cy="10" r="7" fill="${skin}"/>
+    ${hairSVG}
+    <path d="M13 19 L27 19 L25 33 L15 33 Z" fill="${outfit}"/>
+    <line x1="20" y1="21" x2="9" y2="30" stroke="${outfit}" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="21" x2="31" y2="30" stroke="${outfit}" stroke-width="4" stroke-linecap="round"/>
+    <line x1="17" y1="33" x2="11" y2="48" stroke="${outfit2}" stroke-width="4" stroke-linecap="round"/>
+    <line x1="23" y1="33" x2="29" y2="48" stroke="${outfit2}" stroke-width="4" stroke-linecap="round"/>
     ${!alive?'<line x1="12" y1="4" x2="28" y2="18" stroke="#d1495b" stroke-width="2.5"/><line x1="28" y1="4" x2="12" y2="18" stroke="#d1495b" stroke-width="2.5"/>':''}
   </svg>`;
+}
+
+function shadeColor(hex, amt){
+  const n = parseInt(hex.slice(1),16);
+  let r=(n>>16)+amt, g=((n>>8)&0xff)+amt, b=(n&0xff)+amt;
+  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+  return "#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
 }
 
 function selectAttacker(id){
