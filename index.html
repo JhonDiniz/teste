@@ -261,61 +261,799 @@ const RAW = {
 "JoJo's Bizarre Adventure":[["Koichi Hirose","weak","hybrid"],["Josuke Higashikata","medium","hybrid"],["Giorno Giovanna","strong","magic","ult"],["Dio Brando","strong","hybrid","ult"],["Jotaro Kujo","strong","hybrid","ult"]]
 };
 
-const PHYS_SPECIAL_NAMES=["Investida Devastadora","Golpe Sísmico","Fúria Ancestral","Impacto Total","Combo Relâmpago"];
-const MAGIC_SPECIAL_NAMES=["Rajada Arcana","Selo Amaldiçoado","Explosão Elemental","Onda Espiritual","Ruptura Dimensional"];
-const SHIELD_NAMES=["Guarda de Ferro","Barreira Concentrada","Postura Defensiva","Manto Protetor"];
-const HEAL_NAMES=["Recuperação Vital","Segunda Respiração","Regeneração"];
-const DEBUFF_NAMES=["Golpe Enfraquecedor","Selo de Fraqueza","Corte Perfurante"];
-const STUN_NAMES=["Golpe Atordoante","Pressão Esmagadora","Onda de Choque"];
+// CHAR_KIT: hand-authored per-character stats + attacks, same order as APPEARANCE/RAW.
+// Each entry: {life, physShield, magShield, attacks:[melee, spec1, spec2]}
+// Power scaling both within each anime AND across anime verses (Dragon Ball >> most,
+// Saitama/Solo Leveling/Frieren/JJK top-tier near the top but not absurd, grounded
+// non-combat series like Death Note/Kaguya-sama/Horimiya/Your Name/Haikyuu/Blue Lock
+// sit much lower). Shields kept low and asymmetric (physical vs magic) per character.
+// Effects (shield/heal/debuff/stun) are assigned only where they fit the character —
+// most specials are plain damage with no effect.
 
-function pick(arr,i){return arr[i%arr.length];}
-
-function buildStats(level,type){
-  const base = level==="weak"?{life:46,shield:9}:level==="medium"?{life:64,shield:15}:{life:86,shield:23};
-  let phys=base.shield, mag=base.shield;
-  if(type==="physical"){phys=base.shield+7; mag=Math.max(2,base.shield-6);}
-  else if(type==="magic"){mag=base.shield+7; phys=Math.max(2,base.shield-6);}
-  return {life:base.life, physShield:phys, magShield:mag};
+function E(type,value){ return value!==undefined ? {type,value} : {type}; }
+function A(name,dmgType,dmg,cooldown,effect,onceOnly){
+  return {name, dmgType, category: cooldown===0?"melee":"special", dmg, cooldown, effect: effect||null, onceOnly: !!onceOnly};
 }
 
-function buildAttacks(name,level,type,idx,onceOnly){
-  const meleeDmg = level==="weak"?9:level==="medium"?12:16;
-  const specDmg1 = level==="weak"?18:level==="medium"?25:33;
-  const specDmg2 = level==="weak"?15:level==="medium"?21:28;
-  const melee = {name:"Ataque Corpo a Corpo", dmgType:"physical", category:"melee", dmg:meleeDmg, cooldown:0, effect:null};
-  let atk2, atk3;
-  const kind = idx%3;
-  // Physical-only chars: both specials physical. Magic-only: both magic.
-  // Hybrid chars: guaranteed ONE physical + ONE magic special (e.g. Yami's sword vs his darkness magic).
-  const specType1 = type==="magic" ? "magic" : "physical";
-  const specType2 = type==="physical" ? "physical" : type==="magic" ? "magic" : (specType1==="physical" ? "magic" : "physical");
+const CHAR_KIT = [
 
-  if(kind===0){
-    atk2 = {name:pick(specType1==="magic"?MAGIC_SPECIAL_NAMES:PHYS_SPECIAL_NAMES,idx), dmgType:specType1, category:"special", dmg:specDmg1, cooldown:3, effect:null};
-    atk3 = {name:pick(SHIELD_NAMES,idx), dmgType:specType2, category:"special", dmg:0, cooldown:2, effect:{type:"shield", value: level==="weak"?10:level==="medium"?16:22}};
-  } else if(kind===1){
-    atk2 = {name:pick(specType1==="magic"?MAGIC_SPECIAL_NAMES:PHYS_SPECIAL_NAMES,idx+1), dmgType:specType1, category:"special", dmg:specDmg1, cooldown:3, effect:{type:"stun"}};
-    atk3 = {name:pick(HEAL_NAMES,idx), dmgType:specType2, category:"special", dmg:0, cooldown:4, effect:{type:"heal", value: level==="weak"?12:level==="medium"?18:25}};
-  } else {
-    atk2 = {name:pick(specType1==="magic"?MAGIC_SPECIAL_NAMES:PHYS_SPECIAL_NAMES,idx+2), dmgType:specType1, category:"special", dmg:specDmg2, cooldown:2, effect:{type:"debuff", value:10}};
-    atk3 = {name:pick(specType2==="magic"?MAGIC_SPECIAL_NAMES:STUN_NAMES,idx), dmgType:specType2, category:"special", dmg:specDmg2-4, cooldown:3, effect:{type:"stun"}};
-  }
-  if(onceOnly){ atk3.onceOnly = true; atk3.dmg = atk3.dmg || specDmg1+6; atk3.effect = atk3.effect || {type:"debuff", value:16}; atk3.name = "Página do Caderno"; }
-  return [melee, atk2, atk3];
-}
+// ===== NARUTO (tier ~6) =====
+{life:40,physShield:11,magShield:4,attacks:[
+  A("Soco Direto","physical",8,0),
+  A("Rasengan Incompleto","physical",19,3,null),
+  A("Sexy Jutsu: Distração","physical",0,3,E("debuff",6))]}, // Konohamaru
+{life:41,physShield:10,magShield:4,attacks:[
+  A("Corte com Kunai","physical",8,0),
+  A("Chuva de Armas Ninja","physical",20,2,null),
+  A("Rolo Celestial","physical",18,3,E("debuff",7))]}, // Tenten
+{life:50,physShield:11,magShield:13,attacks:[
+  A("Golpe Corpo a Corpo","physical",9,0),
+  A("Kagemane no Jutsu","magic",0,3,E("stun")),
+  A("Estrangulamento das Sombras","magic",23,3,null)]}, // Shikamaru
+{life:76,physShield:19,magShield:5,attacks:[
+  A("Soco da Juventude","physical",14,0),
+  A("Konoha Reppuu","physical",32,3,null),
+  A("Chute Dinâmico de Entrada","physical",24,2,E("stun"))]}, // Might Guy [ULT]
+{life:68,physShield:16,magShield:22,attacks:[
+  A("Golpe com Kunai","physical",12,0),
+  A("Tsukuyomi","magic",0,4,E("stun")),
+  A("Amaterasu","magic",34,3,null)]}, // Itachi [ULT]
+
+// ===== DRAGON BALL (tier ~10, top of the scale) =====
+{life:52,physShield:12,magShield:5,attacks:[
+  A("Soco Terrestre","physical",10,0),
+  A("Kamehameha Fraco","physical",24,3,null),
+  A("Lobo Espiritual","physical",20,3,E("debuff",8))]}, // Yamcha
+{life:64,physShield:15,magShield:8,attacks:[
+  A("Golpe de Quatro Braços","physical",12,0),
+  A("Kikoho","physical",30,3,null),
+  A("Taiyoken","physical",0,3,E("stun"))]}, // Tenshinhan
+{life:66,physShield:17,magShield:6,attacks:[
+  A("Chute Perfeito","physical",13,0),
+  A("Rajada de Energia","physical",29,2,null),
+  A("Absorção de Energia","physical",22,3,E("heal",16))]}, // Android 18
+{life:92,physShield:24,magShield:10,attacks:[
+  A("Soco Saiyajin","physical",16,0),
+  A("Big Bang Attack","physical",42,3,null),
+  A("Galick Gun","physical",34,3,E("debuff",12))]}, // Vegeta [ULT]
+{life:96,physShield:22,magShield:12,attacks:[
+  A("Soco Saiyajin","physical",16,0),
+  A("Kamehameha","physical",44,3,null),
+  A("Kaio-ken x3: Investida","physical",32,2,null)]}, // Goku [ULT]
+
+// ===== ONE PIECE (tier ~7-8) =====
+{life:44,physShield:10,magShield:4,attacks:[
+  A("Soco Fraco","physical",8,0),
+  A("Investida com Bastão","physical",19,2,null),
+  A("Grito de Socorro","physical",0,3,E("shield",9))]}, // Coby
+{life:58,physShield:11,magShield:16,attacks:[
+  A("Chute Simples","physical",9,0),
+  A("Cien Fleur: Wrist","magic",26,3,E("debuff",9)),
+  A("Gigantesco Braço Fantasma","magic",22,3,E("stun"))]}, // Nico Robin
+{life:63,physShield:14,magShield:6,attacks:[
+  A("Chute Giratório","physical",13,0),
+  A("Diable Jambe: Flambage Shot","physical",29,3,null),
+  A("Collier Strike","physical",21,2,E("stun"))]}, // Sanji
+{life:80,physShield:20,magShield:6,attacks:[
+  A("Corte de Katana","physical",15,0),
+  A("Onigiri","physical",34,2,null),
+  A("Ashura: Ichibugin","physical",30,3,E("debuff",12))]}, // Zoro (Wano)
+{life:88,physShield:19,magShield:9,attacks:[
+  A("Soco de Borracha","physical",15,0),
+  A("Gomu Gomu no King Kong Gun","physical",38,3,null),
+  A("Gear 4: Boundman","physical",0,4,E("shield",18))]}, // Luffy [ULT]
+
+// ===== ATTACK ON TITAN (tier ~6) =====
+{life:46,physShield:12,magShield:3,attacks:[
+  A("Golpe com Lâmina","physical",9,0),
+  A("Manobra 3D: Rajada","physical",21,2,null),
+  A("Grito de Alerta","physical",0,3,E("shield",8))]}, // Sasha
+{life:50,physShield:13,magShield:3,attacks:[
+  A("Golpe com Lâmina","physical",10,0),
+  A("Manobra 3D: Investida","physical",22,2,null),
+  A("Corte Duplo","physical",18,2,E("debuff",7))]}, // Jean
+{life:47,physShield:11,magShield:8,attacks:[
+  A("Golpe com Lâmina","physical",9,0),
+  A("Titã Colossal: Explosão de Vapor","magic",28,4,E("stun")),
+  A("Plano Tático","magic",0,3,E("debuff",10))]}, // Armin (hybrid)
+{life:70,physShield:17,magShield:5,attacks:[
+  A("Golpe com Lâmina","physical",12,0),
+  A("Titã Blindado: Investida","physical",36,3,null),
+  A("Postura Blindada","physical",0,3,E("shield",16))]}, // Reiner
+{life:74,physShield:16,magShield:11,attacks:[
+  A("Golpe com Lâmina","physical",13,0),
+  A("Titã de Ataque: Fúria","magic",37,3,null),
+  A("Grito de Coordenação","magic",0,4,E("stun"))]}, // Eren [ULT]
+
+// ===== ONE PUNCH MAN (tier ~9, Saitama capped high but not absurd) =====
+{life:48,physShield:13,magShield:4,attacks:[
+  A("Soco de Ferro","physical",9,0),
+  A("Investida de Bicicleta","physical",18,2,null),
+  A("Grito Motivacional","physical",0,3,E("shield",9))]}, // Mumen Rider
+{life:65,physShield:8,magShield:20,attacks:[
+  A("Empurrão Psíquico","magic",13,0),
+  A("Telecinese: Esmagar","magic",30,3,null),
+  A("Barreira Psíquica","magic",0,3,E("shield",17))]}, // Tornado
+{life:50,physShield:12,magShield:5,attacks:[
+  A("Soco de Pânico","physical",10,0),
+  A("Fama Emprestada: Blefe","physical",0,3,E("debuff",9)),
+  A("Recuo Estratégico","physical",17,2,null)]}, // King
+{life:78,physShield:18,magShield:10,attacks:[
+  A("Soco Cyborg","physical",14,0),
+  A("Incineração Total","physical",33,3,null),
+  A("Autorreparo","physical",0,4,E("heal",22))]}, // Genos
+{life:82,physShield:17,magShield:7,attacks:[
+  A("Soco Selvagem","physical",15,0),
+  A("Investida de Caçador de Monstros","physical",35,3,null),
+  A("Fúria Crescente","physical",26,2,E("debuff",11))]}, // Garou
+
+// ===== SOLO LEVELING (tier ~8) =====
+{life:52,physShield:14,magShield:5,attacks:[
+  A("Soco de Investigador","physical",10,0),
+  A("Tiro Certeiro","physical",22,2,null),
+  A("Análise de Fraquezas","physical",0,3,E("debuff",9))]}, // Woo Jinchul
+{life:64,physShield:16,magShield:8,attacks:[
+  A("Corte de Espada","physical",13,0),
+  A("Dança da Espada Dourada","physical",30,3,null),
+  A("Postura Defensiva de Elite","physical",0,3,E("shield",15))]}, // Cha Hae-in
+{life:60,physShield:15,magShield:9,attacks:[
+  A("Golpe de Bastão","physical",11,0),
+  A("Ordem de Comando","physical",0,3,E("shield",14)),
+  A("Ataque Coordenado","physical",25,3,null)]}, // Go Gunhee
+{life:76,physShield:20,magShield:6,attacks:[
+  A("Soco Nacional","physical",15,0),
+  A("Investida do Guardião Nacional","physical",36,3,null),
+  A("Postura Inabalável","physical",0,3,E("shield",18))]}, // Thomas Andre
+{life:98,physShield:12,magShield:24,attacks:[
+  A("Adaga das Sombras","physical",14,0),
+  A("Exército das Sombras","magic",36,3,E("debuff",12)),
+  A("Monarca das Sombras: Domínio","magic",0,4,E("heal",20))]}, // Sung Jinwoo [ULT]
+
+// ===== HUNTER X HUNTER (tier ~7) =====
+{life:44,physShield:11,magShield:5,attacks:[
+  A("Soco Básico","physical",8,0),
+  A("Ataque Desesperado","physical",18,2,null),
+  A("Blefe de Advogado","physical",0,3,E("debuff",6))]}, // Leorio
+{life:62,physShield:11,magShield:16,attacks:[
+  A("Golpe Rápido","physical",11,0),
+  A("Godspeed","magic",29,2,null),
+  A("Vento Divino: Rajada Contínua","magic",25,3,E("stun"))]}, // Killua
+{life:70,physShield:17,magShield:10,attacks:[
+  A("Soco de Treinadora","physical",13,0),
+  A("Explosão de Aura","physical",31,3,null),
+  A("Reforço de Aura","physical",0,3,E("shield",16))]}, // Biscuit
+{life:72,physShield:13,magShield:19,attacks:[
+  A("Golpe com Livro","physical",12,0),
+  A("Skill Hunter: Roubo de Habilidade","magic",0,3,E("debuff",14)),
+  A("Judgment Chain","magic",33,4,E("stun"))]}, // Chrollo
+{life:99,physShield:18,magShield:16,attacks:[
+  A("Golpe de Rei","physical",17,0),
+  A("Punição Nova","magic",40,3,null),
+  A("Regeneração de Formiga","magic",0,4,E("heal",24))]}, // Meruem [ULT]
+
+// ===== BLUE LOCK (tier ~2, pure athletes, no powers) =====
+{life:32,physShield:7,magShield:2,attacks:[
+  A("Chute de Bola","physical",7,0),
+  A("Finalização Precisa","physical",14,2,null),
+  A("Grito de Torcida","physical",0,3,E("shield",5))]}, // Aoshi
+{life:34,physShield:8,magShield:2,attacks:[
+  A("Cabeceio","physical",7,0),
+  A("Chute de Potência","physical",15,2,null),
+  A("Marcação Firme","physical",0,3,E("debuff",5))]}, // Rensuke
+{life:33,physShield:6,magShield:3,attacks:[
+  A("Drible Ginga","physical",7,0),
+  A("Finalização Imprevisível","physical",16,2,E("stun")),
+  A("Improviso Caótico","physical",13,2,null)]}, // Bachira
+{life:35,physShield:8,magShield:2,attacks:[
+  A("Passe Longo","physical",7,0),
+  A("Chute de Canhão","physical",16,2,null),
+  A("Provocação","physical",0,3,E("debuff",6))]}, // Shoei Baro
+{life:38,physShield:8,magShield:3,attacks:[
+  A("Toque Elegante","physical",8,0),
+  A("Finalização Egoísta","physical",17,2,null),
+  A("Visão de Jogo","physical",0,3,E("debuff",7))]}, // Nagi
+
+// ===== DEATH NOTE (tier ~1, zero physical combat power) =====
+{life:30,physShield:6,magShield:2,attacks:[
+  A("Golpe de Investigador","physical",6,0),
+  A("Tiro de Serviço","physical",13,2,null),
+  A("Ordem Policial","physical",0,3,E("shield",6))]}, // Soichiro
+{life:29,physShield:4,magShield:6,attacks:[
+  A("Tapa","physical",5,0),
+  A("Olhos de Shinigami","magic",0,3,E("debuff",10),true),
+  A("Manipulação Emocional","magic",16,3,null)]}, // Misa
+{life:31,physShield:5,magShield:7,attacks:[
+  A("Empurrão","physical",5,0),
+  A("Dedução: Provas Ocultas","magic",0,3,E("debuff",11),true),
+  A("Jogo de Robôs","magic",15,2,null)]}, // Near
+{life:33,physShield:5,magShield:8,attacks:[
+  A("Chute Desajeitado","physical",6,0),
+  A("Dedução Absoluta","magic",0,4,E("debuff",14),true),
+  A("Armadilha Investigativa","magic",18,2,null)]}, // L
+{life:32,physShield:5,magShield:9,attacks:[
+  A("Empurrão Frio","physical",5,0),
+  A("Death Note: Escreve o Nome","magic",26,5,E("stun"),true),
+  A("Manipulação Fria","magic",17,3,null)]}, // Light
+
+// ===== FRIEREN (tier ~8) =====
+{life:44,physShield:11,magShield:8,attacks:[
+  A("Golpe com Cajado","physical",9,0),
+  A("Feitiço de Cura Menor","magic",0,3,E("heal",14)),
+  A("Feitiço Ofensivo Básico","magic",19,2,null)]}, // Sein
+{life:60,physShield:8,magShield:20,attacks:[
+  A("Golpe com Cajado","physical",10,0),
+  A("Magia Amaldiçoada","magic",30,3,null),
+  A("Manipulação Sombria","magic",0,3,E("debuff",12))]}, // Übel
+{life:64,physShield:17,magShield:9,attacks:[
+  A("Golpe de Machado","physical",13,0),
+  A("Investida Guerreira","physical",29,2,null),
+  A("Postura de Guerreiro","physical",0,3,E("shield",15))]}, // Stark
+{life:70,physShield:8,magShield:24,attacks:[
+  A("Golpe com Cajado","physical",10,0),
+  A("Zoltraak Aprimorado","magic",32,2,null),
+  A("Barreira Mágica","magic",0,3,E("shield",18))]}, // Fern
+{life:80,physShield:6,magShield:29,attacks:[
+  A("Golpe com Cajado","physical",9,0),
+  A("Zoltraak","magic",34,2,null),
+  A("Barreira Élfica Milenar","magic",0,4,E("shield",22))]}, // Frieren [ULT]
+
+// ===== AKAME GA KILL (tier ~5) =====
+{life:60,physShield:16,magShield:6,attacks:[
+  A("Soco de Lança","physical",12,0),
+  A("Incursio: Investida","physical",28,3,null),
+  A("Postura de Armadura","physical",0,3,E("shield",15))]}, // Bulat
+{life:56,physShield:14,magShield:5,attacks:[
+  A("Garras Felinas","physical",12,0),
+  A("Lionelle: Fúria","physical",27,3,null),
+  A("Regeneração de Fera","physical",0,4,E("heal",17))]}, // Leone
+{life:42,physShield:9,magShield:5,attacks:[
+  A("Golpe com Fio","physical",8,0),
+  A("Cross Tail: Emaranhar","physical",18,3,E("stun")),
+  A("Armadilha de Fios","physical",15,2,E("debuff",7))]}, // Lubbock
+{life:78,physShield:14,magShield:20,attacks:[
+  A("Golpe com Espada de Gelo","physical",14,0),
+  A("Mahapadma: Congelamento Absoluto","magic",0,4,E("stun")),
+  A("Lança de Gelo","magic",34,3,null)]}, // Esdeath
+{life:66,physShield:15,magShield:7,attacks:[
+  A("Corte de Espada","physical",13,0),
+  A("Murasame: Veneno Mortal","physical",25,3,E("debuff",13)),
+  A("Um Corte Só","physical",31,3,null)]}, // Akame
+
+// ===== BLACK CLOVER (tier ~7) =====
+{life:52,physShield:9,magShield:15,attacks:[
+  A("Golpe Elétrico","physical",10,0),
+  A("Magia de Raio: Pantera","magic",26,3,null),
+  A("Reflexo Elétrico","magic",0,3,E("shield",13))]}, // Luck
+{life:50,physShield:9,magShield:14,attacks:[
+  A("Golpe de Machado","physical",10,0),
+  A("Magia do Fogo: Explosão","magic",25,3,null),
+  A("Sopro de Fumaça","magic",0,3,E("debuff",9))]}, // Magna
+{life:66,physShield:10,magShield:20,attacks:[
+  A("Golpe com Adaga","physical",12,0),
+  A("Magia de Vento: Rajada Cortante","magic",30,3,null),
+  A("Armadura de Vento","magic",0,3,E("shield",17))]}, // Noelle
+{life:74,physShield:10,magShield:22,attacks:[
+  A("Golpe com Espada de Luz","physical",13,0),
+  A("Magia de Luz: Zephyros","magic",34,3,null),
+  A("Contra-Ataque com Vento","magic",0,3,E("stun"))]}, // Yuno
+{life:80,physShield:12,magShield:19,attacks:[
+  A("Corte de Espadão","physical",14,0),
+  A("Corte Negro Dimensional","magic",32,3,null),
+  A("Manto das Trevas","magic",0,4,E("shield",16))]}, // Asta [ULT]
+
+// ===== BOKU NO HERO ACADEMIA (tier ~6) =====
+{life:46,physShield:9,magShield:14,attacks:[
+  A("Choque de Curto Alcance","physical",9,0),
+  A("Descarga Indiscriminada","magic",0,3,E("stun")),
+  A("Choque Direcionado","magic",22,3,null)]}, // Denki
+{life:54,physShield:14,magShield:6,attacks:[
+  A("Soco Leve","physical",11,0),
+  A("Zero Gravity: Arremesso","physical",0,3,E("debuff",10)),
+  A("Investida Flutuante","physical",23,2,null)]}, // Ochaco
+{life:66,physShield:11,magShield:20,attacks:[
+  A("Chute de Gelo","physical",11,0),
+  A("Meio-Frio Meio-Quente","magic",29,3,E("stun")),
+  A("Muralha de Gelo","magic",0,2,E("shield",18))]}, // Todoroki
+{life:70,physShield:10,magShield:22,attacks:[
+  A("Soco Explosivo Leve","physical",13,0),
+  A("Stun Grenade","magic",0,3,E("stun")),
+  A("AP Shot: Howitzer Impact","magic",36,3,null)]}, // Bakugo [ULT]
+{life:88,physShield:22,magShield:6,attacks:[
+  A("Soco Direto","physical",16,0),
+  A("Detroit Smash","physical",42,3,null),
+  A("United States of Smash","physical",30,2,null)]}, // All Might [ULT]
+
+// ===== BLEACH (tier ~7) =====
+{life:38,physShield:9,magShield:3,attacks:[
+  A("Soco de Aluno","physical",8,0),
+  A("Chute Nervoso","physical",16,2,null),
+  A("Fanfarronice","physical",0,3,E("debuff",6))]}, // Keigo
+{life:64,physShield:14,magShield:12,attacks:[
+  A("Corte de Zanpakuto","physical",12,0),
+  A("Hihio Zabimaru","magic",28,3,null),
+  A("Baboon Bone Trident","magic",0,3,E("shield",13))]}, // Renji
+{life:52,physShield:9,magShield:17,attacks:[
+  A("Corte de Zanpakuto","physical",10,0),
+  A("Some no Mai: Tsukishiro","magic",25,3,E("stun")),
+  A("Kido de Contenção","magic",0,3,E("debuff",11))]}, // Rukia
+{life:74,physShield:9,magShield:24,attacks:[
+  A("Corte de Zanpakuto","physical",12,0),
+  A("Senbonzakura Kageyoshi","magic",36,3,null),
+  A("Postura Nobre","magic",0,3,E("shield",19))]}, // Byakuya
+{life:84,physShield:16,magShield:18,attacks:[
+  A("Corte de Zangetsu","physical",15,0),
+  A("Getsuga Tenshou","magic",38,3,null),
+  A("Bankai: Investida","magic",30,2,E("debuff",12))]}, // Ichigo [ULT]
+
+// ===== RE:ZERO (tier ~5, wide range) =====
+{life:36,physShield:8,magShield:4,attacks:[
+  A("Golpe com Bastão","physical",7,0),
+  A("Negociação Habilidosa","physical",0,3,E("debuff",6)),
+  A("Ataque Oportunista","physical",15,2,null)]}, // Otto
+{life:56,physShield:8,magShield:18,attacks:[
+  A("Golpe com Marreta","physical",11,0),
+  A("Fogo Ursino","magic",26,3,null),
+  A("Devoção Curativa","magic",0,4,E("heal",19))]}, // Rem
+{life:62,physShield:16,magShield:6,attacks:[
+  A("Corte de Espada Veterana","physical",12,0),
+  A("Técnica da Espada: Golpe Certeiro","physical",27,3,null),
+  A("Postura de Veterano","physical",0,3,E("shield",15))]}, // Wilhelm
+{life:90,physShield:23,magShield:8,attacks:[
+  A("Corte do Espadachim Mais Forte","physical",17,0),
+  A("Divine Blade: Corte Absoluto","physical",42,3,null),
+  A("Reflexo Perfeito","physical",0,3,E("shield",20))]}, // Reinhard [ULT]
+{life:54,physShield:8,magShield:19,attacks:[
+  A("Golpe com Cajado de Gelo","physical",10,0),
+  A("El Hymen: Explosão de Gelo","magic",27,3,null),
+  A("Espíritos do Gelo: Cura","magic",0,4,E("heal",18))]}, // Emilia
+
+// ===== FULLMETAL ALCHEMIST (tier ~5) =====
+{life:52,physShield:13,magShield:6,attacks:[
+  A("Soco Reforçado","physical",11,0),
+  A("Transmutação: Lança de Aço","physical",24,3,null),
+  A("Muralha de Alquimia","physical",0,3,E("shield",13))]}, // Alphonse
+{life:48,physShield:12,magShield:4,attacks:[
+  A("Coronhada","physical",10,0),
+  A("Tiro Certeiro de Pistola","physical",23,2,null),
+  A("Rajada de Precisão","physical",19,2,E("debuff",8))]}, // Riza
+{life:58,physShield:8,magShield:19,attacks:[
+  A("Golpe com Luva","physical",10,0),
+  A("Alquimia de Chamas: Estalo","magic",29,3,null),
+  A("Explosão Direcionada","magic",25,3,E("stun"))]}, // Mustang
+{life:62,physShield:14,magShield:15,attacks:[
+  A("Soco Automail","physical",12,0),
+  A("Transmutação: Lâmina de Aço","magic",28,3,null),
+  A("Reconstrução Alquímica","magic",0,4,E("heal",17))]}, // Edward
+{life:70,physShield:19,magShield:9,attacks:[
+  A("Soco Colossal","physical",15,0),
+  A("Transmutação: Canhão de Pedra","physical",33,3,null),
+  A("Brilho de Confiança","physical",0,3,E("debuff",11))]}, // Armstrong
+
+// ===== RECORD OF RAGNAROK (tier ~9, literal gods & humanity's strongest) =====
+{life:56,physShield:14,magShield:6,attacks:[
+  A("Corte de Faca","physical",11,0),
+  A("Fúria Assassina","physical",27,3,null),
+  A("Investida nas Sombras","physical",22,2,E("debuff",10))]}, // Jack the Ripper
+{life:94,physShield:23,magShield:8,attacks:[
+  A("Soco Divino","physical",17,0),
+  A("Doze Trabalhos: Nemean Khora","physical",44,3,null),
+  A("Vigor Sobre-humano","physical",0,3,E("heal",20))]}, // Hercules
+{life:68,physShield:17,magShield:7,attacks:[
+  A("Corte de Katana","physical",13,0),
+  A("Tsubame Gaeshi","physical",31,2,null),
+  A("Golpe da Andorinha Tripla","physical",26,3,E("stun"))]}, // Sasaki Kojiro
+{life:80,physShield:16,magShield:16,attacks:[
+  A("Soco do Primeiro Humano","physical",15,0),
+  A("Fúria Original","magic",36,3,null),
+  A("Instinto de Sobrevivência","magic",0,3,E("shield",17))]}, // Adam
+{life:90,physShield:12,magShield:26,attacks:[
+  A("Toque Sereno","physical",13,0),
+  A("Vazio Infinito","magic",38,4,E("stun")),
+  A("Iluminação: Cura Universal","magic",0,4,E("heal",24))]}, // Buddha
+
+// ===== BAKI (tier ~4, peak human, no magic, absurd durability) =====
+{life:58,physShield:16,magShield:3,attacks:[
+  A("Golpe de Mestre","physical",12,0),
+  A("Técnica Ancestral","physical",26,3,null),
+  A("Leitura de Movimento","physical",0,3,E("debuff",10))]}, // Kosho
+{life:78,physShield:20,magShield:4,attacks:[
+  A("Soco Selvagem","physical",15,0),
+  A("Fúria Bestial","physical",34,3,null),
+  A("Couraça Muscular","physical",0,3,E("shield",17))]}, // Jack Hanma
+{life:86,physShield:21,magShield:4,attacks:[
+  A("Soco de Ogre","physical",16,0),
+  A("Explosão Muscular","physical",38,3,null),
+  A("Regeneração de Combate","physical",0,4,E("heal",19))]}, // Baki [ULT]
+{life:68,physShield:18,magShield:4,attacks:[
+  A("Chute Karatê","physical",13,0),
+  A("Técnica Secreta: Punho Fantasma","physical",29,3,null),
+  A("Postura Imóvel","physical",0,3,E("shield",15))]}, // Doppo
+{life:50,physShield:14,magShield:3,attacks:[
+  A("Golpe de Palma","physical",10,0),
+  A("Toque da Morte","physical",24,3,E("debuff",11)),
+  A("Respiração Curativa","physical",0,4,E("heal",15))]}, // Retsu
+
+// ===== HAIKYUU (tier ~2, pure athletes) =====
+{life:36,physShield:9,magShield:2,attacks:[
+  A("Recepção Relâmpago","physical",8,0),
+  A("Defesa Impossível","physical",0,3,E("shield",8)),
+  A("Contra-Ataque Rápido","physical",16,2,null)]}, // Nishinoya
+{life:38,physShield:10,magShield:2,attacks:[
+  A("Bloqueio de Força","physical",8,0),
+  A("Cortada de Potência","physical",17,2,null),
+  A("Grito Intimidador","physical",0,3,E("debuff",6))]}, // Tanaka
+{life:34,physShield:7,magShield:3,attacks:[
+  A("Toque Preguiçoso","physical",7,0),
+  A("Levantamento Estratégico","physical",0,3,E("debuff",7)),
+  A("Combinação Rápida","physical",15,2,null)]}, // Kenma
+{life:37,physShield:8,magShield:3,attacks:[
+  A("Salto Explosivo","physical",8,0),
+  A("Cortada Relâmpago","physical",17,2,null),
+  A("Velocidade Decolagem","physical",0,3,E("stun"))]}, // Hinata
+{life:39,physShield:9,magShield:3,attacks:[
+  A("Levantamento Perfeito","physical",8,0),
+  A("Combinação Rápida com Hinata","physical",18,2,null),
+  A("Ajuste Tático","physical",0,3,E("debuff",7))]}, // Kageyama
+
+// ===== NANATSU NO TAIZAI (tier ~7) =====
+{life:56,physShield:10,magShield:16,attacks:[
+  A("Golpe com Machadinha","physical",11,0),
+  A("Chastiefol: Investida","magic",27,3,null),
+  A("Chastiefol: Cura da Floresta","magic",0,4,E("heal",18))]}, // King
+{life:64,physShield:17,magShield:6,attacks:[
+  A("Soco de Gigante","physical",13,0),
+  A("Punho da Terra","physical",30,3,null),
+  A("Escudo de Pedra","physical",0,3,E("shield",16))]}, // Diane
+{life:72,physShield:16,magShield:10,attacks:[
+  A("Corte de Espada Quebrada","physical",14,0),
+  A("Snatch: Roubo de Poder","magic",0,3,E("debuff",13)),
+  A("Fúria da Raposa","magic",32,3,null)]}, // Ban
+{life:88,physShield:14,magShield:20,attacks:[
+  A("Golpe Solar","physical",15,0),
+  A("O Um: Sunshine","magic",40,3,null),
+  A("Compressão de Poder","magic",0,4,E("debuff",16))]}, // Escanor
+{life:76,physShield:9,magShield:24,attacks:[
+  A("Toque Mágico","physical",12,0),
+  A("Magia Composta: Escuridão","magic",34,3,E("stun")),
+  A("Cura Suprema","magic",0,4,E("heal",22))]}, // Merlin
+
+// ===== KAGUYA-SAMA (tier ~1, zero real combat, all "battle" is social) =====
+{life:30,physShield:6,magShield:2,attacks:[
+  A("Empurrão Nervoso","physical",6,0),
+  A("Argumento Lógico","physical",0,3,E("debuff",6)),
+  A("Contra-Ataque Ansioso","physical",13,2,null)]}, // Ishigami
+{life:33,physShield:6,magShield:3,attacks:[
+  A("Abraço Surpresa","physical",6,0),
+  A("Energia Contagiante","physical",0,3,E("debuff",7)),
+  A("Investida Animada","physical",14,2,null)]}, // Chika
+{life:32,physShield:7,magShield:2,attacks:[
+  A("Golpe Discreto","physical",6,0),
+  A("Manipulação nos Bastidores","physical",0,3,E("debuff",8)),
+  A("Ataque Calculado","physical",14,2,null)]}, // Ai Hayasaka
+{life:34,physShield:6,magShield:4,attacks:[
+  A("Postura Presidencial","physical",6,0),
+  A("Discurso Convincente","physical",0,3,E("debuff",7)),
+  A("Jogada Política","physical",15,2,null)]}, // Miyuki
+{life:35,physShield:6,magShield:4,attacks:[
+  A("Golpe Refinado","physical",6,0),
+  A("Jogo Psicológico dos 10 mil anos","physical",0,3,E("debuff",9)),
+  A("Ataque de Orgulho","physical",15,2,null)]}, // Kaguya
+
+// ===== JUJUTSU KAISEN (tier ~8) =====
+{life:56,physShield:13,magShield:9,attacks:[
+  A("Soco Reforçado","physical",12,0),
+  A("Divergent Fist","magic",28,3,null),
+  A("Black Flash","magic",0,4,E("debuff",14))]}, // Yuji
+{life:52,physShield:12,magShield:10,attacks:[
+  A("Golpe com Martelo","physical",11,0),
+  A("Straw Doll Technique: Resonance","magic",0,3,E("debuff",13)),
+  A("Hairpin","magic",27,3,null)]}, // Nobara
+{life:60,physShield:11,magShield:17,attacks:[
+  A("Golpe Corpo a Corpo","physical",11,0),
+  A("Divine Dogs: Investida","magic",29,3,null),
+  A("Nue: Ataque Aéreo","magic",25,3,E("stun"))]}, // Megumi
+{life:100,physShield:16,magShield:20,attacks:[
+  A("Golpe Devastador","physical",17,0),
+  A("Malevolent Shrine","magic",46,4,null),
+  A("Fire Arrow","magic",34,2,E("debuff",16))]}, // Sukuna [ULT]
+{life:96,physShield:14,magShield:26,attacks:[
+  A("Toque Casual","physical",15,0),
+  A("Hollow Purple","magic",44,3,null),
+  A("Infinito: Bloqueio Absoluto","magic",0,4,E("shield",24))]}, // Gojo [ULT]
+
+// ===== DEMON SLAYER (tier ~6) =====
+{life:42,physShield:11,magShield:5,attacks:[
+  A("Golpe Trêmulo","physical",9,0),
+  A("Respiração do Trovão: Primeira Forma","physical",22,3,null),
+  A("Colapso de Medo","physical",0,3,E("debuff",8))]}, // Zenitsu
+{life:58,physShield:16,magShield:5,attacks:[
+  A("Marretada Selvagem","physical",12,0),
+  A("Respiração da Fera","physical",27,3,null),
+  A("Faro Aguçado","physical",0,3,E("debuff",10))]}, // Inosuke
+{life:78,physShield:18,magShield:7,attacks:[
+  A("Corte Flamejante","physical",15,0),
+  A("Respiração da Chama: Nono Corte","physical",36,3,null),
+  A("Ardor Inabalável","physical",0,3,E("shield",17))]}, // Rengoku [ULT]
+{life:74,physShield:17,magShield:8,attacks:[
+  A("Corte Silencioso","physical",14,0),
+  A("Respiração da Água: Undécimo Corte","physical",33,3,null),
+  A("Concentração Total Constante","physical",0,3,E("shield",16))]}, // Giyu
+{life:70,physShield:16,magShield:9,attacks:[
+  A("Corte Rápido","physical",13,0),
+  A("Respiração do Sol: Dança do Deus do Fogo","magic",35,3,null),
+  A("Instinto Aguçado","magic",0,3,E("stun"))]}, // Tanjiro (Hi) [ULT]
+
+// ===== HELL'S PARADISE (tier ~4) =====
+{life:44,physShield:12,magShield:4,attacks:[
+  A("Golpe com Foice","physical",10,0),
+  A("Investida Brutal","physical",21,2,null),
+  A("Grito de Guerra","physical",0,3,E("debuff",8))]}, // Chobei
+{life:48,physShield:11,magShield:8,attacks:[
+  A("Golpe com Kunai","physical",10,0),
+  A("Técnica Ninja: Veneno Silencioso","magic",23,3,E("debuff",10)),
+  A("Passos Silenciosos","magic",0,3,E("shield",13))]}, // Yuzuriha
+{life:50,physShield:12,magShield:7,attacks:[
+  A("Corte de Lâmina de Execução","physical",11,0),
+  A("Golpe Sentencial","magic",24,3,null),
+  A("Postura de Executora","magic",0,3,E("shield",13))]}, // Sagiri
+{life:66,physShield:17,magShield:6,attacks:[
+  A("Soco de Presidiário","physical",13,0),
+  A("Regeneração de Tatuagem","physical",0,4,E("heal",19)),
+  A("Fúria Contida","physical",29,3,null)]}, // Gabimaru [ULT]
+{life:58,physShield:15,magShield:7,attacks:[
+  A("Corte Certeiro","physical",12,0),
+  A("Técnica de Execução Perfeita","physical",27,3,null),
+  A("Julgamento Frio","physical",0,3,E("debuff",11))]}, // Tenza
+
+// ===== YOUR NAME (tier ~1, ordinary people, no combat) =====
+{life:28,physShield:5,magShield:2,attacks:[
+  A("Empurrão Tímido","physical",5,0),
+  A("Conselho Sincero","physical",0,3,E("debuff",5)),
+  A("Reação Nervosa","physical",12,2,null)]}, // Teshigawara
+{life:27,physShield:5,magShield:2,attacks:[
+  A("Tapa Fraco","physical",5,0),
+  A("Fofoca Estratégica","physical",0,3,E("debuff",5)),
+  A("Empurrão de Susto","physical",11,2,null)]}, // Tessie
+{life:29,physShield:5,magShield:3,attacks:[
+  A("Empurrão Educado","physical",5,0),
+  A("Charme Adulto","physical",0,3,E("debuff",6)),
+  A("Reação Calculada","physical",12,2,null)]}, // Miki
+{life:33,physShield:5,magShield:5,attacks:[
+  A("Empurrão Determinado","physical",6,0),
+  A("Conexão dos Fios do Destino","magic",0,4,E("heal",16)),
+  A("Ritual Ancestral","magic",18,3,null)]}, // Mitsuha
+{life:31,physShield:6,magShield:3,attacks:[
+  A("Soco Desajeitado","physical",6,0),
+  A("Determinação Repentina","physical",0,3,E("debuff",6)),
+  A("Corrida Contra o Tempo","physical",14,2,null)]}, // Taki
+
+// ===== HORIMIYA (tier ~1, slice of life, zero combat) =====
+{life:29,physShield:5,magShield:2,attacks:[
+  A("Empurrão Casual","physical",5,0),
+  A("Piada Sem Graça","physical",0,3,E("debuff",5)),
+  A("Reação Exagerada","physical",12,2,null)]}, // Tooru
+{life:30,physShield:5,magShield:2,attacks:[
+  A("Tapa de Indignação","physical",5,0),
+  A("Grito Assustador","physical",0,3,E("stun")),
+  A("Investida Brava","physical",12,2,null)]}, // Yuki
+{life:31,physShield:5,magShield:3,attacks:[
+  A("Empurrão Gentil","physical",5,0),
+  A("Sorriso Desarmante","physical",0,3,E("debuff",6)),
+  A("Reação Rápida","physical",13,2,null)]}, // Remi
+{life:34,physShield:7,magShield:3,attacks:[
+  A("Soco Silencioso","physical",7,0),
+  A("Rebeldia Contida","physical",0,3,E("debuff",7)),
+  A("Explosão Reprimida","physical",15,2,null)]}, // Izumi
+{life:32,physShield:6,magShield:3,attacks:[
+  A("Tapa Duplo Padrão","physical",6,0),
+  A("Faceta Oculta","physical",0,3,E("debuff",7)),
+  A("Investida Decidida","physical",14,2,null)]}, // Kyoko
+
+// ===== JOJO'S BIZARRE ADVENTURE (tier ~7) =====
+{life:48,physShield:9,magShield:14,attacks:[
+  A("Soco de Echoes","physical",10,0),
+  A("Echoes Act 1: Sound Slap","magic",22,3,null),
+  A("Echoes Act 2: Impacto","magic",0,3,E("debuff",10))]}, // Koichi
+{life:60,physShield:11,magShield:16,attacks:[
+  A("Soco Corpo a Corpo","physical",12,0),
+  A("Crazy Diamond: Reparo Ofensivo","magic",28,3,null),
+  A("Crazy Diamond: Cura","magic",0,4,E("heal",19))]}, // Josuke
+{life:82,physShield:12,magShield:22,attacks:[
+  A("Soco Elegante","physical",14,0),
+  A("Gold Experience Requiem: Reset","magic",0,4,E("stun")),
+  A("Gold Experience: Vida","magic",36,3,null)]}, // Giorno [ULT]
+{life:90,physShield:13,magShield:23,attacks:[
+  A("Soco Aristocrático","physical",15,0),
+  A("The World: Tempo Parado","magic",0,4,E("stun")),
+  A("Road Roller: Investida","magic",40,3,null)]}, // Dio [ULT]
+{life:86,physShield:15,magShield:19,attacks:[
+  A("Soco Direto","physical",15,0),
+  A("Star Platinum: ORAORAORA","magic",38,3,null),
+  A("Star Platinum: Reflexo Perfeito","magic",0,3,E("shield",18))]} // Jotaro [ULT]
+
+];
+
+// Curated appearance per character: [skin, hairColor, hairStyle, outfit, outfit2]
+// Order matches RAW's anime/character order exactly (same order CHARACTERS are built in).
+const APPEARANCE = [
+  // Naruto
+  ["#d99a6c","#5c3a21","spiky","#2e4a7a","#7a2b34"],   // Konohamaru
+  ["#e8b184","#5c3a21","long","#b3324f","#7a1f2b"],    // Tenten
+  ["#d99a6c","#1a1a1a","spiky","#3a5a3a","#1a1a1a"],   // Shikamaru Nara
+  ["#d99a6c","#1a1a1a","short","#2f8f4a","#2f8f4a"],   // Might Guy
+  ["#f4c9a0","#1a1a1a","long","#1a1a1a","#7a2b34"],    // Itachi Uchiha
+  // Dragon Ball
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#2e4a7a"],   // Yamcha
+  ["#d99a6c","#1a1a1a","bald","#2e4a7a","#1f3355"],    // Tenshinhan
+  ["#f4c9a0","#e8c250","short","#3a5fa0","#e8e8e8"],   // Android 18
+  ["#f4c9a0","#1a1a1a","spiky","#1f3f7a","#e8e8e8"],   // Vegeta
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#2e4a7a"],   // Son Goku
+  // One Piece
+  ["#f4c9a0","#6fb3d9","short","#1f3a6b","#1f3a6b"],   // Coby
+  ["#d99a6c","#1a1a1a","long","#6b3fa0","#5a3390"],    // Nico Robin
+  ["#f4c9a0","#e8c250","short","#1a1a1a","#e8e8e8"],   // Sanji
+  ["#d99a6c","#3a8f4a","spiky","#2a4a2a","#1a1a1a"],   // Roronoa Zoro
+  ["#d99a6c","#1a1a1a","short","#b32424","#2e4a7a"],   // Monkey D. Luffy
+  // Attack on Titan
+  ["#f4c9a0","#7a5a3a","short","#4a5a3a","#5c3a21"],   // Sasha Blouse
+  ["#f4c9a0","#b39a6b","short","#5c3a21","#4a5a3a"],   // Jean Kirstein
+  ["#f4c9a0","#e8c250","short","#5c3a21","#4a5a3a"],   // Armin Arlert
+  ["#e8b184","#e8c250","short","#5c3a21","#4a5a3a"],   // Reiner Braun
+  ["#f4c9a0","#5c3a21","short","#5c3a21","#4a5a3a"],   // Eren Yeager
+  // One Punch Man
+  ["#f4c9a0","#1a1a1a","short","#d9b93a","#2e4a7a"],   // Mumen Rider
+  ["#f4c9a0","#8a6fbf","long","#1a1a1a","#1a1a1a"],    // Tornado
+  ["#c17f4f","#1a1a1a","short","#1a1a1a","#6a6a6a"],   // King (fama)
+  ["#d8dde6","#e8c250","spiky","#1a1a1a","#c9c9c9"],   // Genos
+  ["#f4c9a0","#1a1a1a","short","#2a4a2a","#1a1a1a"],   // Garou
+  // Solo Leveling
+  ["#d99a6c","#1a1a1a","short","#1a1a1a","#1a1a1a"],   // Woo Jinchul
+  ["#f4c9a0","#e8c250","long","#e8e8e8","#d9a92e"],    // Cha Hae-in
+  ["#e8b184","#9a9a9a","short","#4a4a4a","#1a1a1a"],   // Go Gunhee
+  ["#f4c9a0","#e8c250","short","#e8e8e8","#d9a92e"],   // Thomas Andre
+  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#5a3390"],   // Sung Jinwoo
+  // Hunter x Hunter
+  ["#d99a6c","#1a1a1a","short","#3a5a3a","#1a1a1a"],   // Leorio
+  ["#f4c9a0","#e8e8e8","spiky","#6b3fa0","#5a3390"],   // Killua Zoldyck
+  ["#f4c9a0","#e8c250","long","#e07ba8","#d15f96"],    // Biscuit Krueger
+  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#1a1a1a"],   // Chrollo Lucilfer
+  ["#6b2b2b","#1a1a1a","bald","#6b2b2b","#1a1a1a"],    // Meruem
+  // Blue Lock
+  ["#d99a6c","#5c3a21","short","#2e6fd9","#e8e8e8"],   // Aoshi Tokimitsu
+  ["#d99a6c","#1a1a1a","spiky","#2e6fd9","#e8e8e8"],   // Rensuke Kunigami
+  ["#f4c9a0","#2fa89e","spiky","#2e6fd9","#e8e8e8"],   // Meguru Bachira
+  ["#d99a6c","#3a2318","short","#2e6fd9","#e8e8e8"],   // Shoei Baro
+  ["#f4c9a0","#24406b","short","#2e6fd9","#e8e8e8"],   // Seishiro Nagi
+  // Death Note
+  ["#f4c9a0","#3a2318","short","#5a5a5a","#1a1a1a"],   // Soichiro Yagami
+  ["#f4c9a0","#e8c250","long","#1a1a1a","#d15f96"],    // Misa Amane
+  ["#f5f0e6","#f0f0f0","short","#e8e8e8","#e8e8e8"],   // Near
+  ["#f5f0e6","#1a1a1a","spiky","#e8e8e8","#2e4a7a"],   // L Lawliet
+  ["#f4c9a0","#5c3a21","short","#1a1a1a","#e8e8e8"],   // Light Yagami
+  // Frieren
+  ["#d99a6c","#5c3a21","short","#5c3a21","#d99a6c"],   // Sein
+  ["#f5f0e6","#1a1a1a","short","#3a2a5a","#1a1a1a"],   // Übel
+  ["#d99a6c","#d9522e","spiky","#5c3a21","#3a5a3a"],   // Stark
+  ["#f5f0e6","#f0e0a0","short","#1a1a1a","#1a1a1a"],   // Fern
+  ["#f5f0e6","#e8e8e8","long","#1a1a1a","#2a4a2a"],    // Frieren
+  // Akame ga Kill
+  ["#d99a6c","#1a1a1a","short","#1a1a1a","#6a6a6a"],   // Bulat
+  ["#e8b184","#e8c250","long","#1a1a1a","#d9a92e"],    // Leone
+  ["#f4c9a0","#2fa89e","short","#4a4a4a","#7a2b34"],   // Lubbock
+  ["#f5f0e6","#6fb3d9","long","#e8e8e8","#2e4a7a"],    // Esdeath
+  ["#f5f0e6","#1a1a1a","long","#1a1a1a","#7a2b34"],    // Akame
+  // Black Clover
+  ["#f4c9a0","#e07ba8","spiky","#1a1a1a","#d9752e"],   // Luck Voltia
+  ["#d99a6c","#6b3fa0","spiky","#1a1a1a","#7a2b34"],   // Magna Swing
+  ["#f4c9a0","#e8e8e8","long","#1a1a1a","#2e6fd9"],    // Noelle Silva
+  ["#f4c9a0","#e8e0a0","short","#1a1a1a","#3a8f4a"],   // Yuno Grinberryall
+  ["#d99a6c","#1a1a1a","spiky","#1a1a1a","#e8e8e8"],   // Asta
+  // Boku no Hero
+  ["#f4c9a0","#e8c250","spiky","#d9b93a","#1a1a1a"],   // Denki Kaminari
+  ["#f4c9a0","#5c3a21","short","#e07ba8","#1a1a1a"],   // Ochaco Uraraka
+  ["#f4c9a0","#f0f0f0","short","#2e6fd9","#e8e8e8"],   // Shoto Todoroki
+  ["#f4c9a0","#e8c250","spiky","#4a5a2a","#1a1a1a"],   // Katsuki Bakugo
+  ["#f4c9a0","#e8c250","spiky","#2e4a9a","#b32424"],   // All Might
+  // Bleach
+  ["#d99a6c","#5c3a21","short","#6a6a6a","#2e4a7a"],   // Keigo Asano
+  ["#d99a6c","#b32424","long","#1a1a1a","#1a1a1a"],    // Renji Abarai
+  ["#f5f0e6","#1a1a1a","short","#1a1a1a","#1a1a1a"],   // Rukia Kuchiki
+  ["#f5f0e6","#1a1a1a","long","#e8e8e8","#1a1a1a"],    // Byakuya Kuchiki
+  ["#f4c9a0","#d9752e","spiky","#1a1a1a","#1a1a1a"],   // Ichigo Kurosaki
+  // Re:Zero
+  ["#d99a6c","#2fa89e","short","#5c3a21","#d99a6c"],   // Otto Suwen
+  ["#f5f0e6","#2e6fd9","short","#1a1a1a","#e8e8e8"],   // Rem
+  ["#d99a6c","#9a9a9a","short","#4a4a4a","#1a1a1a"],   // Wilhelm van Astrea
+  ["#f4c9a0","#e8e8e8","short","#e8e8e8","#c9c9c9"],   // Reinhard van Astrea
+  ["#f5f0e6","#e8e8e8","long","#e8e8e8","#8a6fbf"],    // Emilia
+  // Fullmetal Alchemist
+  ["#f4c9a0","#e8c250","short","#1a1a1a","#1a1a1a"],   // Alphonse Elric
+  ["#f4c9a0","#e8c250","short","#2e4a7a","#2e4a7a"],   // Riza Hawkeye
+  ["#f4c9a0","#1a1a1a","short","#2e4a7a","#2e4a7a"],   // Roy Mustang
+  ["#f4c9a0","#e8c250","long","#b32424","#1a1a1a"],    // Edward Elric
+  ["#e8b184","#e8c250","short","#2e4a7a","#2e4a7a"],   // Alex Louis Armstrong
+  // Record of Ragnarok
+  ["#f5f0e6","#1a1a1a","short","#3a3a3a","#1a1a1a"],   // Jack the Ripper
+  ["#e8b184","#d9a92e","short","#a5673c","#d9a92e"],   // Hercules
+  ["#d99a6c","#1a1a1a","short","#e8e8e8","#7a2b34"],   // Sasaki Kojiro
+  ["#e8b184","#5c3a21","short","#e8e8e8","#e8e8e8"],   // Adam
+  ["#d9a05e","#1a1a1a","bald","#d9752e","#d9a92e"],    // Buddha
+  // Baki
+  ["#d99a6c","#f0f0f0","short","#6a6a6a","#6a6a6a"],   // Kosho Shibukawa
+  ["#e8b184","#e8c250","spiky","#3a3a3a","#1a1a1a"],   // Jack Hanma
+  ["#d99a6c","#1a1a1a","spiky","#1a1a1a","#1a1a1a"],   // Baki Hanma
+  ["#d99a6c","#9a9a9a","short","#e8e8e8","#e8e8e8"],   // Doppo Orochi
+  ["#d99a6c","#1a1a1a","bald","#b32424","#d9a92e"],    // Retsu Kaioh
+  // Haikyuu
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#1a1a1a"],   // Yu Nishinoya
+  ["#d99a6c","#1a1a1a","bald","#d9752e","#1a1a1a"],    // Ryunosuke Tanaka
+  ["#f4c9a0","#e8c250","short","#1a1a1a","#7a2b34"],   // Kenma Kozume
+  ["#d99a6c","#d9752e","spiky","#d9752e","#1a1a1a"],   // Shoyo Hinata
+  ["#f4c9a0","#1a1a1a","short","#d9752e","#1a1a1a"],   // Tobio Kageyama
+  // Nanatsu no Taizai
+  ["#f4c9a0","#e8c250","short","#3a8f4a","#3a8f4a"],   // King
+  ["#d99a6c","#d9752e","long","#d9752e","#5c3a21"],    // Diane
+  ["#d99a6c","#1a1a1a","spiky","#d9752e","#1a1a1a"],   // Ban
+  ["#e8b184","#e8c250","long","#d9752e","#7a2b34"],    // Escanor
+  ["#f5f0e6","#f0e0a0","long","#6b3fa0","#1a1a1a"],    // Merlin
+  // Kaguya-sama
+  ["#f4c9a0","#3a2318","spiky","#1a1a1a","#e8e8e8"],   // Yu Ishigami
+  ["#f4c9a0","#e8c250","short","#2e4a7a","#e8e8e8"],   // Chika Fujiwara
+  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Ai Hayasaka
+  ["#f4c9a0","#1a1a1a","short","#1a1a1a","#e8e8e8"],   // Miyuki Shirogane
+  ["#f5f0e6","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Kaguya Shinomiya
+  // Jujutsu Kaisen
+  ["#d99a6c","#d94f9e","short","#1a1a1a","#e8e8e8"],   // Yuji Itadori
+  ["#d99a6c","#d9752e","long","#1a1a1a","#e8e8e8"],    // Nobara Kugisaki
+  ["#f4c9a0","#24406b","short","#1f3a6b","#e8e8e8"],   // Megumi Fushiguro
+  ["#d99a6c","#f0f0f0","short","#7a2b34","#1a1a1a"],   // Sukuna
+  ["#f4c9a0","#f0f0f0","spiky","#1f3a6b","#1a1a1a"],   // Satoru Gojo
+  // Demon Slayer
+  ["#f4c9a0","#e8c250","spiky","#d9b93a","#1a1a1a"],   // Zenitsu Agatsuma
+  ["#d99a6c","#9a9a9a","spiky","#3a8f4a","#e8e8e8"],   // Inosuke Hashibira
+  ["#d99a6c","#d9522e","spiky","#d9752e","#d9b93a"],   // Kyojuro Rengoku
+  ["#f4c9a0","#1a1a1a","short","#2fa89e","#1a1a1a"],   // Giyu Tomioka
+  ["#d99a6c","#1a1a1a","spiky","#3a8f4a","#1a1a1a"],   // Tanjiro Kamado
+  // Hell's Paradise
+  ["#d99a6c","#1a1a1a","bald","#5c3a21","#5c3a21"],    // Chobei
+  ["#f4c9a0","#1a1a1a","long","#6b3fa0","#1a1a1a"],    // Yuzuriha
+  ["#f5f0e6","#1a1a1a","long","#e8e8e8","#1a1a1a"],    // Sagiri Asaemon
+  ["#d99a6c","#1a1a1a","short","#5c3a21","#6a6a6a"],   // Gabimaru
+  ["#f4c9a0","#1a1a1a","short","#e8e8e8","#1a1a1a"],   // Yamada Asaemon Tenza
+  // Your Name
+  ["#d99a6c","#1a1a1a","short","#1f3a6b","#e8e8e8"],   // Katsuhiko Teshigawara
+  ["#d99a6c","#1a1a1a","short","#1f3a6b","#e8e8e8"],   // Tessie
+  ["#f4c9a0","#1a1a1a","long","#6a6a6a","#e8e8e8"],    // Miki Okudera
+  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Mitsuha Miyamizu
+  ["#f4c9a0","#1a1a1a","spiky","#1f3a6b","#e8e8e8"],   // Taki Tachibana
+  // Horimiya
+  ["#d99a6c","#5c3a21","short","#1f3a6b","#e8e8e8"],   // Tooru Ishikawa
+  ["#f4c9a0","#5c3a21","short","#1f3a6b","#e8e8e8"],   // Yuki Yoshikawa
+  ["#f4c9a0","#e8c250","short","#1f3a6b","#e8e8e8"],   // Remi Ayasaki
+  ["#f4c9a0","#1a1a1a","long","#1f3a6b","#e8e8e8"],    // Izumi Miyamura
+  ["#f4c9a0","#5c3a21","long","#1f3a6b","#e8e8e8"],    // Kyoko Hori
+  // JoJo's Bizarre Adventure
+  ["#f4c9a0","#1a1a1a","spiky","#1f3a6b","#d9a92e"],   // Koichi Hirose
+  ["#d99a6c","#1a1a1a","spiky","#6b3fa0","#d9b93a"],   // Josuke Higashikata
+  ["#f4c9a0","#d9a92e","long","#1a1a1a","#d9a92e"],    // Giorno Giovanna
+  ["#f5f0e6","#e8c250","long","#d9b93a","#6b3fa0"],    // Dio Brando
+  ["#d99a6c","#1a1a1a","short","#1a1a1a","#2e4a7a"]    // Jotaro Kujo
+];
 
 const CHARACTERS = [];
 let cid=1;
 Object.keys(RAW).forEach(anime=>{
   RAW[anime].forEach((row,idx)=>{
     const [name, level, type, ultFlag, onceFlag] = row;
-    const stats = buildStats(level,type);
-    const attacks = buildAttacks(name,level,type,idx, !!onceFlag);
+    const thisId = cid++;
+    const kit = CHAR_KIT[thisId-1];
+    const ap = APPEARANCE[thisId-1];
     const character = {
-      id: "c"+(cid++),
+      id: "c"+thisId,
       name, anime, level, type,
-      life: stats.life, physShield: stats.physShield, magShield: stats.magShield,
-      attacks,
+      life: kit.life, physShield: kit.physShield, magShield: kit.magShield,
+      attacks: kit.attacks,
+      appearance: ap ? {skin:ap[0], hairColor:ap[1], hairStyle:ap[2], outfit:ap[3], outfit2:ap[4]} : null,
       ultimate: ultFlag ? {
         name: "Despertar: "+name,
         lifeBonus: level==="strong"?30:20,
@@ -388,7 +1126,7 @@ const app = document.getElementById("app");
 
 function render(){
   if(!ROOM_CODE){ renderHome(); return; }
-  loadRoom(ROOM_CODE).then(state=>{
+  return loadRoom(ROOM_CODE).then(state=>{
     if(!state){ renderHome(); return; }
     LAST_STATE = state;
     LAST_REV = state.rev||0;
@@ -400,7 +1138,7 @@ function render(){
 // number actually changed (avoids wiping out whatever the player is typing/clicking).
 function poll(){
   if(!ROOM_CODE) return;
-  loadRoom(ROOM_CODE).then(state=>{
+  return loadRoom(ROOM_CODE).then(state=>{
     if(!state) return;
     const rev = state.rev||0;
     if(rev===LAST_REV) return; // nothing changed, skip redraw
@@ -892,9 +1630,10 @@ function renderBattle(state){
           const cdLeft = state.battle.cooldowns[pendingAttacker][i];
           const usedOnce = a.onceOnly && state.battle.onceUsed[pendingAttacker][i];
           const disabled = cdLeft>0 || usedOnce;
+          const typeTag = a.dmgType==='physical' ? '<span class="badge physical">Físico</span>' : '<span class="badge magic">Mágico</span>';
           return `<button class="atk-btn" ${disabled?'disabled':''} onclick="selectAttack(${i})">
-            <div class="an">${a.name} ${a.onceOnly?'<span class="badge once">único</span>':''} ${pendingAttackIdx===i?'✓':''}</div>
-            <div class="ad">${disabled ? (usedOnce?'já usado nessa partida':'em cooldown ('+cdLeft+' turnos)') : (a.category==='melee'?'corpo a corpo':'especial '+(a.dmg?'· '+a.dmg+' dano':'')+(a.effect?' · '+describeEffect(a.effect):''))}</div>
+            <div class="an">${a.name} ${typeTag} ${a.onceOnly?'<span class="badge once">único</span>':''} ${pendingAttackIdx===i?'✓':''}</div>
+            <div class="ad">${disabled ? (usedOnce?'já usado nessa partida':'em cooldown ('+cdLeft+' turnos)') : (a.category==='melee'?'corpo a corpo · sem cooldown':'especial')+(a.dmg?' · '+a.dmg+' dano':'')+(a.effect?' · '+describeEffect(a.effect):'')}</div>
           </button>`;
         }).join("")}
         ${chosenAttack && !needsTarget ? `<button class="btn primary" onclick="executeSelfAction()">Confirmar</button>` : ''}
@@ -958,13 +1697,24 @@ const OUTFIT_PALETTES = {
 };
 
 function stickFigureSVG(c, alive){
-  const h = hashStr(c.id+c.name);
-  const skin = !alive ? "#5a5c66" : SKIN_TONES[h%SKIN_TONES.length];
-  const hairColor = !alive ? "#3a3c46" : HAIR_COLORS[(h>>>3)%HAIR_COLORS.length];
-  const hairStyle = HAIR_STYLES[(h>>>6)%HAIR_STYLES.length];
-  const palette = OUTFIT_PALETTES[c.type] || OUTFIT_PALETTES.hybrid;
-  const outfit = !alive ? "#4a4d57" : palette[(h>>>9)%palette.length];
-  const outfit2 = !alive ? "#3a3c46" : shadeColor(outfit, -18);
+  let skin, hairColor, hairStyle, outfit, outfit2;
+  if(c.appearance){
+    const ap = c.appearance;
+    skin = !alive ? "#5a5c66" : ap.skin;
+    hairColor = !alive ? "#3a3c46" : ap.hairColor;
+    hairStyle = ap.hairStyle;
+    outfit = !alive ? "#4a4d57" : ap.outfit;
+    outfit2 = !alive ? "#3a3c46" : (ap.outfit2 || shadeColor(ap.outfit,-18));
+  } else {
+    // Fallback for any character missing curated appearance data (shouldn't normally happen)
+    const h = hashStr(c.id+c.name);
+    skin = !alive ? "#5a5c66" : SKIN_TONES[h%SKIN_TONES.length];
+    hairColor = !alive ? "#3a3c46" : HAIR_COLORS[(h>>>3)%HAIR_COLORS.length];
+    hairStyle = HAIR_STYLES[(h>>>6)%HAIR_STYLES.length];
+    const palette = OUTFIT_PALETTES[c.type] || OUTFIT_PALETTES.hybrid;
+    outfit = !alive ? "#4a4d57" : palette[(h>>>9)%palette.length];
+    outfit2 = !alive ? "#3a3c46" : shadeColor(outfit, -18);
+  }
 
   let hairSVG = "";
   if(hairStyle==="spiky") hairSVG = `<path d="M13 6 L10 -1 L15 4 L18 -3 L20 4 L22 -3 L25 4 L30 -1 L27 6 Z" fill="${hairColor}"/>`;
