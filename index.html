@@ -576,7 +576,7 @@ function renderAuction(state){
          <div class="bid-controls">
            <input type="number" id="bidAmt" placeholder="Valor do lance (R$)">
            <button class="btn primary" onclick="openBid()">Dar lance</button>
-           <button class="btn danger" onclick="openDesist()">Desistir</button>
+           <button class="btn danger" onclick="openDesist()">Passar</button>
          </div>
          <p class="hint">Seu saldo: R$ ${myBudget} · Vagas restantes: ${5-state.teams[myKey].length}</p>`
       : `<h3 style="margin-bottom:6px;">Aguardando ${playerName(state,oppKey)} abrir o lance...</h3>`;
@@ -587,7 +587,7 @@ function renderAuction(state){
          <div class="bid-controls">
            <input type="number" id="bidAmt" placeholder="Novo valor (R$)">
            <button class="btn primary" onclick="raiseBid()">Aumentar lance</button>
-           <button class="btn danger" onclick="respondDesist()">Desistir</button>
+           <button class="btn danger" onclick="respondDesist()">Passar</button>
          </div>
          <p class="hint">Seu saldo: R$ ${myBudget} · Vagas restantes: ${5-state.teams[myKey].length}</p>`
       : `<h3 style="margin-bottom:6px;">Lance atual: <span class="money">R$ ${state.currentBid.amount}</span> — você está liderando! Aguardando resposta de ${playerName(state,oppKey)}...</h3>`;
@@ -675,10 +675,10 @@ async function openDesist(){
   state.noBidDesists = (state.noBidDesists||0) + 1;
   const opp = otherKey(myKey);
   if(state.noBidDesists>=2 || state.teams[opp].length>=5){
-    state.log.unshift(`${playerName(state,myKey)} também desistiu de ${c.name} — ele fica de fora.`);
+    state.log.unshift(`${playerName(state,myKey)} também passou em ${c.name} — ele fica de fora.`);
     advanceCharacter(state);
   } else {
-    state.log.unshift(`${playerName(state,myKey)} desistiu de abrir o lance em ${c.name}. Passou a vez.`);
+    state.log.unshift(`${playerName(state,myKey)} passou a abertura do lance em ${c.name}. Passou a vez.`);
     state.turnToAct = opp;
   }
   await commitAndDraw(state);
@@ -710,7 +710,7 @@ async function respondDesist(){
   if(state.turnToAct!==myKey) return;
   const c = charById(state.pool[state.poolIndex]);
   const leader = state.currentBid.by;
-  state.log.unshift(`${playerName(state,myKey)} desistiu de ${c.name}.`);
+  state.log.unshift(`${playerName(state,myKey)} passou em ${c.name}.`);
   await awardCharacter(state, leader, c);
   await commitAndDraw(state);
 }
@@ -960,10 +960,10 @@ const OUTFIT_PALETTES = {
 function stickFigureSVG(c, alive){
   const h = hashStr(c.id+c.name);
   const skin = !alive ? "#5a5c66" : SKIN_TONES[h%SKIN_TONES.length];
-  const hairColor = !alive ? "#3a3c46" : HAIR_COLORS[(h>>3)%HAIR_COLORS.length];
-  const hairStyle = HAIR_STYLES[(h>>6)%HAIR_STYLES.length];
+  const hairColor = !alive ? "#3a3c46" : HAIR_COLORS[(h>>>3)%HAIR_COLORS.length];
+  const hairStyle = HAIR_STYLES[(h>>>6)%HAIR_STYLES.length];
   const palette = OUTFIT_PALETTES[c.type] || OUTFIT_PALETTES.hybrid;
-  const outfit = !alive ? "#4a4d57" : palette[(h>>9)%palette.length];
+  const outfit = !alive ? "#4a4d57" : palette[(h>>>9)%palette.length];
   const outfit2 = !alive ? "#3a3c46" : shadeColor(outfit, -18);
 
   let hairSVG = "";
