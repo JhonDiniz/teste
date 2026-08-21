@@ -349,9 +349,10 @@ function newRoomState(code){
     teams: {p1:[], p2:[]},
     pool,
     poolIndex:0,
-    phase:"lobby", // lobby | auction | ultimate | done
+    phase:"lobby", // lobby | coinflip | auction | ultimate | battle | battleover
     currentBid:{amount:0, by:null},
-    passed:{p1:false, p2:false},
+    turnToAct:null,
+    coinResult:null,
     ultimateChoice:{p1:null, p2:null},
     log:[]
   };
@@ -396,12 +397,17 @@ function renderHome(){
     <p class="sub">Monte seu time de 5 lutadores disputando lances contra um amigo. Crie uma sala, compartilhe o código, e leiloem juntos em tempo real.</p>
     <div class="card">
       <h2>Criar sala</h2>
-      <p class="sub" style="margin-bottom:12px;">Você entra como Jogador 1 e recebe um código pra mandar pro seu amigo.</p>
-      <button class="btn primary" onclick="createRoom()">Criar nova sala</button>
+      <label>Seu nome</label>
+      <input type="text" id="createName" maxlength="18" placeholder="Como você quer ser chamado">
+      <div style="margin-top:12px;"><button class="btn primary" onclick="createRoom()">Criar nova sala</button></div>
     </div>
     <div class="card">
       <h2>Entrar em uma sala</h2>
       <div class="row">
+        <div>
+          <label>Seu nome</label>
+          <input type="text" id="joinName" maxlength="18" placeholder="Como você quer ser chamado">
+        </div>
         <div>
           <label>Código da sala</label>
           <input type="text" id="joinCode" maxlength="5" placeholder="EX: A2B9K" style="text-transform:uppercase; letter-spacing:3px; font-family:monospace;">
@@ -413,26 +419,33 @@ function renderHome(){
   `;
 }
 
+function playerName(state,key){
+  return (state.players[key] && state.players[key].name) || ("Jogador "+key.slice(1));
+}
+function otherKey(key){ return key==="p1"?"p2":"p1"; }
+
 async function createRoom(){
+  const name = (document.getElementById("createName").value||"").trim() || "Jogador 1";
   const code = genCode();
   const state = newRoomState(code);
-  state.players.p1 = {name:"Jogador 1"};
+  state.players.p1 = {name};
   await saveRoom(state);
   ROOM_CODE = code; MY_SLOT = 1;
   startPolling();
 }
 
 async function joinRoom(){
+  const name = (document.getElementById("joinName").value||"").trim();
   const code = document.getElementById("joinCode").value.trim().toUpperCase();
   if(!code){ return; }
   const state = await loadRoom(code);
   if(!state){ alert("Sala não encontrada. Confira o código."); return; }
   if(!state.players.p2 && !state.players.p1){
-    state.players.p1 = {name:"Jogador 1"};
+    state.players.p1 = {name: name || "Jogador 1"};
     await saveRoom(state);
     ROOM_CODE = code; MY_SLOT = 1;
   } else if(!state.players.p2){
-    state.players.p2 = {name:"Jogador 2"};
+    state.players.p2 = {name: name || "Jogador 2"};
     await saveRoom(state);
     ROOM_CODE = code; MY_SLOT = 2;
   } else {
@@ -456,83 +469,95 @@ function renderLobby(state){
     <div class="card">
       <div class="code-display">${state.code}</div>
       <div class="players-grid">
-        <div class="player-panel ${state.players.p1?'':''}"><h3>Jogador 1</h3><p class="status-line">${state.players.p1?'Conectado':'Aguardando...'}</p></div>
-        <div class="player-panel"><h3>Jogador 2</h3><p class="status-line">${state.players.p2?'Conectado':'Aguardando...'}</p></div>
+        <div class="player-panel"><h3>${state.players.p1?state.players.p1.name:'Jogador 1'}</h3><p class="status-line">${state.players.p1?'Conectado':'Aguardando...'}</p></div>
+        <div class="player-panel"><h3>${state.players.p2?state.players.p2.name:'Jogador 2'}</h3><p class="status-line">${state.players.p2?'Conectado':'Aguardando...'}</p></div>
       </div>
-      ${bothIn ? `<div style="margin-top:16px; text-align:center;"><button class="btn primary" onclick="startAuction()">Iniciar leilão</button></div>` : `<p class="status-line">Aguardando o segundo jogador entrar com o código acima...</p>`}
-      <p class="hint" style="margin-top:10px;">Você é o <strong>Jogador ${MY_SLOT}</strong> nessa sala.</p>
+      ${bothIn ? `<div style="margin-top:16px; text-align:center;"><button class="btn primary" onclick="goToCoinflip()">Jogar a moeda e iniciar leilão</button></div>` : `<p class="status-line">Aguardando o segundo jogador entrar com o código acima...</p>`}
+      <p class="hint" style="margin-top:10px;">Você é <strong>${playerName(state,'p'+MY_SLOT)}</strong> nessa sala.</p>
     </div>
   `;
+}
+
+async function goToCoinflip(){
+  const state = await loadRoom(ROOM_CODE);
+  state.phase = "coinflip";
+  await saveRoom(state);
+  render();
 }
 
 async function startAuction(){
   const state = await loadRoom(ROOM_CODE);
   state.phase = "auction";
-  state.log.unshift("Leilão iniciado — 20 personagens sorteados, orçamento de R$20 cada.");
+  setupCharacterTurn(state);
+  state.log.unshift("Leilão iniciado — orçamento de R$20 cada, abertura de lance alternando por personagem.");
   await saveRoom(state);
   render();
 }
 
+function setupCharacterTurn(state){
+  let opener = openerFor(state, state.poolIndex);
+  if(state.teams[opener].length>=5) opener = otherKey(opener);
+  state.turnToAct = opener;
+  state.currentBid = {amount:0, by:null};
+}
+
+function openerFor(state, idx){
+  return idx%2===0 ? state.coinResult : otherKey(state.coinResult);
+}
+
 function renderAuction(state){
-  if(state.poolIndex >= state.pool.length || state.teams.p1.length>=5 && state.teams.p2.length>=5){
+  if(state.poolIndex >= state.pool.length || (state.teams.p1.length>=5 && state.teams.p2.length>=5)){
     finishAuction(state);
     return;
   }
-  const teamFull1 = state.teams.p1.length>=5;
-  const teamFull2 = state.teams.p2.length>=5;
-  if(teamFull1 && teamFull2){ finishAuction(state); return; }
-
   const currentId = state.pool[state.poolIndex];
   const c = charById(currentId);
-  if(!c){ // safety
-    advanceCharacter(state); return;
-  }
+  if(!c){ advanceCharacter(state); return; }
 
-  const iAmLeading = state.currentBid.by === ("p"+MY_SLOT);
-  const oppSlot = MY_SLOT===1?"p2":"p1";
-  const oppPassed = state.passed[oppSlot];
-  const myPassed = state.passed["p"+MY_SLOT];
-  const myBudget = state.budget["p"+MY_SLOT];
-  const myTeamFull = state.teams["p"+MY_SLOT].length>=5;
+  const myKey = "p"+MY_SLOT;
+  const oppKey = otherKey(myKey);
+  const myTurn = state.turnToAct===myKey;
+  const isOpening = state.currentBid.amount===0;
+  const myBudget = state.budget[myKey];
+
+  let controlsHTML = "";
+  if(isOpening){
+    controlsHTML = myTurn
+      ? `<h3 style="margin-bottom:10px;">É a sua vez de abrir o lance</h3>
+         <div class="bid-controls">
+           <input type="number" id="bidAmt" min="1" max="${myBudget}" placeholder="Valor do lance (R$)">
+           <button class="btn primary" onclick="openBid()">Dar lance</button>
+           <button class="btn danger" onclick="openDesist()">Desistir</button>
+         </div>
+         <p class="hint">Seu saldo: R$ ${myBudget} · Vagas restantes: ${5-state.teams[myKey].length}</p>`
+      : `<h3 style="margin-bottom:6px;">Aguardando ${playerName(state,oppKey)} abrir o lance...</h3>`;
+  } else {
+    const leaderName = playerName(state, state.currentBid.by);
+    controlsHTML = myTurn
+      ? `<h3 style="margin-bottom:10px;">Lance atual: <span class="money">R$ ${state.currentBid.amount}</span> (liderando: ${leaderName})</h3>
+         <div class="bid-controls">
+           <input type="number" id="bidAmt" min="${state.currentBid.amount+1}" max="${myBudget}" placeholder="Novo valor (R$)">
+           <button class="btn primary" onclick="raiseBid()">Aumentar lance</button>
+           <button class="btn danger" onclick="respondDesist()">Desistir</button>
+         </div>
+         <p class="hint">Seu saldo: R$ ${myBudget} · Vagas restantes: ${5-state.teams[myKey].length}</p>`
+      : `<h3 style="margin-bottom:6px;">Lance atual: <span class="money">R$ ${state.currentBid.amount}</span> — você está liderando! Aguardando resposta de ${playerName(state,oppKey)}...</h3>`;
+  }
 
   app.innerHTML = `
     <div class="eyebrow">Leilão — ${state.poolIndex+1} / ${state.pool.length}</div>
     <h1>Disputa em andamento</h1>
     <div class="card">
       <div class="char-hero flash">
-        <div class="badge ${c.level}">${c.level==='weak'?'Fraco':c.level==='medium'?'Mediano':'Forte'}</div>
         <span class="badge ${c.type}">${c.type==='physical'?'Físico':c.type==='magic'?'Mágico':'Híbrido'}</span>
-        ${c.ultimate?'<span class="badge ult">Ultimate</span>':''}
         <div class="name" style="margin-top:8px;">${c.name}</div>
         <div class="anime">${c.anime}</div>
-        <div class="stat-row">
-          <div class="stat"><div class="val">${c.life}</div><div class="lbl">Vida</div></div>
-          <div class="stat"><div class="val">${c.physShield}</div><div class="lbl">Escudo Físico</div></div>
-          <div class="stat"><div class="val">${c.magShield}</div><div class="lbl">Escudo Mágico</div></div>
-        </div>
-      </div>
-      <div class="attacks">
-        ${c.attacks.map(a=>`
-          <div class="attack">
-            <div>
-              <div class="an">${a.name} ${a.onceOnly?'<span class="badge once">Uso único</span>':''}</div>
-              <div class="ad">${a.category==='melee'?'Corpo a corpo · sem cooldown':'Especial · CD '+a.cooldown+' turnos'} ${a.dmg?'· '+a.dmg+' dano ('+(a.dmgType==='physical'?'físico':'mágico')+')':''}${a.effect?' · '+describeEffect(a.effect):''}</div>
-            </div>
-          </div>`).join("")}
+        <div style="margin-top:14px;">${stickFigureSVG(c.type, true)}</div>
       </div>
     </div>
 
     <div class="card">
-      <h3 style="margin-bottom:10px;">Lance atual: <span class="money">R$ ${state.currentBid.amount}</span> ${state.currentBid.by?`(liderando: Jogador ${state.currentBid.by.slice(1)})`:'(nenhum lance ainda)'}</h3>
-      ${myTeamFull ? `<p class="status-line">Seu time já está completo (5/5) — você não pode mais dar lances.</p>` :
-        myPassed ? `<p class="status-line">Você desistiu desse personagem. Aguardando o outro jogador.</p>` :
-        `<div class="bid-controls">
-          <input type="number" id="bidAmt" min="${state.currentBid.amount+1}" max="${myBudget}" placeholder="Valor do lance (R$)">
-          <button class="btn primary" onclick="placeBid()">Dar lance</button>
-          <button class="btn danger" onclick="passBid()">Desistir</button>
-        </div>
-        <p class="hint">Seu saldo: R$ ${myBudget} · Vagas restantes no seu time: ${5-state.teams['p'+MY_SLOT].length}</p>`
-      }
+      ${controlsHTML}
     </div>
 
     <div class="players-grid">
@@ -560,55 +585,80 @@ function renderPlayerPanel(state, slot){
   const leading = state.currentBid.by===key;
   return `
     <div class="player-panel ${leading?'leader':''}">
-      <h3>Jogador ${slot} ${isMe?'(você)':''} <span class="money">R$ ${state.budget[key]}</span></h3>
+      <h3>${playerName(state,key)} ${isMe?'(você)':''} <span class="money">R$ ${state.budget[key]}</span></h3>
       <ul class="team-list">
         ${Array.from({length:5}).map((_,i)=>{
           const cid=state.teams[key][i];
           if(!cid) return `<li class="slot-empty">Vaga ${i+1} — vazia</li>`;
           const ch=charById(cid);
-          return `<li><span>${ch.name}</span><span class="badge ${ch.level}" style="font-size:9px;">${ch.level[0].toUpperCase()}</span></li>`;
+          return `<li><span>${ch.name}</span></li>`;
         }).join("")}
       </ul>
     </div>
   `;
 }
 
-async function placeBid(){
+async function openBid(){
   const state = await loadRoom(ROOM_CODE);
+  const myKey = "p"+MY_SLOT;
+  if(state.turnToAct!==myKey) return;
   const input = document.getElementById("bidAmt");
   const amt = parseInt(input.value,10);
-  const myKey = "p"+MY_SLOT;
-  const myBudget = state.budget[myKey];
-  if(!amt || amt<=state.currentBid.amount){ alert("O lance precisa ser maior que o atual."); return; }
-  if(amt>myBudget){ alert("Você não tem saldo suficiente."); return; }
-  state.currentBid = {amount:amt, by:myKey};
-  state.passed = {p1:false, p2:false};
-  state.passed[myKey]=false;
-  const oppKey = MY_SLOT===1?"p2":"p1";
-  state.passed[oppKey]=false;
+  if(!amt || amt<=0){ alert("O lance precisa ser maior que zero."); return; }
+  if(amt>state.budget[myKey]){ alert("Você não tem saldo suficiente."); return; }
   const c = charById(state.pool[state.poolIndex]);
-  state.log.unshift(`Jogador ${MY_SLOT} deu um lance de R$${amt} em ${c.name}.`);
+  state.currentBid = {amount:amt, by:myKey};
+  state.log.unshift(`${playerName(state,myKey)} abriu o lance em ${c.name} com R$${amt}.`);
+  const opp = otherKey(myKey);
+  if(state.teams[opp].length>=5){
+    await awardCharacter(state, myKey, c);
+  } else {
+    state.turnToAct = opp;
+  }
   await saveRoom(state);
   render();
 }
 
-async function passBid(){
+async function openDesist(){
   const state = await loadRoom(ROOM_CODE);
   const myKey = "p"+MY_SLOT;
-  const oppKey = MY_SLOT===1?"p2":"p1";
-  state.passed[myKey]=true;
+  if(state.turnToAct!==myKey) return;
   const c = charById(state.pool[state.poolIndex]);
-  state.log.unshift(`Jogador ${MY_SLOT} desistiu de ${c.name}.`);
+  state.log.unshift(`${playerName(state,myKey)} não abriu lance em ${c.name} — ele fica de fora.`);
+  advanceCharacter(state);
+  await saveRoom(state);
+  render();
+}
 
-  if(state.currentBid.amount>0 && state.currentBid.by===oppKey){
-    // opponent wins
-    await awardCharacter(state, oppKey, c);
-  } else if(state.currentBid.amount===0 && state.passed.p1 && state.passed.p2){
-    state.log.unshift(`Ninguém deu lance em ${c.name} — ele fica de fora.`);
-    advanceCharacter(state);
-  } else if(state.currentBid.amount>0 && state.currentBid.by===myKey && state.passed[oppKey]){
+async function raiseBid(){
+  const state = await loadRoom(ROOM_CODE);
+  const myKey = "p"+MY_SLOT;
+  if(state.turnToAct!==myKey) return;
+  const input = document.getElementById("bidAmt");
+  const amt = parseInt(input.value,10);
+  if(!amt || amt<=state.currentBid.amount){ alert("O lance precisa ser maior que o atual."); return; }
+  if(amt>state.budget[myKey]){ alert("Você não tem saldo suficiente."); return; }
+  const c = charById(state.pool[state.poolIndex]);
+  state.currentBid = {amount:amt, by:myKey};
+  state.log.unshift(`${playerName(state,myKey)} aumentou o lance em ${c.name} para R$${amt}.`);
+  const opp = otherKey(myKey);
+  if(state.teams[opp].length>=5){
     await awardCharacter(state, myKey, c);
+  } else {
+    state.turnToAct = opp;
   }
+  await saveRoom(state);
+  render();
+}
+
+async function respondDesist(){
+  const state = await loadRoom(ROOM_CODE);
+  const myKey = "p"+MY_SLOT;
+  if(state.turnToAct!==myKey) return;
+  const c = charById(state.pool[state.poolIndex]);
+  const leader = state.currentBid.by;
+  state.log.unshift(`${playerName(state,myKey)} desistiu de ${c.name}.`);
+  await awardCharacter(state, leader, c);
   await saveRoom(state);
   render();
 }
@@ -616,16 +666,17 @@ async function passBid(){
 async function awardCharacter(state, winnerKey, c){
   state.teams[winnerKey].push(c.id);
   state.budget[winnerKey] -= state.currentBid.amount;
-  state.log.unshift(`Jogador ${winnerKey.slice(1)} levou ${c.name} por R$${state.currentBid.amount}!`);
+  state.log.unshift(`${playerName(state,winnerKey)} levou ${c.name} por R$${state.currentBid.amount}!`);
   advanceCharacter(state);
 }
 
 function advanceCharacter(state){
   state.poolIndex += 1;
-  state.currentBid = {amount:0, by:null};
-  state.passed = {p1:false, p2:false};
-  if(state.teams.p1.length>=5) state.passed.p1=true;
-  if(state.teams.p2.length>=5) state.passed.p2=true;
+  if(state.poolIndex < state.pool.length && !(state.teams.p1.length>=5 && state.teams.p2.length>=5)){
+    setupCharacterTurn(state);
+  } else {
+    state.currentBid = {amount:0, by:null};
+  }
 }
 
 function finishAuction(state){
@@ -683,7 +734,10 @@ async function confirmReady(){
   const myKey="p"+MY_SLOT;
   if(state.ultimateChoice[myKey]===undefined) state.ultimateChoice[myKey]=null;
   state["_ready"+myKey] = true;
-  if(state["_readyp1"] && state["_readyp2"]) state.phase="coinflip";
+  if(state["_readyp1"] && state["_readyp2"]){
+    state.battle = initBattle(state);
+    state.phase="battle";
+  }
   await saveRoom(state);
   render();
 }
@@ -694,13 +748,13 @@ function renderCoinflip(state){
   app.innerHTML = `
     <div class="eyebrow">Quem começa</div>
     <h1>Cara ou coroa</h1>
-    <p class="sub">O time vencedor escolhe qual personagem age primeiro na batalha.</p>
+    <p class="sub">Quem vencer abre o primeiro lance do leilão — depois disso, a abertura de cada personagem alterna entre vocês.</p>
     <div class="card coin-stage">
-      <div class="coin ${result?'flipping':''}" id="coinEl">${result?(result==='p1'?'J1':'J2'):'?'}</div>
-      ${result ? `<p class="status-line" style="margin-top:14px; font-size:15px;"><strong>Jogador ${result.slice(1)}</strong> venceu o sorteio e começa a batalha!</p>
-        <button class="btn primary" style="margin-top:12px;" onclick="beginBattle()">Iniciar batalha</button>`
+      <div class="coin ${result?'flipping':''}" id="coinEl">${result?(playerName(state,result).slice(0,4).toUpperCase()):'?'}</div>
+      ${result ? `<p class="status-line" style="margin-top:14px; font-size:15px;"><strong>${playerName(state,result)}</strong> venceu o sorteio e abre o primeiro lance!</p>
+        <button class="btn primary" style="margin-top:12px;" onclick="startAuction()">Iniciar leilão</button>`
       : (MY_SLOT===1 ? `<button class="btn primary" style="margin-top:16px;" onclick="flipCoin()">Jogar a moeda</button>`
-        : `<p class="status-line" style="margin-top:16px;">Aguardando o Jogador 1 jogar a moeda...</p>`)}
+        : `<p class="status-line" style="margin-top:16px;">Aguardando ${playerName(state,'p1')} jogar a moeda...</p>`)}
     </div>
   `;
 }
@@ -747,15 +801,6 @@ function aliveIds(state, key){
   return state.teams[key].filter(id=>state.battle.hp[id]>0);
 }
 
-async function beginBattle(){
-  const state = await loadRoom(ROOM_CODE);
-  state.battle = initBattle(state);
-  state.phase = "battle";
-  await saveRoom(state);
-  pendingAttacker=null; pendingAttackIdx=null;
-  render();
-}
-
 let pendingAttacker = null;
 let pendingAttackIdx = null;
 
@@ -774,7 +819,7 @@ function renderBattle(state){
   app.innerHTML = `
     <div class="eyebrow">Batalha</div>
     <h1>Arena</h1>
-    <div class="turn-banner ${myTurn?'':'opp'}">${myTurn ? 'Sua vez de agir' : 'Vez do Jogador '+state.battle.currentTurn.slice(1)}</div>
+    <div class="turn-banner ${myTurn?'':'opp'}">${myTurn ? 'Sua vez de agir' : 'Vez de '+playerName(state,state.battle.currentTurn)}</div>
 
     <div class="card">
       <h3>Time inimigo ${targetMode?'— clique em quem vai atacar':''}</h3>
@@ -961,7 +1006,7 @@ function renderBattleOver(state){
   const winner = state.winner;
   app.innerHTML = `
     <div class="eyebrow">Fim de jogo</div>
-    <h1>Jogador ${winner.slice(1)} venceu a batalha!</h1>
+    <h1>${playerName(state,winner)} venceu a batalha!</h1>
     <div class="card">
       <div class="log">${state.battle.log.slice(0,20).map(l=>`<div>${l}</div>`).join("")}</div>
     </div>
