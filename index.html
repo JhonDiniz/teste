@@ -331,7 +331,7 @@ let ROOM_CODE = null;
 let MY_SLOT = null; // 1 or 2
 let pollTimer = null;
 let LAST_STATE = null;
-let LAST_STATE_JSON = null;
+let LAST_REV = -1;
 
 function genCode(){
   const letters="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -345,6 +345,7 @@ function newRoomState(code){
   const pool = shuffled.slice(0,20).map(c=>c.id);
   return {
     code,
+    rev: 0,
     players:{p1:null, p2:null},
     budget: {p1:20, p2:20},
     teams: {p1:[], p2:[]},
@@ -353,6 +354,7 @@ function newRoomState(code){
     phase:"lobby", // lobby | coinflip | auction | ultimate | battle | battleover
     currentBid:{amount:0, by:null},
     turnToAct:null,
+    noBidDesists:0,
     coinResult:null,
     ultimateChoice:{p1:null, p2:null},
     log:[]
@@ -367,13 +369,14 @@ async function loadRoom(code){
 }
 async function saveRoom(state){
   try{
+    state.rev = (state.rev||0)+1;
     await db.collection("rooms").doc(state.code).set(state);
   }catch(e){ console.error("Erro ao salvar sala:", e); }
 }
 async function commitAndDraw(state){
   await saveRoom(state);
   LAST_STATE = state;
-  LAST_STATE_JSON = JSON.stringify(state);
+  LAST_REV = state.rev;
   draw(state);
 }
 
@@ -387,21 +390,21 @@ function render(){
   loadRoom(ROOM_CODE).then(state=>{
     if(!state){ renderHome(); return; }
     LAST_STATE = state;
-    LAST_STATE_JSON = JSON.stringify(state);
+    LAST_REV = state.rev||0;
     draw(state);
   });
 }
 
-// Called on the polling interval: only redraws the screen if something actually
-// changed in the room (avoids wiping out whatever the player is typing/clicking).
+// Called on the polling interval: only redraws the screen if the room's revision
+// number actually changed (avoids wiping out whatever the player is typing/clicking).
 function poll(){
   if(!ROOM_CODE) return;
   loadRoom(ROOM_CODE).then(state=>{
     if(!state) return;
-    const json = JSON.stringify(state);
-    if(json===LAST_STATE_JSON) return; // nothing changed, skip redraw
+    const rev = state.rev||0;
+    if(rev===LAST_REV) return; // nothing changed, skip redraw
     LAST_STATE = state;
-    LAST_STATE_JSON = json;
+    LAST_REV = rev;
     draw(state);
   });
 }
@@ -511,7 +514,9 @@ async function goToCoinflip(){
 }
 
 async function startAuction(){
+  if(MY_SLOT!==1) return;
   const state = await loadRoom(ROOM_CODE);
+  if(state.phase!=="coinflip") return; // already started
   state.phase = "auction";
   setupCharacterTurn(state);
   state.log.unshift("Leilão iniciado — orçamento de R$20 cada, abertura de lance alternando por personagem.");
@@ -523,6 +528,7 @@ function setupCharacterTurn(state){
   if(state.teams[opener].length>=5) opener = otherKey(opener);
   state.turnToAct = opener;
   state.currentBid = {amount:0, by:null};
+  state.noBidDesists = 0;
 }
 
 function openerFor(state, idx){
@@ -647,8 +653,15 @@ async function openDesist(){
   const myKey = "p"+MY_SLOT;
   if(state.turnToAct!==myKey) return;
   const c = charById(state.pool[state.poolIndex]);
-  state.log.unshift(`${playerName(state,myKey)} não abriu lance em ${c.name} — ele fica de fora.`);
-  advanceCharacter(state);
+  state.noBidDesists = (state.noBidDesists||0) + 1;
+  const opp = otherKey(myKey);
+  if(state.noBidDesists>=2 || state.teams[opp].length>=5){
+    state.log.unshift(`${playerName(state,myKey)} também desistiu de ${c.name} — ele fica de fora.`);
+    advanceCharacter(state);
+  } else {
+    state.log.unshift(`${playerName(state,myKey)} desistiu de abrir o lance em ${c.name}. Passou a vez.`);
+    state.turnToAct = opp;
+  }
   await commitAndDraw(state);
 }
 
@@ -771,7 +784,9 @@ function renderCoinflip(state){
     <div class="card coin-stage">
       <div class="coin ${result?'flipping':''}" id="coinEl">${result?(playerName(state,result).slice(0,4).toUpperCase()):'?'}</div>
       ${result ? `<p class="status-line" style="margin-top:14px; font-size:15px;"><strong>${playerName(state,result)}</strong> venceu o sorteio e abre o primeiro lance!</p>
-        <button class="btn primary" style="margin-top:12px;" onclick="startAuction()">Iniciar leilão</button>`
+        ${MY_SLOT===1
+          ? `<button class="btn primary" style="margin-top:12px;" onclick="startAuction()">Iniciar leilão</button>`
+          : `<p class="status-line" style="margin-top:16px;">Aguardando ${playerName(state,'p1')} iniciar o leilão...</p>`}`
       : (MY_SLOT===1 ? `<button class="btn primary" style="margin-top:16px;" onclick="flipCoin()">Jogar a moeda</button>`
         : `<p class="status-line" style="margin-top:16px;">Aguardando ${playerName(state,'p1')} jogar a moeda...</p>`)}
     </div>
@@ -779,6 +794,7 @@ function renderCoinflip(state){
 }
 
 async function flipCoin(){
+  if(MY_SLOT!==1) return;
   const state = await loadRoom(ROOM_CODE);
   if(state.coinResult){ render(); return; }
   const result = Math.random()<0.5 ? "p1" : "p2";
