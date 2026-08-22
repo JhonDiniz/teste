@@ -227,38 +227,58 @@
      OPOSTO ao seu lutador, pra que nenhuma barra de vida cubra um sprite.
      ========================================================================= */
   .battle-stage{
-    position:relative; height:380px; border-radius:14px; overflow:hidden;
+    position:relative; height:460px; border-radius:16px; overflow:hidden;
     border:1px solid var(--line);
     background:
-      radial-gradient(ellipse 420px 150px at 70% 30%, rgba(209,73,91,.12), transparent 70%),
-      radial-gradient(ellipse 420px 150px at 30% 78%, rgba(79,179,169,.12), transparent 70%),
-      linear-gradient(180deg, #171b26 0%, #10131b 55%, #0b0d13 100%);
+      radial-gradient(ellipse 340px 160px at 78% 20%, rgba(209,73,91,.14), transparent 70%),
+      radial-gradient(ellipse 380px 190px at 22% 82%, rgba(79,179,169,.13), transparent 70%),
+      linear-gradient(180deg, #1a1f2c 0%, #12161f 48%, #090b11 100%);
     margin-bottom:12px;
   }
-  @media(max-width:600px){ .battle-stage{height:320px;} }
-  /* linha de horizonte discreta: separa "fundo" de "chão" sem desenhar cenário */
-  .stage-horizon{
-    position:absolute; left:0; right:0; top:52%; height:1px;
-    background:linear-gradient(90deg, transparent, rgba(224,181,89,.18), transparent);
+  /* Vinheta: escurece as quinas e faz os dois lutadores "saltarem" do fundo. */
+  .battle-stage::after{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:3;
+    background:radial-gradient(ellipse 105% 88% at 50% 45%, transparent 55%, rgba(0,0,0,.5) 100%);
   }
+  @media(min-width:601px){ .battle-stage{height:540px;} }
+  .stage-horizon{
+    position:absolute; left:0; right:0; top:46%; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(224,181,89,.16), transparent);
+  }
+
+  /* ---- POSICIONAMENTO DOS LUTADORES ----
+     Personagem do JOGADOR: canto inferior esquerdo, grande (perto da câmera).
+     ADVERSÁRIO: canto superior direito, menor (longe), e nada pode cortá-lo —
+     por isso os ataques ficam presos na METADE DE BAIXO da coluna direita. */
   .stage-slot{position:absolute; display:flex; flex-direction:column; align-items:center; z-index:2;}
-  .slot-enemy{top:12px; right:7%;}
-  .slot-player{bottom:24px; left:7%;}
-  /* elipse de chão: ancora o sprite no piso em vez de deixá-lo flutuando */
+  .slot-enemy{top:18px; right:8px;}
+  .slot-player{bottom:2px; left:-4px;}
+  .sprite-enemy{height:150px; width:auto;}
+  .sprite-player{height:228px; width:auto;}
+  /* O stick figure é arte crua de fallback: ampliado no mesmo tamanho da arte
+     final ele vira um borrão. Fica proporcionalmente menor de propósito. */
+  .stick.sprite-enemy{height:112px;}
+  .stick.sprite-player{height:168px;}
+  @media(min-width:601px){
+    .slot-enemy{top:26px; right:32px;}
+    .slot-player{bottom:2px; left:12px;}
+    .sprite-enemy{height:190px;}
+    .sprite-player{height:300px;}
+    .stick.sprite-enemy{height:140px;}
+    .stick.sprite-player{height:210px;}
+  }
+
   .stage-pad{
     position:absolute; border-radius:50%; z-index:1;
-    background:radial-gradient(ellipse at center, rgba(224,181,89,.16) 0%, rgba(224,181,89,.05) 55%, transparent 72%);
+    background:radial-gradient(ellipse at center, rgba(224,181,89,.18) 0%, rgba(224,181,89,.05) 55%, transparent 72%);
   }
-  /* As medidas abaixo não são arbitrárias: cada elipse fica centrada exatamente
-     no pé do sprite correspondente (altura do sprite = largura x 44/32). Se a
-     largura de um sprite mudar, o "top"/"bottom" da sua elipse muda junto. */
-  .pad-enemy{width:150px; height:40px; top:130px; right:calc(7% - 15px);}
-  .pad-player{width:190px; height:48px; bottom:0px; left:calc(7% - 16px);}
-  @media(max-width:600px){
-    .slot-enemy{top:12px;}
-    .slot-player{bottom:22px;}
-    .pad-enemy{width:120px; height:32px; top:104px; right:calc(7% - 12px);}
-    .pad-player{width:155px; height:40px; bottom:0px; left:calc(7% - 12px);}
+  /* Cada elipse fica centrada no PÉ do seu sprite. Altura do sprite = altura
+     CSS; a largura sai de 210/245 do canvas. Mudou a altura, muda isto. */
+  .pad-enemy{width:150px; height:38px; top:152px; right:0px;}
+  .pad-player{width:210px; height:50px; bottom:-12px; left:-10px;}
+  @media(min-width:601px){
+    .pad-enemy{width:190px; height:46px; top:196px; right:24px;}
+    .pad-player{width:275px; height:62px; bottom:-16px; left:6px;}
   }
 
   .sprite-box{position:relative; display:block;}
@@ -273,15 +293,6 @@
      Nearest-neighbor numa redução joga pixels fora e serrilha tudo — então a
      arte em bitmap escala suave, e só o gerador procedural fica pixelado. */
   .sprite-bitmap{ image-rendering: auto; }
-  /* Dimensionado por ALTURA, não por largura: a arte de frente e a de costas
-     têm larguras diferentes, e usar largura faria o lutador mudar de tamanho
-     ao virar de costas. O jogador é maior porque está mais perto da câmera.
-     Os valores garantem que as duas caixas nunca se toquem: 130 + 172 + folga
-     cabem nos 380px do palco. */
-  .sprite-enemy{height:140px; width:auto;}
-  .sprite-player{height:185px; width:auto;}
-  @media(max-width:600px){ .sprite-enemy{height:112px;} .sprite-player{height:150px;} }
-
   /* --- animações de sprite --- */
   @keyframes idleBreath{
     0%,100%{transform:translateY(0) scaleY(1);}
@@ -446,13 +457,23 @@
 
   /* --- HUD de combate --- */
   .hud{
-    position:absolute; z-index:4; width:190px; padding:8px 10px 9px; border-radius:10px;
-    background:linear-gradient(180deg, rgba(30,34,46,.94), rgba(18,20,28,.94));
-    border:1px solid var(--line); backdrop-filter:blur(2px);
+    position:absolute; z-index:5; width:172px; padding:8px 10px 9px; border-radius:12px;
+    background:linear-gradient(180deg, rgba(28,32,44,.92), rgba(14,17,24,.92));
+    border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 6px 20px rgba(0,0,0,.45);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
   }
-  .hud-enemy{top:14px; left:14px; border-left:3px solid var(--crimson);}
-  .hud-player{bottom:14px; right:14px; border-right:3px solid var(--teal);}
-  @media(max-width:600px){ .hud{width:150px; padding:6px 8px 7px;} .hud-enemy{top:10px; left:10px;} .hud-player{bottom:10px; right:10px;} }
+  /* Barra do ADVERSÁRIO: à esquerda dele, na faixa de cima — nunca por cima da
+     arte, porque ele não pode ser cortado por nada. */
+  .hud-enemy{top:26px; left:10px; border-left:3px solid var(--crimson);}
+  /* Barra do JOGADOR: encostada na quina inferior esquerda. Encosta de leve na
+     arte de propósito, e é estreita pra cobrir o mínimo possível do corpo. */
+  .hud-player{bottom:8px; left:6px; width:162px; padding:6px 9px 7px; border-left:3px solid var(--teal);}
+  @media(min-width:601px){
+    .hud{width:210px; padding:10px 12px 11px;}
+    .hud-enemy{top:40px; left:30px;}
+    .hud-player{bottom:14px; left:18px; width:190px; padding:8px 11px 9px;}
+  }
   .hud-top{display:flex; justify-content:space-between; align-items:baseline; gap:6px;}
   .hud-name{font-weight:700; font-size:12.5px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .hud-hp-num{font-size:10.5px; color:var(--text-dim); font-variant-numeric:tabular-nums; flex:0 0 auto;}
@@ -461,8 +482,12 @@
   .hp-high{background:linear-gradient(90deg,#2f8f4a,#5fd07a);}
   .hp-mid{background:linear-gradient(90deg,#a9822f,#e0b559);}
   .hp-low{background:linear-gradient(90deg,#7a2b34,#d1495b);}
-  .hud-tags{display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; font-size:9px; color:var(--text-dim);}
-  .hud-tag{padding:1px 5px; border-radius:20px; background:rgba(255,255,255,.06); white-space:nowrap;}
+  /* Tags em UMA linha só: quebrando em duas, a barra do jogador fica alta e
+     passa a cobrir metade do corpo dele em vez de só a quina. */
+  .hud-tags{display:flex; gap:4px; flex-wrap:nowrap; overflow:hidden;
+    margin-top:5px; font-size:8.5px; color:var(--text-dim);}
+  .hud-tag{padding:1px 5px; border-radius:20px; background:rgba(255,255,255,.06);
+    white-space:nowrap; flex:0 0 auto;}
 
   /* --- efeitos elementais e de impacto --- */
   .fx-layer{position:absolute; inset:0; pointer-events:none; z-index:5; overflow:hidden;}
@@ -550,33 +575,94 @@
     50%{ box-shadow:0 0 0 2px rgba(224,181,89,.9), 0 0 16px rgba(224,181,89,.65); }
   }
 
-  /* --- painel de ataques: compacto, cor por tipo, cooldown estilo "carga" --- */
-  .action-panel{margin-top:14px;}
-  .atk-list{display:flex; flex-direction:column; gap:6px;}
-  .atk-btn{
+  /* --- ATAQUES: pílulas na metade inferior da coluna direita ----
+     Presos ao palco (position:absolute) e limitados a bottom→50% pra nunca
+     invadir a área do adversário lá em cima. */
+  /* O topo do dock é o LIMITE de segurança: o adversário (com a sombra dele)
+     ocupa até 41% do palco no celular e 45% no desktop. Começar acima disso
+     faria a 5ª pílula invadir a arte dele. `overflow:hidden` é a trava final —
+     se um dia couber menos, corta em vez de vazar por cima do personagem. */
+  .atk-dock{
+    position:absolute; z-index:6; right:8px; bottom:10px; top:44%;
+    width:158px; display:flex; flex-direction:column; justify-content:flex-end; gap:7px;
+    overflow:hidden;
+  }
+  @media(min-width:601px){ .atk-dock{right:24px; bottom:18px; top:48%; width:230px; gap:9px;} }
+
+  .atk-pill{
     position:relative; display:flex; align-items:center; gap:8px;
-    width:100%; text-align:left; background:var(--panel2); border:1px solid var(--line);
-    border-left:4px solid var(--weak); border-radius:8px; padding:8px 10px; cursor:pointer; color:var(--text);
+    width:100%; text-align:left; cursor:pointer; color:var(--text);
+    padding:8px 10px; border-radius:999px;              /* pílula contínua */
+    border:1px solid rgba(255,255,255,.10);
+    background:linear-gradient(180deg, rgba(38,43,58,.95), rgba(22,26,36,.95));
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    transition:transform .1s, box-shadow .15s, border-color .15s;
   }
-  .atk-btn.type-physical{ border-left-color:#4f8cff; }   /* físico = azul */
-  .atk-btn.type-magic{ border-left-color:#a35fe0; }       /* mágico = roxo */
-  .atk-btn:disabled, .atk-btn.charging{ border-left-color:#4a4f5c; opacity:.55; cursor:not-allowed; }
-  .atk-btn:hover:not(:disabled) .atk-tip{ display:block; }
-  .atk-main{flex:1; min-width:0;}
-  .atk-name{font-weight:700; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .atk-sub{font-size:10.5px; color:var(--text-dim); margin-top:1px;}
+  .atk-pill:active:not(:disabled){transform:scale(.97);}
+  /* Bolinha do tipo: azul = físico, roxo = mágico. É o que dá a cor à pílula. */
+  .atk-dot{flex:0 0 auto; width:9px; height:9px; border-radius:50%; background:var(--weak);}
+  .atk-pill.type-physical{border-color:rgba(79,140,255,.5);}
+  .atk-pill.type-physical .atk-dot{background:#4f8cff; box-shadow:0 0 8px rgba(79,140,255,.8);}
+  .atk-pill.type-physical:hover:not(:disabled){box-shadow:0 4px 18px rgba(79,140,255,.35); border-color:#4f8cff;}
+  .atk-pill.type-magic{border-color:rgba(163,95,224,.5);}
+  .atk-pill.type-magic .atk-dot{background:#a35fe0; box-shadow:0 0 8px rgba(163,95,224,.8);}
+  .atk-pill.type-magic:hover:not(:disabled){box-shadow:0 4px 18px rgba(163,95,224,.35); border-color:#a35fe0;}
+  /* Em recarga: cinza e apagado, sem cor de tipo. */
+  .atk-pill:disabled{
+    cursor:not-allowed; opacity:.5; border-color:rgba(255,255,255,.07);
+    background:linear-gradient(180deg, rgba(30,33,42,.9), rgba(18,20,27,.9));
+  }
+  .atk-pill:disabled .atk-dot{background:#4a4f5c; box-shadow:none;}
+
+  .atk-pill-main{flex:1; min-width:0; overflow:hidden;}
+  /* display:block é obrigatório: em <span> inline o text-overflow não aplica e
+     o nome do ataque vaza pra fora da pílula em vez de virar reticências. */
+  .atk-pill-name{display:block; font-weight:700; font-size:11.5px; line-height:1.2;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .atk-pill-sub{display:block; font-size:9.5px; color:var(--text-dim); margin-top:1px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .atk-cd{
-    flex:0 0 auto; font-variant-numeric:tabular-nums; font-weight:800; font-size:12px;
-    background:rgba(255,255,255,.06); padding:3px 8px; border-radius:20px; color:var(--text-dim);
+    flex:0 0 auto; font-variant-numeric:tabular-nums; font-weight:800; font-size:10.5px;
+    background:rgba(255,255,255,.08); padding:2px 7px; border-radius:999px; color:var(--text-dim);
   }
-  .atk-btn.type-physical:not(:disabled) .atk-cd{ color:#8fb8ff; background:rgba(79,140,255,.14); }
-  .atk-btn.type-magic:not(:disabled) .atk-cd{ color:#cfa0f5; background:rgba(163,95,224,.14); }
+  .atk-pill.type-physical:not(:disabled) .atk-cd{color:#8fb8ff; background:rgba(79,140,255,.16);}
+  .atk-pill.type-magic:not(:disabled) .atk-cd{color:#cfa0f5; background:rgba(163,95,224,.16);}
+  /* Pílula de Ultimate: destaque quente, pra não se confundir com ataque comum.
+     Fica no TOPO da pilha, separada por uma linha, porque é a ação de maior
+     consequência da rodada. */
+  .atk-pill.is-ult{
+    border-color:var(--gold);
+    background:linear-gradient(180deg, rgba(224,181,89,.24), rgba(122,74,0,.34));
+    box-shadow:0 4px 16px rgba(0,0,0,.45), 0 0 14px rgba(224,181,89,.22);
+    margin-bottom:3px;
+  }
+  .atk-pill.is-ult::after{
+    content:""; position:absolute; left:14%; right:14%; bottom:-5px; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(224,181,89,.35), transparent);
+  }
+  .atk-pill.is-ult .atk-dot{background:var(--gold); box-shadow:0 0 10px rgba(224,181,89,.9);}
+  .atk-pill.is-ult:hover:not(:disabled){border-color:#ffd76a; box-shadow:0 4px 20px rgba(255,200,80,.45);}
+  .atk-pill.is-ult .atk-cd{color:#ffe9b0; background:rgba(224,181,89,.22);}
+
+  /* Tooltip abre para a ESQUERDA: a pílula está colada na borda direita. */
   .atk-tip{
-    display:none; position:absolute; left:8px; right:8px; bottom:calc(100% + 6px); z-index:5;
-    background:#0e1016; border:1px solid var(--line); border-radius:8px; padding:8px 10px;
-    font-size:11px; color:var(--text-dim); box-shadow:0 6px 18px rgba(0,0,0,.5);
+    display:none; position:absolute; right:calc(100% + 8px); top:50%; transform:translateY(-50%);
+    width:180px; z-index:9;
+    background:#0c0e14; border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+    font-size:10.5px; color:var(--text-dim); box-shadow:0 8px 22px rgba(0,0,0,.65);
   }
   .atk-tip b{color:var(--text); font-weight:700;}
+  .atk-pill:hover:not(:disabled) .atk-tip{display:block;}
+  @media(max-width:600px){ .atk-tip{width:150px;} }
+
+  /* Aviso de "aguardando o outro jogador" ocupa o lugar das pílulas. */
+  .atk-waiting{
+    align-self:flex-end; width:100%; text-align:center; font-size:11px; color:var(--text-dim);
+    background:rgba(14,17,24,.85); border:1px dashed var(--line); border-radius:12px; padding:10px 8px;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+
   .stick{display:block; margin:0 auto;}
 
   .order-list{display:flex; flex-direction:column; gap:8px;}
@@ -2406,7 +2492,9 @@ function fighterArt(c, opts){
   if(url){
     return `<img class="sprite-img ${cls}" src="${url}" alt="${c.name}" draggable="false">`;
   }
-  return stickFigureSVG(c, o.alive!==false, o.transformed);
+  // A classe de tamanho precisa chegar no stick figure também — sem isso quem
+  // não tem arte renderiza no tamanho fixo do SVG e some no palco.
+  return stickFigureSVG(c, o.alive!==false, o.transformed, cls);
 }
 
 /* ============ MONTAGEM DOS PERSONAGENS ============ */
@@ -3723,8 +3811,8 @@ function defStat(state, id, dmgType){
      Final = Bruto x (100 / (100 + Defesa))
    A defesa deixou de ser subtração e virou divisor: ela agora reduz uma FRAÇÃO
    do dano, então nunca zera um golpe nem deixa de importar contra golpes fortes. */
-function calcDano(state, attackerId, targetId, atk){
-  const a = atkStat(state, attackerId, atk.dmgType);
+function calcDano(state, attackerId, targetId, atk, bonusExtra){
+  const a = atkStat(state, attackerId, atk.dmgType) + (bonusExtra||0);
   const d = defStat(state, targetId, atk.dmgType);
   const bruto = a * ((atk.power||0)/100);
   return Math.max(1, Math.round(bruto * (100/(100+d))));
@@ -3876,21 +3964,90 @@ function maybeResolveTurn(state){
     {key:"p2", action:b.pending.p2}
   ];
   b.pending = {p1:null, p2:null};
+  b._turnFx = [];
 
   const spds = acoes.map(a=>actorSpeed(state,a.key,a.action));
   let ordem = spds[0]>=spds[1] ? [0,1] : [1,0];
   if(spds[0]===spds[1] && tiebreak(state)!==acoes[0].key) ordem = [1,0];
 
+  // FASE 1 — TRANSFORMAÇÕES, na ordem de velocidade.
+  // Todas acontecem ANTES de qualquer ataque. Isso importa: quem transformou
+  // perde 40% de defesa, então leva o golpe do adversário já enfraquecido —
+  // transformar é uma troca de tempo, não um bônus grátis.
   for(const i of ordem){
     const {key, action} = acoes[i];
+    if(action && action.type==="transform") applyTransformation(state, key);
+  }
+
+  // FASE 2 — AÇÕES (ataque / troca / Ultimate meteoro), mesma ordem.
+  // Quem transformou já gastou a rodada e não aparece aqui.
+  for(const i of ordem){
+    const {key, action} = acoes[i];
+    if(action.type==="transform") continue;
     // Se o lutador ativo desse jogador já morreu na ação anterior deste mesmo
     // turno, ele não age — mustSwitch cuida disso na próxima rodada.
-    const atorId = actorIdFor(state, key, action);
     if(action.type!=="switch" && state.battle.hp[state.battle.activeChar[key]]<=0) continue;
     executeAction(state, key, action);
   }
+  flushFx(b);
   checkForcedSwitch(state);
   return true;
+}
+
+/* Aplica a transformação de um jogador. Rodada dentro da FASE 1 do turno, então
+   o bônus já vale quando os ataques resolverem logo depois.
+   Toda transformação paga ALGUM preço: no mínimo o corte temporário de defesa,
+   e para alguns (Might Guy, Tenshinhan, Edward) um custo extra próprio. */
+function applyTransformation(state, key){
+  const b = state.battle;
+  const ultId = state.ultimateChoice[key];
+  const activeId = b.activeChar[key];
+  if(!ultId || ultId!==activeId || b.ultimateUsed[ultId]) return;
+  if(b.hp[ultId]<=0) return;
+  const c = charById(ultId);
+  if(!c.ultimate || c.ultimate.kind==="meteor") return;
+
+  if(!b.tempDef) b.tempDef = {};
+  if(!b.transformed) b.transformed = {};
+  if(!b.growOnHit) b.growOnHit = {};
+  if(!b.transformActive) b.transformActive = {};
+  if(!b.selfRecoil) b.selfRecoil = {};
+  b.ultimateUsed[ultId] = true;
+
+  b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
+  b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
+  b.atkBonus[ultId] = c.ultimate.atkBonus;
+  b.transformed[ultId] = true;
+  pushFx(b, {kind:"transform", targetId: ultId, name: c.ultimate.name});
+
+  let baselineFis = b.def[ultId].fis;
+  let baselineMag = b.def[ultId].mag;
+  let extraLog = "";
+
+  if(c.ultimate.permanentDefCost){
+    baselineFis = Math.max(10, baselineFis - c.ultimate.permanentDefCost);
+    baselineMag = Math.max(10, baselineMag - c.ultimate.permanentDefCost);
+    extraLog += ` Paga um preço permanente: -${c.ultimate.permanentDefCost} de defesa pro resto da luta.`;
+  }
+  if(c.ultimate.upfrontToll){
+    b.hp[ultId] = Math.max(1, b.hp[ultId]-c.ultimate.upfrontToll);
+    extraLog += ` Perde ${c.ultimate.upfrontToll} de vida na hora como sacrifício pra ativar.`;
+  }
+  if(c.ultimate.selfRecoil){
+    b.selfRecoil[ultId] = {value:c.ultimate.selfRecoil.value, turnsLeft:c.ultimate.selfRecoil.turns};
+    extraLog += ` Vai perder ${c.ultimate.selfRecoil.value} de vida a cada rodada própria durante ${c.ultimate.selfRecoil.turns} rodadas.`;
+  }
+
+  b.def[ultId].fis = Math.max(10, Math.round(baselineFis*0.6));
+  b.def[ultId].mag = Math.max(10, Math.round(baselineMag*0.6));
+  b.transformActive[ultId] = {turnsLeft:3, original:{fis:baselineFis, mag:baselineMag}};
+
+  let growNote = "";
+  if(c.ultimate.growPerHit){
+    b.growOnHit[ultId] = {perHit:c.ultimate.growPerHit, cap:c.ultimate.growCap, current:0};
+    growNote = ` Quanto mais apanhar a partir de agora, mais forte fica (até +${c.ultimate.growCap} de ataque)${c.ultimate.explodeOnDeath?' — mas se cair com poder acumulado, ele explode nos próprios aliados!':''}.`;
+  }
+  b.log.unshift(`${c.name} se transforma: ${c.ultimate.name}! (+${c.ultimate.lifeBonus} vida, +${c.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas próprias)${extraLog}${growNote}`);
 }
 
 /* Executa UMA ação de UM jogador dentro da resolução do turno. */
@@ -3910,6 +4067,9 @@ function executeAction(state, key, action){
     applyAction(state, activeId, action.atkIndex, b.activeChar[oppKey]);
   } else if(action.type==="switch"){
     executeSwitchAction(state, key, action.charId);
+  } else if(action.type==="transform"){
+    // Normalmente já foi resolvido na FASE 1; aqui é só rede de segurança.
+    applyTransformation(state, key);
   } else if(action.type==="ultimate"){
     if(b.hp[activeId]<=0) return;
     if(b.stunned[activeId]){
@@ -3949,10 +4109,9 @@ function executeSwitchAction(state, key, newId){
     checkDeathPenalty(state, targetId, wasAlive);
     checkGrowOnHit(state, targetId, wasAlive);
     checkExplodeOnDeath(state, targetId, wasAlive);
-    if(!b.lastFx) b.lastFx = {nonce:0, effects:[]};
-    b.lastFx = {nonce: nextFxNonce(b), attackerId:newId,
-                effects:[{targetId, kind:"hit", color:ELEMENT_GLOW[newC.element]||"#e0b559",
-                          shape:fxShapeFor(newC.element,"physical"), value:dmg}]};
+    pushFx(b, {attackerId:newId,
+               effects:[{targetId, kind:"hit", color:ELEMENT_GLOW[newC.element]||"#e0b559",
+                         shape:fxShapeFor(newC.element,"physical"), value:dmg}]});
     if(b.hp[targetId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
   }
 }
@@ -4037,6 +4196,71 @@ function stageFighter(state, id, side){
     </div>`;
 }
 
+/* Dock de ataques: 4 pílulas empilhadas, presas na metade inferior da coluna
+   direita do palco. Se o personagem tiver Ultimate do tipo meteoro (que gasta a
+   rodada, como um ataque), ele entra como 5ª pílula destacada — a transformação
+   NÃO entra aqui, porque é grátis e não é uma ação da rodada. */
+function attackDock(state, attackerChar, myActiveId, oppActiveId, myKey, myPending, oppKey){
+  const b = state.battle;
+  if(!attackerChar){
+    const msg = myPending
+      ? `Ação enviada — aguardando ${playerName(state,oppKey)}`
+      : (b.mustSwitch && b.mustSwitch[myKey] ? "Escolha um substituto abaixo"
+        : `Aguardando ${playerName(state,oppKey)}`);
+    return `<div class="atk-dock"><div class="atk-waiting">${msg}</div></div>`;
+  }
+  const jaTransformado = b.transformed && b.transformed[myActiveId];
+  const ult = attackerChar.ultimate;
+  const temUlt = state.ultimateChoice[myKey]===myActiveId && !b.ultimateUsed[myActiveId] && ult;
+
+  const pills = attackerChar.attacks.map((a,i)=>{
+    const cdMax = a.cooldown||0;
+    const cdLeft = b.cooldowns[myActiveId][i];
+    const usedOnce = a.onceOnly && b.onceUsed[myActiveId][i];
+    const disabled = cdLeft>0 || usedOnce;
+    const acc = a.precision===undefined?100:a.precision;
+    const dano = a.power>0 ? calcDano(state,myActiveId,oppActiveId,a) : null;
+    const nome = jaTransformado ? `${ult.name}: ${a.name}` : a.name;
+    const cd = cdMax>0 ? `${cdMax-cdLeft}/${cdMax}` : "—";
+    const sub = usedOnce ? "já usado" : (dano ? `~${dano} dano` : "sem dano");
+    return `<button class="atk-pill type-${a.dmgType}" ${disabled?'disabled':''}
+        onclick="submitAction({type:'attack',atkIndex:${i}})">
+      <span class="atk-dot"></span>
+      <span class="atk-pill-main">
+        <span class="atk-pill-name">${nome}${a.onceOnly?' 🔒':''}</span>
+        <span class="atk-pill-sub">${sub}</span>
+      </span>
+      <span class="atk-cd">${cd}</span>
+      <span class="atk-tip"><b>Pow</b> ${a.power||0} · <b>Acc</b> ${acc}%${a.effect?`<br>${describeEffect(a.effect)}`:''}</span>
+    </button>`;
+  }).join("");
+
+  /* 5ª pílula: o Ultimate. Fica EM CIMA das outras quatro.
+     Meteoro é um ataque em área; transformação gasta a rodada e só vale a
+     partir da próxima — os dois são ações da rodada, então vivem na mesma
+     pilha que os ataques comuns. */
+  let ultPill = "";
+  if(temUlt){
+    const meteoro = ult.kind==="meteor";
+    const acao = meteoro ? `submitAction({type:'ultimate'})` : `submitAction({type:'transform'})`;
+    const sub = meteoro ? `~${ult.aoeDmg} em todos` : `+${ult.atkBonus} atk · usa a rodada`;
+    const tip = meteoro
+      ? `${ult.desc}<br><b>Ignora defesa.</b> Aliados levam metade.`
+      : `${ult.desc}<br><b>+${ult.lifeBonus} vida, +${ult.atkBonus} ataque</b>, -40% defesa por 3 rodadas.<br>Transforma antes dos ataques, na ordem de velocidade.`;
+    ultPill = `<button class="atk-pill is-ult" onclick="${acao}">
+      <span class="atk-dot"></span>
+      <span class="atk-pill-main">
+        <span class="atk-pill-name">${ult.name}</span>
+        <span class="atk-pill-sub">${sub}</span>
+      </span>
+      <span class="atk-cd">★</span>
+      <span class="atk-tip">${tip}</span>
+    </button>`;
+  }
+
+  return `<div class="atk-dock">${ultPill}${pills}</div>`;
+}
+
 function renderBattle(state){
   const myKey="p"+MY_SLOT;
   const oppKey = otherKey(myKey);
@@ -4082,6 +4306,7 @@ function renderBattle(state){
         ${stageFighter(state, myActiveId, "player")}
         ${hudFor(state, myActiveId, "player")}
         <div class="fx-layer" id="fxLayer"></div>
+        ${attackDock(state, attackerChar, myActiveId, oppActiveId, myKey, myPending, oppKey)}
       </div>
 
       <div class="bench-strip bench-bottom">
@@ -4098,44 +4323,6 @@ function renderBattle(state){
           ${(()=>{ const e=Math.round(chanceEsquiva(state,myActiveId,oppActiveId));
             return e>0 ? ` · ⚡ ${charById(oppActiveId).name} desvia +${e}% (mais rápido)` : ''; })()}
         </p>
-        <div class="atk-list">
-          ${attackerChar.attacks.map((a,i)=>{
-            const cdMax = a.cooldown||0;
-            const cdLeft = b.cooldowns[myActiveId][i];
-            const usedOnce = a.onceOnly && b.onceUsed[myActiveId][i];
-            const disabled = cdLeft>0 || usedOnce;
-            const acc = a.precision===undefined?100:a.precision;
-            const dmgPrevisto = a.power>0 ? calcDano(state,myActiveId,oppActiveId,a) : null;
-            const displayName = isTransformed ? `${attackerChar.ultimate.name}: ${a.name}` : a.name;
-            // Cooldown mostrado como "carga atual/máxima": 0/3 assim que usado,
-            // sobe 1 a cada rodada até voltar a ficar pronto (3/3).
-            const cdLabel = cdMax>0 ? `${cdMax-cdLeft}/${cdMax}` : null;
-            return `<button class="atk-btn type-${a.dmgType} ${disabled?'charging':''}" ${disabled?'disabled':''} onclick="submitAction({type:'attack',atkIndex:${i}})">
-              <div class="atk-main">
-                <div class="atk-name">${displayName}${a.onceOnly?' 🔒':''}</div>
-                <div class="atk-sub">${usedOnce?'já usado nessa partida':(dmgPrevisto?('~'+dmgPrevisto+' dano'):'sem dano direto')}</div>
-              </div>
-              ${cdLabel?`<div class="atk-cd">${cdLabel}</div>`:''}
-              <div class="atk-tip">
-                <b>Pow</b> ${a.power||0} · <b>Acc</b> ${acc}%${a.effect?` · ${describeEffect(a.effect)}`:''}
-              </div>
-            </button>`;
-          }).join("")}
-          ${state.ultimateChoice[myKey]===myActiveId && !b.ultimateUsed[myActiveId] && attackerChar.ultimate.kind==="meteor" ? `
-            <button class="atk-btn type-magic" onclick="submitAction({type:'ultimate'})">
-              <div class="atk-main">
-                <div class="atk-name">${attackerChar.ultimate.name} <span class="badge ult">Ultimate</span></div>
-                <div class="atk-sub">Atinge todos em campo, ignora defesa — usa a rodada</div>
-              </div>
-              <div class="atk-tip">${attackerChar.ultimate.desc}</div>
-            </button>` : ''}
-        </div>
-        ${state.ultimateChoice[myKey]===myActiveId && !b.ultimateUsed[myActiveId] && attackerChar.ultimate.kind!=="meteor" ? `
-          <div class="ultimate-box">
-            <strong>${attackerChar.ultimate.name}</strong> — ${attackerChar.ultimate.desc}<br>
-            +${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas${attackerChar.ultimate.growPerHit?`, e fica ainda mais forte a cada golpe que apanhar (até +${attackerChar.ultimate.growCap} de ataque)`:''}. Não gasta a rodada.
-            <div style="margin-top:8px;"><button class="btn danger" onclick="useUltimate()">Transformar (grátis)</button></div>
-          </div>` : ''}
         <p class="hint" style="margin-top:8px;">Toque numa reserva sua pra trocar — quem entra golpeia na hora.</p>
       </div>` : ''}
     </div>
@@ -4307,37 +4494,39 @@ function playTransformation(targetId, ultName){
 
 // Toca tudo que acabou de acontecer: avanço do atacante, impacto elemental no
 // alvo, número flutuante e, no caso do Ultimate meteoro, clarão + tremor da arena.
-function triggerBattleFx(state){
-  const fx = state.battle && state.battle.lastFx;
-  if(!fx || fx.nonce===lastFxNonce) return;
-  lastFxNonce = fx.nonce;
-  if(fx.kind==="transform"){ playTransformation(fx.targetId, fx.name); return; }
+/* Toca UM evento visual e devolve quanto tempo ele leva, pra fila saber quando
+   disparar o próximo. */
+function playFxEvent(ev, state){
   const stage = document.getElementById("battleStage");
   const layer = document.getElementById("fxLayer");
-  if(!stage || !layer) return;
+  if(!stage || !layer) return 0;
   const sRect = stage.getBoundingClientRect();
 
-  // avanço de quem atacou
-  if(fx.attackerId){
-    const a = boxCenter(sRect, fx.attackerId);
+  if(ev.kind==="transform"){
+    playTransformation(ev.targetId, ev.name);
+    return TRANSFORM_MS;
+  }
+
+  if(ev.attackerId){
+    const a = boxCenter(sRect, ev.attackerId);
     if(a){
-      const isMine = fx.attackerId === state.battle.activeChar["p"+MY_SLOT];
+      const isMine = ev.attackerId === state.battle.activeChar["p"+MY_SLOT];
       a.el.classList.add(isMine ? "anim-attack-player" : "anim-attack-enemy");
       setTimeout(()=>a.el.classList.remove("anim-attack-player","anim-attack-enemy"), 520);
     }
   }
 
-  if(fx.meteor){
+  if(ev.meteor){
     const flash = document.createElement("div");
     flash.className = "stage-flash";
-    flash.style.setProperty("--fx", fx.color || "#e0b559");
+    flash.style.setProperty("--fx", ev.color || "#e0b559");
     stage.appendChild(flash);
     stage.classList.add("stage-quake");
     setTimeout(()=>{ flash.remove(); stage.classList.remove("stage-quake"); }, 750);
     for(let i=0;i<5;i++){
       const m = document.createElement("div");
       m.className = "meteor-streak";
-      m.style.setProperty("--fx", fx.color || "#e0b559");
+      m.style.setProperty("--fx", ev.color || "#e0b559");
       m.style.left = (10+i*19)+"%";
       m.style.animationDelay = (i*0.07)+"s";
       layer.appendChild(m);
@@ -4345,7 +4534,7 @@ function triggerBattleFx(state){
     }
   }
 
-  (fx.effects||[]).forEach((e, i)=>{
+  (ev.effects||[]).forEach((e, i)=>{
     setTimeout(()=>{
       const pos = boxCenter(sRect, e.targetId);
       if(!pos) return;
@@ -4362,7 +4551,32 @@ function triggerBattleFx(state){
       } else if(e.kind==="stun"){
         spawnHitFx(layer, pos, "#e078a8", "bolt");
       }
-    }, fx.attackerId ? 190 + i*40 : i*40);
+    }, ev.attackerId ? 190 + i*40 : i*40);
+  });
+  return ev.meteor ? 1100 : 900;
+}
+
+/* FILA DE EFEITOS.
+   Uma rodada agora resolve VÁRIAS coisas de uma vez (duas transformações e dois
+   ataques, no limite). Antes cada uma sobrescrevia `lastFx` e só a última
+   aparecia na tela. Agora a rodada empilha os eventos na ordem em que
+   aconteceram e a fila toca um de cada vez, respeitando a duração de cada um. */
+function triggerBattleFx(state){
+  const fx = state.battle && state.battle.lastFx;
+  if(!fx || fx.nonce===lastFxNonce) return;
+  lastFxNonce = fx.nonce;
+  const fila = fx.queue || [];
+  if(!fila.length) return;
+
+  // Trava o polling pelo tempo total da fila, pra um redesenho no meio não
+  // cortar a sequência.
+  const total = fila.reduce((t,ev)=> t + (ev.kind==="transform" ? TRANSFORM_MS : (ev.meteor?1100:900)), 0);
+  animLock = Date.now() + total;
+
+  let atraso = 0;
+  fila.forEach(ev=>{
+    setTimeout(()=>{ playFxEvent(ev, state); }, atraso);
+    atraso += (ev.kind==="transform" ? TRANSFORM_MS : (ev.meteor?1100:900));
   });
 }
 
@@ -4381,7 +4595,7 @@ const OUTFIT_PALETTES = {
   hybrid: ["#3a6a4a","#8a5a2b","#6a2b6b","#c9432f"]
 };
 
-function stickFigureSVG(c, alive, transformed){
+function stickFigureSVG(c, alive, transformed, cls){
   let skin, hairColor, hairStyle, outfit, outfit2;
   if(c.appearance){
     const ap = c.appearance;
@@ -4420,7 +4634,7 @@ function stickFigureSVG(c, alive, transformed){
   else if(hairStyle==="long") hairSVG = `<path d="M12 7 Q20 -2 28 7 L29 22 L25 22 L25 9 Q20 4 15 9 L15 22 L11 22 Z" fill="${hairColor}"/>`;
   else if(hairStyle==="mohawk") hairSVG = `<path d="M17 6 Q20 -6 23 6 Z" fill="${hairColor}"/>`;
 
-  return `<svg class="stick" width="40" height="52" viewBox="0 0 40 52">
+  return `<svg class="stick ${cls||""}" width="40" height="52" viewBox="0 0 40 52">
     ${auraSVG}
     <circle cx="20" cy="10" r="7" fill="${skin}"/>
     ${hairSVG}
@@ -4434,6 +4648,18 @@ function stickFigureSVG(c, alive, transformed){
 }
 
 function nextFxNonce(b){ return (b.lastFx ? b.lastFx.nonce : 0) + 1; }
+
+/* Empilha um evento visual na fila da rodada em vez de sobrescrever o anterior.
+   `turnFx` é zerado no início de cada resolução de turno. */
+function pushFx(b, ev){
+  if(!b._turnFx) b._turnFx = [];
+  b._turnFx.push(ev);
+}
+function flushFx(b){
+  const fila = b._turnFx || [];
+  delete b._turnFx;
+  if(fila.length) b.lastFx = {nonce: nextFxNonce(b), queue: fila};
+}
 
 /* Envia a ação da rodada (atacar, trocar, ou Ultimate-meteoro). Fica guardada
    em `pending` até o adversário também escolher a dele — só então o turno
@@ -4557,7 +4783,7 @@ function applyAction(state, attackerId, atkIdx, targetId){
     if(atk.cooldown>0) b.cooldowns[attackerId][atkIdx]=atk.cooldown;
     if(atk.onceOnly) b.onceUsed[attackerId][atkIdx]=true;
   }
-  b.lastFx = {nonce: nextFxNonce(b), attackerId, effects: fxEffects};
+  pushFx(b, {attackerId, effects: fxEffects});
   b.stunned[attackerId]=false;
   tickStunImmunity(state, attackerId);
   tickSelfRecoil(state, attackerId);
@@ -4605,71 +4831,15 @@ function executeMeteorUltimate(state, ultId){
     b.log.unshift(`${tgt.name} sofre ${dmg} de dano do Ultimate de ${c.name} (ignora defesa)${isAlly?' — aliado, dano reduzido pela metade':''}.`);
     if(b.hp[otherId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
   });
-  b.lastFx = {nonce: nextFxNonce(b), attackerId: ultId, meteor:true, color:ultColor, effects: fxEffects};
+  pushFx(b, {attackerId: ultId, meteor:true, color:ultColor, effects: fxEffects});
   tickTransformDuration(state, ultId);
   tickStunImmunity(state, ultId);
 }
 
-/* Transformação — ação GRÁTIS: não entra no `pending`, não usa a rodada, então
-   o mesmo personagem ainda escolhe e envia uma ação normal em seguida. Toda
-   transformação paga ALGUM preço: no mínimo o corte temporário de defesa
-   abaixo, e para alguns (Might Guy, Tenshinhan, Edward) um preço extra
-   próprio da história deles. */
-async function useUltimate(){
-  const state = await loadRoom(ROOM_CODE);
-  const myKey="p"+MY_SLOT;
-  const ultId = state.ultimateChoice[myKey];
-  const activeId = state.battle.activeChar[myKey];
-  if(!ultId || ultId!==activeId || state.battle.ultimateUsed[ultId]) return;
-  const c = charById(ultId);
-  if(c.ultimate.kind==="meteor") return; // meteoro vai por submitAction({type:"ultimate"})
-  const b = state.battle;
-  if(!b.tempDef) b.tempDef = {};
-  if(!b.transformed) b.transformed = {};
-  if(!b.growOnHit) b.growOnHit = {};
-  if(!b.transformActive) b.transformActive = {};
-  if(!b.selfRecoil) b.selfRecoil = {};
-  b.ultimateUsed[ultId]=true;
-
-  b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
-  b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
-  b.atkBonus[ultId] = c.ultimate.atkBonus;
-  b.transformed[ultId] = true;
-  // Dispara a animação de duas fases nos DOIS clientes: quem transformou vê
-  // pelo redesenho imediato, o adversário vê quando o polling trouxer a
-  // revisão nova. O nonce garante que cada um toque a animação uma vez só.
-  b.lastFx = {nonce: nextFxNonce(b), kind:"transform", targetId: ultId, name: c.ultimate.name};
-
-  let baselineFis = b.def[ultId].fis;
-  let baselineMag = b.def[ultId].mag;
-  let extraLog = "";
-
-  if(c.ultimate.permanentDefCost){
-    baselineFis = Math.max(10, baselineFis - c.ultimate.permanentDefCost);
-    baselineMag = Math.max(10, baselineMag - c.ultimate.permanentDefCost);
-    extraLog += ` Paga um preço permanente: -${c.ultimate.permanentDefCost} de defesa pro resto da luta.`;
-  }
-  if(c.ultimate.upfrontToll){
-    b.hp[ultId] = Math.max(1, b.hp[ultId]-c.ultimate.upfrontToll);
-    extraLog += ` Perde ${c.ultimate.upfrontToll} de vida na hora como sacrifício pra ativar.`;
-  }
-  if(c.ultimate.selfRecoil){
-    b.selfRecoil[ultId] = {value:c.ultimate.selfRecoil.value, turnsLeft:c.ultimate.selfRecoil.turns};
-    extraLog += ` Vai perder ${c.ultimate.selfRecoil.value} de vida a cada rodada própria durante ${c.ultimate.selfRecoil.turns} rodadas.`;
-  }
-
-  b.def[ultId].fis = Math.max(10, Math.round(baselineFis*0.6));
-  b.def[ultId].mag = Math.max(10, Math.round(baselineMag*0.6));
-  b.transformActive[ultId] = {turnsLeft:3, original:{fis:baselineFis, mag:baselineMag}};
-
-  let growNote = "";
-  if(c.ultimate.growPerHit){
-    b.growOnHit[ultId] = {perHit:c.ultimate.growPerHit, cap:c.ultimate.growCap, current:0};
-    growNote = ` Quanto mais apanhar a partir de agora, mais forte fica (até +${c.ultimate.growCap} de dano extra)${c.ultimate.explodeOnDeath?' — mas se cair com poder acumulado, ele explode nos próprios aliados!':''}.`;
-  }
-  b.log.unshift(`${c.name} se transforma: ${c.ultimate.name}! (+${c.ultimate.lifeBonus} vida, +${c.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas próprias)${extraLog}${growNote}`);
-  await commitAndDraw(state);
-}
+/* A transformação é a 5ª pílula: uma AÇÃO da rodada como qualquer outra, e não
+   um bônus grátis. Escolhê-la gasta a rodada — você transforma em vez de
+   atacar. Resolve na FASE 1 do turno (applyTransformation, em part7), sempre
+   antes dos ataques e na ordem de velocidade. */
 
 function renderBattleOver(state){
   const winner = state.winner;
