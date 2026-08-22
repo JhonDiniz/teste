@@ -2456,6 +2456,9 @@ function setDifficulty(mode){
 }
 
 function playerName(state,key){
+  // Blindado contra chave inválida: um nome errado numa faixa é um detalhe,
+  // mas uma exceção aqui derruba o render inteiro e trava a tela.
+  if(key!=="p1" && key!=="p2") return "Jogador";
   return (state.players[key] && state.players[key].name) || ("Jogador "+key.slice(1));
 }
 function otherKey(key){ return key==="p1"?"p2":"p1"; }
@@ -2832,9 +2835,14 @@ async function startDraft(){
   const state = await loadRoom(ROOM_CODE);
   if(state.phase!=="lobby") return;
   state.phase = "draft";
+  // Quem começa a BATALHA. O Leilão define isso na tela de cara-ou-coroa, que o
+  // Sorteio não tem — sem isso `coinResult` fica null e a batalha quebra ao
+  // tentar dizer de quem é a vez.
+  state.coinResult = Math.random()<0.5 ? "p1" : "p2";
   rollDraftOptions(state,"p1");
   rollDraftOptions(state,"p2");
   state.log.unshift(`Sorteio iniciado — cada jogador escolhe ${TEAM_SIZE} lutadores entre ${DRAFT_OPTIONS} cartas por rodada.`);
+  state.log.unshift(`${playerName(state,state.coinResult)} começa a batalha.`);
   await commitAndDraw(state);
 }
 
@@ -3020,7 +3028,9 @@ async function flipCoin(){
 /* ============ MOTOR DE BATALHA ============ */
 function initBattle(state){
   const battle = {
-    currentTurn: state.coinResult,
+    // Fallback: um modo novo que esqueça de sortear quem começa não pode
+    // derrubar a batalha — no pior caso o p1 começa.
+    currentTurn: (state.coinResult==="p1" || state.coinResult==="p2") ? state.coinResult : "p1",
     activeChar: {p1: state.attackOrder.p1[0], p2: state.attackOrder.p2[0]},
     mustSwitch: {p1:false, p2:false},
     hp:{}, cooldowns:{}, onceUsed:{}, stunned:{}, shields:{}, tempShield:{}, dmgBonus:{}, maxLifeBonus:{}, ultimateUsed:{}, transformed:{}, dot:{},
