@@ -362,6 +362,41 @@
     .ult-title{animation: ultFade 3.4s linear forwards !important; transform:none !important;}
   }
 
+  /* --- escolha de modo na tela inicial --- */
+  .mode-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;}
+  @media(max-width:600px){ .mode-grid{grid-template-columns:1fr;} }
+  .mode-card{
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line); border-top:2px solid var(--line);
+    border-radius:var(--radius); padding:14px; cursor:pointer;
+    transition:border-color .15s, transform .1s;
+  }
+  .mode-card:hover{border-color:var(--gold-dim);}
+  .mode-card:active{transform:scale(.985);}
+  .mode-card.sel{border-color:var(--gold); border-top-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset;}
+  .mode-ico{font-size:26px; line-height:1;}
+  .mode-name{font-weight:800; font-size:16px; margin:6px 0 4px;}
+  .mode-desc{font-size:12px; color:var(--text-dim); line-height:1.45;}
+
+  /* --- cartas do sorteio --- */
+  .draft-grid{display:flex; flex-direction:column; gap:8px;}
+  .draft-card{
+    display:flex; align-items:center; gap:12px;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px 12px; cursor:pointer; transition:border-color .15s, transform .1s;
+  }
+  .draft-card:hover{border-color:var(--gold);}
+  .draft-card:active{transform:scale(.99);}
+  /* Altura fixa na arte: os sprites têm proporções diferentes e sem isso as
+     cartas ficariam com alturas desiguais, quebrando a leitura da lista. */
+  .draft-art{width:52px; display:flex; justify-content:center; flex:0 0 auto;}
+  .draft-art .sprite-img{height:56px; width:auto;}
+  .draft-art .stick{height:56px; width:auto;}
+  .draft-info{flex:1; min-width:0;}
+  .draft-name{font-weight:700; font-size:15px;}
+  .draft-meta{margin-top:5px;}
+
   /* --- HUD de combate --- */
   .hud{
     position:absolute; z-index:4; width:190px; padding:8px 10px 9px; border-radius:10px;
@@ -2087,12 +2122,17 @@ function genCode(){
   return s;
 }
 
+const TEAM_SIZE = 5;      // vale para os dois modos
+const DRAFT_OPTIONS = 5;  // quantos personagens aparecem por rodada no sorteio
+
 function newRoomState(code){
   const shuffled=[...CHARACTERS].sort(()=>Math.random()-0.5);
   const pool = shuffled.slice(0,20).map(c=>c.id);
   return {
     code,
     rev: 0,
+    mode: "auction",              // "auction" (leilão) | "draft" (sorteio)
+    draftOptions: {p1:[], p2:[]}, // as 5 cartas na mão de cada um, no sorteio
     difficulty: "easy",
     players:{p1:null, p2:null},
     budget: {p1:20, p2:20},
@@ -2130,6 +2170,24 @@ async function commitAndDraw(state){
 
 function charById(id){ return CHARACTERS.find(c=>c.id===id); }
 
+/* ============ NOME SALVO ============
+   Guardado no navegador, então sobrevive a recarregar a página. Fica no
+   aparelho — não vai pro Firestore e não sai daqui.
+   Tudo em try/catch porque navegação privada e alguns navegadores embutidos
+   bloqueiam o armazenamento: se falhar, o jogo continua pedindo o nome a cada
+   vez em vez de quebrar. */
+const NAME_KEY = "arena_nome";
+function savedName(){
+  try{ return localStorage.getItem(NAME_KEY) || ""; }catch(e){ return ""; }
+}
+function saveName(n){
+  try{ localStorage.setItem(NAME_KEY, n); }catch(e){}
+}
+function forgetName(){
+  try{ localStorage.removeItem(NAME_KEY); }catch(e){}
+  render();
+}
+
 /* ============ RENDER ============ */
 const app = document.getElementById("app");
 
@@ -2166,6 +2224,7 @@ function poll(){
 function draw(state){
   if(state.phase==="lobby") renderLobby(state);
   else if(state.phase==="auction") renderAuction(state);
+  else if(state.phase==="draft") renderDraft(state);
   else if(state.phase==="ultimate") renderUltimate(state);
   else if(state.phase==="order") renderOrder(state);
   else if(state.phase==="coinflip") renderCoinflip(state);
@@ -2175,50 +2234,95 @@ function draw(state){
 }
 
 function renderHome(){
+  const nome = savedName();
+
+  // Sem nome guardado, a única coisa na tela é pedir o nome. Escolher modo e
+  // sala vem depois — assim o nome é digitado UMA vez na vida do aparelho.
+  if(!nome){
+    app.innerHTML = `
+      <div class="logo-badge">${LOGO_SVG}</div>
+      <div class="eyebrow center">Bem-vindo</div>
+      <h1 class="center">Arena — Anime Battle</h1>
+      <p class="sub center">Como você quer ser chamado? Fica salvo neste aparelho, você não vai precisar digitar de novo.</p>
+      <div class="card">
+        <label>Seu nome</label>
+        <input type="text" id="firstName" maxlength="18" placeholder="Seu nome" onkeydown="if(event.key==='Enter')confirmName()">
+        <div style="margin-top:12px;"><button class="btn primary" onclick="confirmName()">Continuar</button></div>
+      </div>`;
+    setTimeout(()=>{ const el=document.getElementById("firstName"); if(el) el.focus(); }, 60);
+    return;
+  }
+
   app.innerHTML = `
-    <div class="logo-badge">
-      <svg width="72" height="72" viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r="34" fill="none" stroke="#e0b559" stroke-width="2"/>
-        <circle cx="36" cy="36" r="27" fill="#1e222e"/>
-        <line x1="20" y1="52" x2="46" y2="20" stroke="#e0b559" stroke-width="4" stroke-linecap="round"/>
-        <path d="M44 18 L52 12 L50 20 L46 22 Z" fill="#e0b559"/>
-        <line x1="52" y1="52" x2="26" y2="20" stroke="#d1495b" stroke-width="4" stroke-linecap="round"/>
-        <path d="M28 18 L20 12 L22 20 L26 22 Z" fill="#d1495b"/>
-        <circle cx="36" cy="42" r="3" fill="#e0b559"/>
-      </svg>
+    <div class="logo-badge">${LOGO_SVG}</div>
+    <div class="eyebrow center">Olá, ${nome}</div>
+    <h1 class="center">Arena — Anime Battle</h1>
+    <p class="sub center">Escolha o modo, monte seu time de ${TEAM_SIZE} lutadores e batalhe contra um amigo.</p>
+
+    <div class="mode-grid">
+      <div class="mode-card ${selectedMode==='auction'?'sel':''}" onclick="setMode('auction')">
+        <div class="mode-ico">💰</div>
+        <div class="mode-name">Leilão</div>
+        <div class="mode-desc">R$20 de orçamento. Vocês disputam lances pelos mesmos personagens — quem pagar mais leva.</div>
+      </div>
+      <div class="mode-card ${selectedMode==='draft'?'sel':''}" onclick="setMode('draft')">
+        <div class="mode-ico">🎲</div>
+        <div class="mode-name">Sorteio</div>
+        <div class="mode-desc">A cada rodada aparecem ${DRAFT_OPTIONS} personagens sorteados. Escolha 1 e siga, até fechar o time.</div>
+      </div>
     </div>
-    <div class="eyebrow center">Draft de leilão</div>
-    <h1 class="center">Arena de Leilão — Anime Battle</h1>
-    <p class="sub center">Monte seu time de 5 lutadores disputando lances contra um amigo. Crie uma sala, compartilhe o código, e leiloem juntos em tempo real.</p>
+
     <div class="card">
       <h2>Criar sala</h2>
-      <label>Seu nome</label>
-      <input type="text" id="createName" maxlength="18" placeholder="Como você quer ser chamado">
-      <label style="margin-top:12px;">Dificuldade</label>
-      <div class="row" style="gap:8px;">
-        <button type="button" class="btn diff-btn active" id="diffEasyBtn" onclick="setDifficulty('easy')">Fácil</button>
-        <button type="button" class="btn diff-btn" id="diffHardBtn" onclick="setDifficulty('hard')">Difícil</button>
-      </div>
-      <p class="hint" id="diffHint">Fácil: mostra a raridade (Comum a Mítico) de cada personagem durante o leilão.</p>
-      <div style="margin-top:12px;"><button class="btn primary" onclick="createRoom()">Criar nova sala</button></div>
+      ${selectedMode==='auction' ? `
+        <label>Dificuldade</label>
+        <div class="row" style="gap:8px;">
+          <button type="button" class="btn diff-btn ${selectedDifficulty==='easy'?'active':''}" id="diffEasyBtn" onclick="setDifficulty('easy')">Fácil</button>
+          <button type="button" class="btn diff-btn ${selectedDifficulty==='hard'?'active':''}" id="diffHardBtn" onclick="setDifficulty('hard')">Difícil</button>
+        </div>
+        <p class="hint" id="diffHint">${selectedDifficulty==='easy'
+          ? 'Fácil: mostra a raridade (Comum a Mítico) de cada personagem durante o leilão.'
+          : 'Difícil: a raridade fica escondida — vocês julgam só pelo nome, classe e elemento.'}</p>
+      ` : `<p class="hint" style="margin-top:0;">No sorteio cada jogador tem o próprio sorteio, então vocês escolhem ao mesmo tempo — ninguém espera a vez do outro.</p>`}
+      <div style="margin-top:12px;"><button class="btn primary" onclick="createRoom()">Criar sala de ${selectedMode==='auction'?'Leilão':'Sorteio'}</button></div>
     </div>
+
     <div class="card">
       <h2>Entrar em uma sala</h2>
-      <div class="row">
-        <div>
-          <label>Seu nome</label>
-          <input type="text" id="joinName" maxlength="18" placeholder="Como você quer ser chamado">
-        </div>
-        <div>
-          <label>Código da sala</label>
-          <input type="text" id="joinCode" maxlength="5" placeholder="EX: A2B9K" style="text-transform:uppercase; letter-spacing:3px; font-family:monospace;">
-        </div>
-      </div>
+      <label>Código da sala</label>
+      <input type="text" id="joinCode" maxlength="5" placeholder="EX: A2B9K" style="text-transform:uppercase; letter-spacing:3px; font-family:monospace;">
+      <p class="hint">O modo é definido por quem criou a sala.</p>
       <div style="margin-top:12px;"><button class="btn" onclick="joinRoom()">Entrar na sala</button></div>
     </div>
-    <p class="hint center">135 personagens de 27 animes disponíveis, com atacantes físicos e mágicos, alguns com transformação Ultimate e habilidades de uso único.</p>
-    <div class="center" style="margin-top:8px;"><button class="btn" onclick="openCharIndex()">📖 Ver todos os personagens</button></div>
+
+    <p class="hint center">135 personagens de 27 animes, com atacantes físicos e mágicos, alguns com transformação Ultimate.</p>
+    <div class="center" style="margin-top:8px;">
+      <button class="btn" onclick="openCharIndex()">📖 Ver todos os personagens</button>
+      <button class="btn" onclick="forgetName()" style="margin-top:8px;">Não sou ${nome}</button>
+    </div>
   `;
+}
+
+const LOGO_SVG = `
+  <svg width="72" height="72" viewBox="0 0 72 72">
+    <circle cx="36" cy="36" r="34" fill="none" stroke="#e0b559" stroke-width="2"/>
+    <circle cx="36" cy="36" r="27" fill="#1e222e"/>
+    <line x1="20" y1="52" x2="46" y2="20" stroke="#e0b559" stroke-width="4" stroke-linecap="round"/>
+    <path d="M44 18 L52 12 L50 20 L46 22 Z" fill="#e0b559"/>
+    <line x1="52" y1="52" x2="26" y2="20" stroke="#d1495b" stroke-width="4" stroke-linecap="round"/>
+    <path d="M28 18 L20 12 L22 20 L26 22 Z" fill="#d1495b"/>
+    <circle cx="36" cy="42" r="3" fill="#e0b559"/>
+  </svg>`;
+
+let selectedMode = "auction";
+function setMode(m){ selectedMode = m; renderHome(); }
+
+function confirmName(){
+  const el = document.getElementById("firstName");
+  const n = (el && el.value || "").trim();
+  if(!n){ if(el) el.focus(); return; }
+  saveName(n);
+  render();
 }
 
 let showingIndex = false;
@@ -2363,9 +2467,10 @@ function leaveRoom(){
 }
 
 async function createRoom(){
-  const name = (document.getElementById("createName").value||"").trim() || "Jogador 1";
+  const name = savedName() || "Jogador 1";
   const code = genCode();
   const state = newRoomState(code);
+  state.mode = selectedMode;
   state.difficulty = selectedDifficulty;
   state.players.p1 = {name};
   await saveRoom(state);
@@ -2374,21 +2479,25 @@ async function createRoom(){
 }
 
 async function joinRoom(){
-  const name = (document.getElementById("joinName").value||"").trim();
-  const code = document.getElementById("joinCode").value.trim().toUpperCase();
+  const name = savedName() || "Jogador 2";
+  const el = document.getElementById("joinCode");
+  const code = (el && el.value || "").trim().toUpperCase();
   if(!code){ return; }
   const state = await loadRoom(code);
   if(!state){ alert("Sala não encontrada. Confira o código."); return; }
-  if(!state.players.p2 && !state.players.p1){
-    state.players.p1 = {name: name || "Jogador 1"};
+  if(!state.players.p1){
+    state.players.p1 = {name};
     await saveRoom(state);
     ROOM_CODE = code; MY_SLOT = 1;
   } else if(!state.players.p2){
-    state.players.p2 = {name: name || "Jogador 2"};
+    state.players.p2 = {name};
     await saveRoom(state);
     ROOM_CODE = code; MY_SLOT = 2;
   } else {
-    ROOM_CODE = code; MY_SLOT = 2;
+    // Sala cheia: provavelmente é o próprio jogador voltando depois de recarregar
+    // a página. Reassume o slot cujo nome bate, em vez de virar um terceiro.
+    ROOM_CODE = code;
+    MY_SLOT = (state.players.p1.name === name) ? 1 : 2;
   }
   startPolling();
 }
@@ -2411,8 +2520,12 @@ function renderLobby(state){
         <div class="player-panel"><h3>${state.players.p1?state.players.p1.name:'Jogador 1'}</h3><p class="status-line">${state.players.p1?'Conectado':'Aguardando...'}</p></div>
         <div class="player-panel"><h3>${state.players.p2?state.players.p2.name:'Jogador 2'}</h3><p class="status-line">${state.players.p2?'Conectado':'Aguardando...'}</p></div>
       </div>
-      ${bothIn ? `<div style="margin-top:16px; text-align:center;"><button class="btn primary" onclick="goToCoinflip()">Jogar a moeda e iniciar leilão</button></div>` : `<p class="status-line">Aguardando o segundo jogador entrar com o código acima...</p>`}
-      <p class="hint" style="margin-top:10px;">Você é <strong>${playerName(state,'p'+MY_SLOT)}</strong> nessa sala. Dificuldade: <strong>${state.difficulty==="easy"?"Fácil (mostra raridade)":"Difícil (sem raridade)"}</strong>.</p>
+      ${bothIn ? `<div style="margin-top:16px; text-align:center;">${
+        state.mode==="draft"
+          ? `<button class="btn primary" onclick="startDraft()">Começar sorteio</button>`
+          : `<button class="btn primary" onclick="goToCoinflip()">Jogar a moeda e iniciar leilão</button>`
+      }</div>` : `<p class="status-line">Aguardando o segundo jogador entrar com o código acima...</p>`}
+      <p class="hint" style="margin-top:10px;">Você é <strong>${playerName(state,'p'+MY_SLOT)}</strong> nessa sala. Modo: <strong>${state.mode==="draft"?"Sorteio":"Leilão"}</strong>${state.mode==="draft"?"":` · Dificuldade: <strong>${state.difficulty==="easy"?"Fácil (mostra raridade)":"Difícil (sem raridade)"}</strong>`}.</p>
       <div class="center" style="margin-top:14px;"><button class="btn" onclick="leaveRoom()">← Voltar</button></div>
     </div>
   `;
@@ -2692,6 +2805,117 @@ async function confirmReady(){
     state.orderReady = {p1:false, p2:false};
   }
   await commitAndDraw(state);
+}
+
+/* ============ MODO SORTEIO ============
+   Cada jogador tem o PRÓPRIO sorteio, então os dois escolhem ao mesmo tempo e
+   ninguém espera a vez. Isso é o que torna este modo rápido — e também o motivo
+   de ele não precisar de `turnToAct`, moeda nem controle de quem abre.
+
+   O que os dois compartilham é só a exclusão: um personagem já escolhido por
+   qualquer um dos dois sai do baralho, pra não existirem dois Gokus em campo. */
+
+// Sorteia DRAFT_OPTIONS personagens ainda livres para um jogador.
+function rollDraftOptions(state, key){
+  const taken = new Set([...state.teams.p1, ...state.teams.p2]);
+  const livres = CHARACTERS.filter(c=>!taken.has(c.id));
+  const sorteados = [];
+  const pool = [...livres];
+  for(let i=0; i<DRAFT_OPTIONS && pool.length; i++){
+    const idx = Math.floor(Math.random()*pool.length);
+    sorteados.push(pool.splice(idx,1)[0].id);
+  }
+  state.draftOptions[key] = sorteados;
+}
+
+async function startDraft(){
+  const state = await loadRoom(ROOM_CODE);
+  if(state.phase!=="lobby") return;
+  state.phase = "draft";
+  rollDraftOptions(state,"p1");
+  rollDraftOptions(state,"p2");
+  state.log.unshift(`Sorteio iniciado — cada jogador escolhe ${TEAM_SIZE} lutadores entre ${DRAFT_OPTIONS} cartas por rodada.`);
+  await commitAndDraw(state);
+}
+
+async function pickDraft(charId){
+  const state = await loadRoom(ROOM_CODE);
+  const myKey = "p"+MY_SLOT;
+  if(state.phase!=="draft") return;
+  if(state.teams[myKey].length >= TEAM_SIZE) return;
+  // Confere contra o estado recém-carregado: entre o desenho da tela e o clique,
+  // o adversário pode ter levado esse personagem no sorteio dele.
+  if(!state.draftOptions[myKey].includes(charId)) { draw(state); return; }
+  const taken = new Set([...state.teams.p1, ...state.teams.p2]);
+  if(taken.has(charId)){
+    state.log.unshift(`Esse personagem já foi levado — sorteando outras cartas.`);
+    rollDraftOptions(state, myKey);
+    await commitAndDraw(state);
+    return;
+  }
+
+  const c = charById(charId);
+  state.teams[myKey].push(charId);
+  state.log.unshift(`${playerName(state,myKey)} escolheu ${c.name}.`);
+
+  if(state.teams[myKey].length < TEAM_SIZE){
+    rollDraftOptions(state, myKey);
+  } else {
+    state.draftOptions[myKey] = [];
+    state.log.unshift(`${playerName(state,myKey)} fechou o time!`);
+  }
+
+  if(state.teams.p1.length>=TEAM_SIZE && state.teams.p2.length>=TEAM_SIZE){
+    state.phase = "ultimate";
+  }
+  await commitAndDraw(state);
+}
+
+function renderDraft(state){
+  const myKey = "p"+MY_SLOT;
+  const oppKey = otherKey(myKey);
+  const meus = state.teams[myKey];
+  const pronto = meus.length >= TEAM_SIZE;
+  const oppPronto = state.teams[oppKey].length >= TEAM_SIZE;
+  const rodada = meus.length + 1;
+  const opcoes = (state.draftOptions && state.draftOptions[myKey]) || [];
+
+  app.innerHTML = `
+    <div class="eyebrow">Sorteio — ${Math.min(rodada,TEAM_SIZE)} de ${TEAM_SIZE}</div>
+    <h1>${pronto ? "Time fechado" : "Escolha um lutador"}</h1>
+    <p class="sub">${pronto
+      ? (oppPronto ? "Os dois times estão prontos!" : `Aguardando ${playerName(state,oppKey)} terminar...`)
+      : `Sorteamos ${DRAFT_OPTIONS} cartas. Escolha 1 pro seu time — as outras voltam pro baralho.`}</p>
+
+    ${pronto ? "" : `
+    <div class="draft-grid">
+      ${opcoes.map(id=>{
+        const c = charById(id);
+        return `<div class="draft-card" onclick="pickDraft('${c.id}')">
+          <div class="draft-art">${fighterArt(c,{view:"front"})}</div>
+          <div class="draft-info">
+            <div class="draft-name">${c.name}</div>
+            <div class="draft-meta"><span class="badge rank-${c.rankKey}">${c.rank}</span></div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`}
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Seu time <span class="money">${meus.length}/${TEAM_SIZE}</span></h3>
+      <ul class="team-list">
+        ${Array.from({length:TEAM_SIZE}).map((_,i)=>{
+          const id = meus[i];
+          if(!id) return `<li class="slot-empty">Vaga ${i+1} — vazia</li>`;
+          const c = charById(id);
+          return `<li><span>${c.name}</span><span class="badge rank-${c.rankKey}">${c.rank}</span></li>`;
+        }).join("")}
+      </ul>
+      <p class="status-line">${playerName(state,oppKey)}: ${state.teams[oppKey].length}/${TEAM_SIZE} escolhidos${oppPronto?" ✅":""}</p>
+    </div>
+
+    <div class="log">${state.log.slice(0,8).map(l=>`<div>${l}</div>`).join("")}</div>
+  `;
 }
 
 /* ============ ORDEM DE ENTRADA (pré-batalha) ============ */
@@ -3630,8 +3854,33 @@ function renderBattleOver(state){
     <div class="card">
       <div class="log">${state.battle.log.slice(0,20).map(l=>`<div>${l}</div>`).join("")}</div>
     </div>
-    <div class="center"><button class="btn primary" onclick="location.reload()">Jogar novamente</button></div>
+    <div class="card">
+      <h3>Revanche na mesma sala</h3>
+      <p class="hint">Ninguém precisa sair nem digitar código de novo — vocês continuam na sala <strong>${state.code}</strong>.</p>
+      <div class="row" style="gap:8px; margin-top:10px;">
+        <button class="btn primary" onclick="rematch('${state.mode||"auction"}')">Repetir ${(state.mode||"auction")==="draft"?"Sorteio":"Leilão"}</button>
+        <button class="btn" onclick="rematch('${(state.mode||"auction")==="draft"?"auction":"draft"}')">Trocar para ${(state.mode||"auction")==="draft"?"Leilão":"Sorteio"}</button>
+      </div>
+      <div class="center" style="margin-top:12px;"><button class="btn" onclick="leaveRoom()">Sair da sala</button></div>
+    </div>
   `;
+}
+
+/* Reinicia a partida PRESERVANDO sala, código e jogadores.
+   Monta um estado novo do zero e recoloca só o que deve sobreviver — mais
+   seguro que zerar campo a campo, porque um campo de batalha esquecido
+   (cooldown, dot, transformação) vazaria para a partida seguinte. */
+async function rematch(mode){
+  const atual = await loadRoom(ROOM_CODE);
+  if(!atual) return;
+  const novo = newRoomState(atual.code);
+  novo.rev = atual.rev;                 // mantém a contagem pro polling do outro acordar
+  novo.players = atual.players;
+  novo.difficulty = atual.difficulty;
+  novo.mode = mode;
+  novo.phase = "lobby";
+  novo.log = [`Nova partida na mesma sala — modo ${mode==="draft"?"Sorteio":"Leilão"}.`];
+  await commitAndDraw(novo);
 }
 
 function renderDone(state){

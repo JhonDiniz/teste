@@ -135,6 +135,37 @@ na primeira exceção.
 
 ---
 
+---
+
+## 5. Modos de jogo e sala persistente (já implementado — referência)
+
+**Modos:** `state.mode` = `"auction"` | `"draft"`. Escolhido em `renderHome()`
+(`part6.html`, `let selectedMode`) e gravado por `createRoom()`. Quem entra pelo
+código herda o modo de quem criou.
+
+| Peça | Anchor |
+|---|---|
+| Nome salvo no aparelho | `const NAME_KEY` — `savedName/saveName/forgetName`, tudo em try/catch |
+| Tela inicial + cartões de modo | `function renderHome()`, CSS `.mode-card` |
+| Constantes de tamanho | `const TEAM_SIZE`, `const DRAFT_OPTIONS` |
+| Sorteio | `rollDraftOptions` / `startDraft` / `pickDraft` / `renderDraft` |
+| Revanche mesma sala | `rematch(mode)` em `part8.html` |
+
+**Para adicionar um TERCEIRO modo:** (1) cartão em `renderHome`, (2) `case` no
+roteador `draw()`, (3) as funções `start<Modo>`/`render<Modo>`, (4) transição
+para `phase:"ultimate"` ao fechar os times. O resto do fluxo (ultimate → ordem →
+moeda → batalha) é compartilhado e não precisa ser tocado.
+
+**Regra do sorteio:** cada jogador tem sorteio próprio (`draftOptions.p1/p2`), então
+não há turno — os dois escolhem simultaneamente. A exclusão de personagens já
+escolhidos é global (não existem dois Gokus em campo), revalidada dentro de
+`pickDraft` contra o estado recém-carregado, porque entre desenhar a tela e clicar
+o adversário pode ter levado a mesma carta.
+
+**`rematch` monta um estado NOVO** e recoloca só sala/código/jogadores, em vez de
+zerar campo a campo — assim nenhum resíduo de batalha (cooldown, dot, transformação)
+vaza pra partida seguinte.
+
 ## Como validar qualquer mudança sem reler tudo
 
 ```bash
