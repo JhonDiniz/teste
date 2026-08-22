@@ -412,104 +412,122 @@
   .mode-desc{font-size:12px; color:var(--text-dim); line-height:1.45;}
 
   /* --- CARTAS DO SORTEIO: carrossel horizontal, estilo Mercado Noturno -----
-     5 cartas retrato lado a lado, com scroll-snap pra centralizar cada uma —
-     é o mesmo padrão do carrossel de ofertas do Valorant. Coluna vertical
-     antiga saiu; carta agora é ESTREITA E ALTA (retrato), pra caber arte +
-     radar + texto empilhados dentro dela mesma. */
+     Estrutura em 2 níveis: .draft-row é o container que rola; .draft-track é a
+     tira de cartas. O track usa width:max-content + margin auto, então quando
+     as 5 cabem ele CENTRALIZA sozinho, e quando não cabem ele rola (e o JS
+     centraliza a carta do meio). `justify-content:center` sozinho não serve —
+     com overflow ele corta o início da lista e deixa a 1ª carta inalcançável. */
   .draft-row{
-    display:flex; gap:10px; padding:6px 10px 10px;
     overflow-x:auto; scroll-snap-type:x mandatory;
-    scrollbar-width:none; -ms-overflow-style:none;
+    scrollbar-width:none; -ms-overflow-style:none; padding:8px 0 10px;
   }
   .draft-row::-webkit-scrollbar{display:none;}
-  .draft-row::before, .draft-row::after{content:""; flex:0 0 6px;} /* respiro nas pontas pra centralizar a 1ª/última */
+  .draft-track{display:flex; gap:16px; width:max-content; margin:0 auto; padding:0 12px;}
+
   .draft-card{
-    position:relative; flex:0 0 auto; width:150px; scroll-snap-align:center;
-    background:linear-gradient(180deg,var(--panel2),var(--panel));
-    border:1px solid var(--line); border-top:4px solid var(--line); border-radius:14px;
+    position:relative; flex:0 0 auto; width:144px; scroll-snap-align:center;
+    border:1px solid var(--line); border-radius:14px;
     padding:10px 8px 12px; cursor:pointer; overflow:hidden;
     transition:transform .15s, box-shadow .15s;
   }
   .draft-card:active{transform:scale(.97);}
-  @media(min-width:601px){ .draft-card{width:186px; padding:14px 12px 16px;} }
+  @media(min-width:601px){
+    .draft-card{width:160px; padding:12px 10px 14px;}
+    .draft-track{gap:22px;}
+  }
 
-  .draft-art{display:flex; justify-content:center; align-items:flex-end; height:78px;}
-  .draft-art .sprite-img, .draft-art .stick{height:78px; width:auto;}
-  .draft-radar-mini{width:100%; opacity:.92; margin-top:2px;}
+  .draft-art{display:flex; justify-content:center; align-items:flex-end; height:70px;}
+  .draft-art .sprite-img, .draft-art .stick{height:70px; width:auto;}
+  .draft-radar-mini{width:100%; opacity:.95; margin-top:2px;}
   .draft-radar-mini .radar{width:100%; height:auto;}
   .draft-anime{
-    font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim);
+    font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:rgba(255,255,255,.72);
     text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    position:relative; z-index:4;
   }
-  .draft-name{font-weight:800; font-size:13px; margin-top:4px; text-align:center;
+  .draft-name{font-weight:800; font-size:12.5px; margin-top:3px; text-align:center;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .draft-meta{margin-top:5px; display:flex; gap:4px; flex-wrap:wrap; justify-content:center;}
-  .draft-class{font-size:10px; color:var(--text-dim); margin-top:4px; text-align:center;
+  .draft-meta{margin-top:4px; display:flex; gap:4px; flex-wrap:wrap; justify-content:center;}
+  .draft-class{font-size:9.5px; color:var(--text-dim); margin-top:3px; text-align:center;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .draft-reveal-body{position:relative; z-index:4;}
 
-  .rank-card-comum{border-top-color:#5b6273; box-shadow:0 0 0 1px rgba(122,129,148,.12) inset;}
-  .rank-card-raro{border-top-color:#3f6fb0; box-shadow:0 0 0 1px rgba(79,140,224,.14) inset;}
-  .rank-card-epico{border-top-color:#9b51e0; box-shadow:0 0 0 1px rgba(155,81,224,.16) inset;}
-  .rank-card-lendario{border-top-color:var(--gold); box-shadow:0 0 0 1px rgba(224,181,89,.18) inset;}
-  .rank-card-mitico{
-    border-top-color:#e0332f;
-    background:linear-gradient(180deg, rgba(214,48,49,.10), var(--panel2) 40%, var(--panel));
-    box-shadow:0 0 0 1px rgba(224,51,47,.22) inset, 0 0 14px rgba(224,51,47,.18);
-  }
-  .rank-card-comum:hover{border-color:#5b6273;}
-  .rank-card-raro:hover{border-color:#3f6fb0;}
-  .rank-card-epico:hover{border-color:#9b51e0;}
-  .rank-card-lendario:hover{border-color:var(--gold);}
-  .rank-card-mitico:hover{border-color:#e0332f;}
+  /* A carta INTEIRA é da cor da raridade, não só a borda de cima. O gradiente
+     vai da cor cheia no topo até quase o fundo do painel embaixo, pra o texto
+     continuar legível. */
+  .rank-card-comum   {border-color:#5b6273; background:linear-gradient(170deg, #4a5162 0%, #2b303c 45%, #1a1e26 100%);}
+  .rank-card-raro    {border-color:#3f6fb0; background:linear-gradient(170deg, #2f5f9e 0%, #23405f 45%, #16202e 100%);}
+  .rank-card-epico   {border-color:#9b51e0; background:linear-gradient(170deg, #7b3cc0 0%, #4a2670 45%, #221534 100%);}
+  .rank-card-lendario{border-color:#e0b559; background:linear-gradient(170deg, #c9962f 0%, #6d5220 45%, #2a2113 100%);}
+  .rank-card-mitico  {border-color:#e0332f; background:linear-gradient(170deg, #cf2b28 0%, #6e1a19 45%, #2a100f 100%);
+                      box-shadow:0 0 16px rgba(224,51,47,.28);}
+  .draft-card:hover{ box-shadow:0 0 18px rgba(255,255,255,.14); }
 
   /* ---- SEQUÊNCIA DE REVELAÇÃO ----
-     1. carta preta, treme e brilha de leve (mistério)
+     1. carta preta com brilho BRANCO ao redor
      2. nome do anime aparece
-     3. a cor da raridade "lava" a carta (borda + fundo) — de preto até a cor
-        final do rank, via variáveis CSS setadas por carta (--wash-*)
-     4. o resto (arte, radar, nome, badges) aparece por cima
-     Só toca quando o conjunto de 5 é NOVO (ver renderDraft). Uma carta já
-     revelada não re-anima a cada redesenho da tela — ver classe .revealing,
-     aplicada só nesse momento e removida depois pelo JS. */
-  .draft-card.revealing{ cursor:default; pointer-events:none; }
-  .draft-card.revealing .draft-anime{ opacity:0; animation: revealFade .5s ease forwards 1.5s; }
-  .draft-card.revealing .draft-reveal-body{ opacity:0; animation: revealFade .55s ease forwards 2.5s; }
+     3. o brilho branco vira a cor da raridade
+     4. a cor preenche a carta DAS BORDAS AO CENTRO
+     5. o resto (arte, radar, nome, badges) aparece
+     O truque do passo 4: a cor final já está no fundo da carta o tempo todo;
+     o que existe é uma tampa preta (::before) por cima, que encolhe do
+     tamanho cheio até zero. Encolhendo em direção ao centro, ela descobre a
+     cor começando pelas bordas. */
+  /* Sem pointer-events:none aqui. A classe .revealing não é removida por
+     nenhum evento garantido, então bloquear o clique por CSS deixava a carta
+     permanentemente inclicável se a classe sobrasse. O bloqueio durante a
+     revelação passou a ser por TEMPO, dentro de pickDraft — se algo falhar,
+     ele se cura sozinho quando o relógio passa. */
+  .draft-card.revealing{ cursor:default; }
+  .draft-card.revealing::before{
+    content:""; position:absolute; inset:0; z-index:3; border-radius:inherit;
+    background:#0d0f14;
+    animation: coverShrink .85s cubic-bezier(.55,.06,.3,.95) 1.85s forwards;
+  }
+  @keyframes coverShrink{
+    from{ transform:scale(1); opacity:1; }
+    to  { transform:scale(0); opacity:.85; }
+  }
   .draft-card.revealing{
-    /* "both" no wash é o que importa: sem ele, durante o delay antes da
-       animação começar o navegador usa a cor ESTÁTICA final (.rank-card-X),
-       não o preto do "from" — a carta entregaria a raridade na largada. */
-    animation:
-      cardShake .5s ease-in-out both,
-      cardGlowPulse 1.0s ease-in-out .5s 2,
-      cardColorWash .6s ease 2.0s both;
+    animation: glowWhiteToRank 2.7s ease-out both;
   }
-  @keyframes cardShake{
-    0%,100%{transform:translateX(0) rotate(0);}
-    15%{transform:translateX(-2px) rotate(-.6deg);}
-    30%{transform:translateX(2px) rotate(.6deg);}
-    45%{transform:translateX(-2px) rotate(-.4deg);}
-    60%{transform:translateX(2px) rotate(.4deg);}
-    80%{transform:translateX(-1px) rotate(0);}
+  /* O brilho começa branco e neutro (não entrega a raridade) e só no fim vira
+     a cor do rank, junto com o preenchimento. */
+  @keyframes glowWhiteToRank{
+    0%  { box-shadow:0 0 0 0 rgba(255,255,255,0); }
+    18% { box-shadow:0 0 16px 2px rgba(255,255,255,.55); }
+    45% { box-shadow:0 0 22px 3px rgba(255,255,255,.85); }
+    70% { box-shadow:0 0 24px 3px rgba(255,255,255,.6); }
+    100%{ box-shadow:0 0 26px 4px var(--wash-color); }
   }
-  @keyframes cardGlowPulse{
-    0%,100%{ box-shadow:0 0 0 rgba(224,181,89,0); }
-    50%{ box-shadow:0 0 18px rgba(224,181,89,.35), inset 0 0 14px rgba(224,181,89,.12); }
-  }
+  .draft-card.revealing .draft-anime{ opacity:0; animation: revealFade .5s ease forwards 1.25s; }
+  .draft-card.revealing .draft-reveal-body{ opacity:0; animation: revealFade .5s ease forwards 2.55s; }
   @keyframes revealFade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
-  /* from = carta preta (estado de mistério); to = cor final do rank, lida das
-     variáveis --wash-* setadas inline por carta em JS. Sem !important em
-     nenhum lugar — é a própria animação que domina a propriedade até acabar,
-     e a classe .rank-card-X assume de forma idêntica quando ela é removida. */
-  @keyframes cardColorWash{
-    from{ border-top-color:#1c1f28; background:linear-gradient(180deg,#14161d,#0e1015); box-shadow:none; }
-    to{ border-top-color:var(--wash-color); background:var(--wash-bg); box-shadow:var(--wash-glow); }
-  }
   @media(prefers-reduced-motion: reduce){
-    .draft-card.revealing{ animation:none !important; border-top-color:var(--wash-color); background:var(--wash-bg); box-shadow:var(--wash-glow); }
+    .draft-card.revealing, .draft-card.revealing::before{ animation:none !important; }
+    .draft-card.revealing::before{ display:none; }
     .draft-card.revealing .draft-anime, .draft-card.revealing .draft-reveal-body{ opacity:1; animation:none !important; }
   }
 
-
+  /* --- SEU TIME: quadrados, não cartas ----
+     Só a arte do personagem, contornada com a cor da raridade. Nome só no
+     tooltip (title), pra fileira ficar compacta e caber sem rolar a tela. */
+  .team-slots{display:flex; gap:8px; justify-content:center; margin-top:6px;}
+  .team-slot{
+    position:relative; width:56px; height:56px; border-radius:10px;
+    border:2px dashed var(--line); background:rgba(255,255,255,.02);
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+  }
+  @media(min-width:601px){ .team-slot{width:68px; height:68px;} }
+  .team-slot.filled{border-style:solid; background:rgba(0,0,0,.28);}
+  .team-slot .sprite-img, .team-slot .stick{height:50px; width:auto;}
+  @media(min-width:601px){ .team-slot .sprite-img, .team-slot .stick{height:60px;} }
+  .team-slot-num{font-size:15px; font-weight:800; color:#3a4152;}
+  .slot-rank-comum   {border-color:#5b6273;}
+  .slot-rank-raro    {border-color:#3f6fb0; box-shadow:0 0 10px rgba(79,140,224,.3);}
+  .slot-rank-epico   {border-color:#9b51e0; box-shadow:0 0 10px rgba(155,81,224,.35);}
+  .slot-rank-lendario{border-color:#e0b559; box-shadow:0 0 12px rgba(224,181,89,.4);}
+  .slot-rank-mitico  {border-color:#e0332f; box-shadow:0 0 14px rgba(224,51,47,.45);}
 
   .golden-banner{
     text-align:center; padding:10px; border-radius:10px; margin-bottom:12px; font-weight:800; font-size:13px;
@@ -2810,13 +2828,28 @@ function newRoomState(code){
   };
 }
 
+/* ============ SALA DE TREINO ============
+   O treino do Anidex roda numa sala FALSA, só na memória — nada vai pro
+   Firestore. Interceptando aqui em vez de espalhar `if(treino)` pelo motor,
+   todo o resto do jogo (submitAction, maybeResolveTurn, renderBattle) funciona
+   sem saber que está num treino. */
+const TRAINING_CODE = "__treino";
+let TRAINING_STATE = null;
+const clone = o => JSON.parse(JSON.stringify(o));
+
 async function loadRoom(code){
+  if(code === TRAINING_CODE) return TRAINING_STATE ? clone(TRAINING_STATE) : null;
   try{
     const doc = await db.collection("rooms").doc(code).get();
     return doc.exists ? doc.data() : null;
   }catch(e){ console.error("Erro ao carregar sala:", e); return null; }
 }
 async function saveRoom(state){
+  if(state.code === TRAINING_CODE){
+    state.rev = (state.rev||0)+1;
+    TRAINING_STATE = clone(state);
+    return;
+  }
   try{
     state.rev = (state.rev||0)+1;
     await db.collection("rooms").doc(state.code).set(state);
@@ -2829,7 +2862,10 @@ async function commitAndDraw(state){
   draw(state);
 }
 
-function charById(id){ return CHARACTERS.find(c=>c.id===id); }
+function charById(id){
+  if(id === "dummy") return DUMMY;   // boneco de treino, fora de CHARACTERS
+  return CHARACTERS.find(c=>c.id===id);
+}
 
 /* ============ NOME SALVO ============
    Guardado no navegador, então sobrevive a recarregar a página. Fica no
@@ -2968,7 +3004,7 @@ function renderHome(){
 
     <p class="hint center">135 personagens de 27 animes, com atacantes físicos e mágicos, alguns com transformação Ultimate.</p>
     <div class="center" style="margin-top:8px;">
-      <button class="btn" onclick="openCharIndex()">📖 Ver todos os personagens</button>
+      <button class="btn" onclick="openCharIndex()">📖 Anidex</button>
       <button class="btn" onclick="forgetName()" style="margin-top:8px;">Não sou ${nome}</button>
     </div>
   `;
@@ -3047,7 +3083,7 @@ function renderCharIndex(){
 
   app.innerHTML = `
     <div class="eyebrow">Anidex</div>
-    <h1>Todos os Personagens</h1>
+    <h1>Anidex</h1>
     <p class="sub">${CHARACTERS.length} lutadores de ${ANIMES.length} animes, agrupados por série e ordenados do Comum ao Mítico.</p>
     <div class="card">
       <input type="text" id="indexSearch" placeholder="Buscar por nome ou anime..." value="${indexSearchTerm.replace(/"/g,'&quot;')}" oninput="updateIndexSearch(this.value)">
@@ -3171,9 +3207,13 @@ function renderCharDetail(c){
           : `+${c.ultimate.lifeBonus} vida, +${c.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas${c.ultimate.growPerHit?`, cresce ao apanhar (até +${c.ultimate.growCap})`:''}${c.ultimate.explodeOnDeath?', explode nos aliados se morrer com poder acumulado':''}${c.ultimate.selfRecoil?`, perde ${c.ultimate.selfRecoil.value} de vida por ${c.ultimate.selfRecoil.turns} rodadas próprias`:''}${c.ultimate.upfrontToll?`, sacrifica ${c.ultimate.upfrontToll} de vida na hora`:''}${c.ultimate.permanentDefCost?`, -${c.ultimate.permanentDefCost} de defesa permanente`:''}. Não gasta o turno.`}</p>
       ` : `<div class="divider"></div><p class="hint">Sem Ultimate — só Mítico e Lendário recebem.</p>`}
     </div>
+    <div class="center" style="margin-bottom:10px;">
+      <button class="btn primary" onclick="startTraining('${c.id}')">⚔️ Testar em duelo de treino</button>
+      <p class="hint" style="margin-top:6px;">Contra um boneco de vida infinita que não revida.</p>
+    </div>
     <div class="row" style="gap:8px;">
       <button class="btn" onclick="backToIndexList()">← Lista de personagens</button>
-      <button class="btn" onclick="closeCharIndex()">Fechar índice</button>
+      <button class="btn" onclick="closeCharIndex()">Fechar Anidex</button>
     </div>
   `;
 }
@@ -3615,6 +3655,9 @@ async function startDraft(){
 }
 
 async function pickDraft(charId){
+  // Durante a revelação a carta ainda está escondida — clicar aqui seria
+  // escolher às cegas. Trava por tempo (não por CSS), então nunca fica presa.
+  if(Date.now() < animLock) return;
   const state = await loadRoom(ROOM_CODE);
   const myKey = "p"+MY_SLOT;
   if(state.phase!=="draft") return;
@@ -3664,20 +3707,23 @@ async function rerollDraft(){
 // Cor final de cada rank, usada tanto pelas variáveis --wash-* da animação
 // quanto reaproveitável se precisar em outro lugar. Espelha as CSS rules
 // .rank-card-* — se mudar uma, muda a outra junto.
+// Cor de brilho de cada rank, usada pela animação de revelação (--wash-color).
+// O fundo em si vem das classes .rank-card-* no CSS.
 const RANK_WASH = {
-  comum:   {color:"#5b6273", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
-  raro:    {color:"#3f6fb0", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
-  epico:   {color:"#9b51e0", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
-  lendario:{color:"#e0b559", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
-  mitico:  {color:"#e0332f", bg:"linear-gradient(180deg, rgba(214,48,49,.10), var(--panel2) 40%, var(--panel))",
-            glow:"0 0 0 1px rgba(224,51,47,.22) inset, 0 0 14px rgba(224,51,47,.18)"}
+  comum:"#8f96a6", raro:"#4f8cff", epico:"#b25cff", lendario:"#ffd76a", mitico:"#ff5b57"
 };
+
 
 // Guarda, por jogador, a assinatura do último conjunto de 5 cartas já
 // mostrado. Se bater com o atual, a tela NÃO deve reanimar — só um redesenho
 // incidental (poll, troca de aba). Se mudou (pick, reroll, rodada nova), toca
 // a revelação do zero.
 let lastDraftSig = {p1:null, p2:null};
+
+/* Ordem em que as vagas do time são preenchidas: a 1ª escolha vai pro quadrado
+   do MEIO, a 2ª pro meio-esquerda, a 3ª pro meio-direita, e as duas últimas
+   pras pontas. Assim o time cresce de dentro pra fora. */
+const SLOT_ORDER = [2, 1, 3, 0, 4];
 
 function renderDraft(state){
   const myKey = "p"+MY_SLOT;
@@ -3694,28 +3740,29 @@ function renderDraft(state){
   const ehNovo = sig && sig!==lastDraftSig[myKey];
   lastDraftSig[myKey] = sig;
   // Mesma trava usada na transformação em batalha: sem isso, um poll (a cada
-  // 2s) redesenha a tela no meio da revelação e ela pula direto pro final,
-  // cortando a animação. 3,1s cobre a sequência inteira (treme -> nome ->
-  // cor -> resto).
-  if(ehNovo) animLock = Date.now() + 3100;
+  // 2s) redesenha a tela no meio da revelação e ela pula direto pro final.
+  if(ehNovo) animLock = Date.now() + 3400;
+
+  // Monta as 5 vagas na ordem visual, preenchendo pela SLOT_ORDER.
+  const vagas = new Array(TEAM_SIZE).fill(null);
+  meus.forEach((id, i)=>{ const pos = SLOT_ORDER[i]; if(pos!==undefined) vagas[pos] = id; });
 
   app.innerHTML = `
     <div class="eyebrow">Sorteio — ${Math.min(rodada,TEAM_SIZE)} de ${TEAM_SIZE}</div>
-    <h1>${pronto ? "Time fechado" : "Escolha um lutador"}</h1>
-    <p class="sub">${pronto
+    <h1 style="margin-bottom:2px;">${pronto ? "Time fechado" : "Escolha um lutador"}</h1>
+    <p class="sub" style="margin-bottom:8px;">${pronto
       ? (oppPronto ? "Os dois times estão prontos!" : `Aguardando ${playerName(state,oppKey)} terminar...`)
-      : `Sorteamos ${DRAFT_OPTIONS} cartas. Escolha 1 pro seu time — as outras voltam pro baralho.`}</p>
+      : `${playerName(state,oppKey)}: ${state.teams[oppKey].length}/${TEAM_SIZE}${oppPronto?" ✅":""}`}</p>
 
     ${golden && !pronto ? `<div class="golden-banner">✨ GOLDEN ROLL — só Lendário e Mítico nesta rodada!</div>` : ''}
 
     ${pronto ? "" : `
     <div class="draft-row" id="draftRow">
+      <div class="draft-track">
       ${opcoes.map(id=>{
         const c = charById(id);
-        const w = RANK_WASH[c.rankKey];
-        const varStyle = `--wash-color:${w.color}; --wash-bg:${w.bg}; --wash-glow:${w.glow};`;
         return `<div class="draft-card rank-card-${c.rankKey} ${ehNovo?'revealing':''}"
-             style="${varStyle}" onclick="pickDraft('${c.id}')">
+             style="--wash-color:${RANK_WASH[c.rankKey]};" onclick="pickDraft('${c.id}')">
           <div class="draft-anime">${c.anime}</div>
           <div class="draft-reveal-body">
             <div class="draft-art">${fighterArt(c,{view:"front"})}</div>
@@ -3729,26 +3776,108 @@ function renderDraft(state){
           </div>
         </div>`;
       }).join("")}
+      </div>
     </div>
-    ${ehNovo ? '<p class="hint center" style="margin-top:-4px;">arraste pra ver as 5 cartas</p>' : ''}
-    <div class="center" style="margin-top:12px;">
-      <button class="btn" ${rerollsLeft<=0?'disabled':''} onclick="rerollDraft()">🎲 Reroll (${rerollsLeft} restante${rerollsLeft===1?'':'s'})</button>    </div>`}
+    <div class="center" style="margin-top:2px;">
+      <button class="btn" ${rerollsLeft<=0?'disabled':''} onclick="rerollDraft()">🎲 Reroll (${rerollsLeft})</button>
+    </div>`}
 
-    <div class="card" style="margin-top:16px;">
-      <h3>Seu time <span class="money">${meus.length}/${TEAM_SIZE}</span></h3>
-      <ul class="team-list">
-        ${Array.from({length:TEAM_SIZE}).map((_,i)=>{
-          const id = meus[i];
-          if(!id) return `<li class="slot-empty">Vaga ${i+1} — vazia</li>`;
+    <div style="margin-top:14px;">
+      <div class="bench-label center">Seu time — ${meus.length}/${TEAM_SIZE}</div>
+      <div class="team-slots">
+        ${vagas.map((id,i)=>{
+          if(!id) return `<div class="team-slot"><span class="team-slot-num">${i+1}</span></div>`;
           const c = charById(id);
-          return `<li><span>${c.name}</span><span class="badge rank-${c.rankKey}">${c.rank}</span></li>`;
+          return `<div class="team-slot filled slot-rank-${c.rankKey}" title="${c.name} — ${c.rank}">
+            ${fighterArt(c,{view:"front"})}
+          </div>`;
         }).join("")}
-      </ul>
-      <p class="status-line">${playerName(state,oppKey)}: ${state.teams[oppKey].length}/${TEAM_SIZE} escolhidos${oppPronto?" ✅":""}</p>
+      </div>
     </div>
-
-    <div class="log">${state.log.slice(0,8).map(l=>`<div>${l}</div>`).join("")}</div>
   `;
+
+  // Centraliza a carta do MEIO. Quando as 5 cabem, o track já se centra
+  // sozinho (margin auto) e o scrollLeft fica 0; quando não cabem, isto põe o
+  // meio da tira no meio da tela em vez de deixar a 1ª carta colada na borda.
+  const row = document.getElementById("draftRow");
+  if(row) row.scrollLeft = Math.max(0, (row.scrollWidth - row.clientWidth) / 2);
+
+  // Tira a classe quando a revelação acaba. Isso é só limpeza visual — quem
+  // libera o clique é a trava de tempo em pickDraft.
+  if(ehNovo){
+    setTimeout(()=>{
+      const cartas = document.querySelectorAll(".draft-card.revealing");
+      if(cartas && cartas.forEach) cartas.forEach(el=>el.classList.remove("revealing"));
+    }, 3400);
+  }
+}
+
+/* ============ TREINO CONTRA O BONECO ============ */
+
+// O boneco não está em CHARACTERS de propósito: ele não pode ser sorteado nem
+// leiloado. charById() é remendado logo abaixo pra reconhecê-lo.
+const DUMMY = {
+  id:"dummy", name:"Boneco de Treino", anime:"Arena", level:"medium", type:"physical",
+  class:"Tanque", element:"Normal", rank:"Comum", rankKey:"comum",
+  vida:9999, atkFis:30, atkMag:30, defFis:100, defMag:100, vel:1,
+  appearance:{skin:"#c9a06b", hairColor:"#7a5a3a", hairStyle:"bald", outfit:"#8a6f4a", outfit2:"#6b5438"},
+  attacks:[
+    {name:"Parado", dmgType:"physical", category:"melee", power:0, cooldown:0, effect:null, onceOnly:false, precision:100},
+    {name:"Parado", dmgType:"physical", category:"special", power:0, cooldown:0, effect:null, onceOnly:false, precision:100},
+    {name:"Parado", dmgType:"physical", category:"special", power:0, cooldown:0, effect:null, onceOnly:false, precision:100},
+    {name:"Parado", dmgType:"physical", category:"special", power:0, cooldown:0, effect:null, onceOnly:false, precision:100}
+  ],
+  ultimate:null
+};
+
+async function startTraining(charId){
+  const c = charById(charId);
+  if(!c) return;
+  const st = newRoomState(TRAINING_CODE);
+  st.training = true;
+  st.trainingCharId = charId;
+  st.players = {p1:{name: savedName() || "Você"}, p2:{name: DUMMY.name}};
+  st.teams = {p1:[charId], p2:[DUMMY.id]};
+  st.attackOrder = {p1:[charId], p2:[DUMMY.id]};
+  // O boneco é o mais lento do jogo (vel 1), então você sempre age primeiro.
+  st.coinResult = "p1";
+  st.ultimateChoice = {p1: c.ultimate ? charId : null, p2:null};
+  st.phase = "battle";
+  st.battle = initBattle(st);
+  st.battle.log = [`Treino com ${c.name}. O boneco não revida e não morre — teste o kit à vontade.`];
+  TRAINING_STATE = clone(st);
+  ROOM_CODE = TRAINING_CODE; MY_SLOT = 1;
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }  // treino é local: não faz polling
+  showingIndex = false;
+  LAST_STATE = st; LAST_REV = st.rev;
+  draw(st);
+}
+
+function exitTraining(){
+  TRAINING_STATE = null;
+  ROOM_CODE = null; MY_SLOT = null; LAST_STATE = null; LAST_REV = -1;
+  showingIndex = true;
+  renderCharIndex();
+}
+
+// Mantém o boneco de pé: vida cheia, sem cooldown e sem efeitos acumulados.
+// Chamado no fim de cada rodada de treino.
+function refreshDummy(state){
+  const b = state.battle;
+  b.hp[DUMMY.id] = DUMMY.vida;
+  b.stunned[DUMMY.id] = false;
+  b.def[DUMMY.id] = {fis:DUMMY.defFis, mag:DUMMY.defMag};
+  if(b.tempDef) delete b.tempDef[DUMMY.id];
+  if(b.dot) delete b.dot[DUMMY.id];
+  if(b.mustSwitch) b.mustSwitch.p2 = false;
+  // Se o próprio jogador se derrubou (dano de recuo do Ultimate, veneno...),
+  // levanta ele também — é um sandbox, não uma partida.
+  const meu = state.trainingCharId;
+  if(b.hp[meu] <= 0){
+    b.hp[meu] = maxLifeOf(state, meu);
+    b.log.unshift("Você caiu — vida restaurada para continuar o treino.");
+    if(b.mustSwitch) b.mustSwitch.p1 = false;
+  }
 }
 
 /* ============ ORDEM DE ENTRADA (pré-batalha) ============ */
@@ -4162,6 +4291,8 @@ function executeAction(state, key, action){
     applyAction(state, activeId, action.atkIndex, b.activeChar[oppKey]);
   } else if(action.type==="switch"){
     executeSwitchAction(state, key, action.charId);
+  } else if(action.type==="wait"){
+    return;   // boneco de treino: fica parado
   } else if(action.type==="transform"){
     // Normalmente já foi resolvido na FASE 1; aqui é só rede de segurança.
     applyTransformation(state, key);
@@ -4381,16 +4512,20 @@ function renderBattle(state){
 
   const dimStage = myMustSwitch; // meu personagem caiu: escurece tudo, menos a reserva
 
+  const treino = !!state.training;
+  if(treino) bannerText = `Treino — ${charById(myActiveId).name} contra o boneco`;
+
   app.innerHTML = `
-    <div class="eyebrow">Batalha 1x1</div>
-    <h1>Arena</h1>
+    <div class="eyebrow">${treino ? "Modo treino" : "Batalha 1x1"}</div>
+    <h1>${treino ? "Sala de Treino" : "Arena"}</h1>
     <div class="turn-banner ${bannerCls}">${bannerText}</div>
+    ${treino ? `<div class="center" style="margin-bottom:10px;"><button class="btn" onclick="exitTraining()">← Voltar ao Anidex</button></div>` : ''}
 
     <div class="card" style="padding:14px;">
-      <div class="bench-strip bench-top">
+      ${treino ? '' : `<div class="bench-strip bench-top">
         <div class="bench-label">Reservas de ${playerName(state,oppKey)}</div>
         <div class="bench-row">${state.teams[oppKey].map(id=>duelMiniCard(state,id,oppKey,'none')).join("")}</div>
-      </div>
+      </div>`}
 
       <div class="battle-stage ${dimStage?'stage-dim':''}" id="battleStage">
         <div class="stage-horizon"></div>
@@ -4404,10 +4539,10 @@ function renderBattle(state){
         ${attackDock(state, attackerChar, myActiveId, oppActiveId, myKey, myPending, oppKey)}
       </div>
 
-      <div class="bench-strip bench-bottom">
+      ${treino ? '' : `<div class="bench-strip bench-bottom">
         <div class="bench-label">Suas reservas</div>
         <div class="bench-row ${myMustSwitch?'glow-pick':''}">${state.teams[myKey].map(id=>duelMiniCard(state,id,myKey, myMustSwitch?'forced':(podeEscolher?'voluntary':'none'))).join("")}</div>
-      </div>
+      </div>`}
 
       ${myMustSwitch ? `<p class="hint center" style="margin-top:10px;">Toque em um lutador vivo nas suas reservas pra mandar pro campo.</p>` : ''}
 
@@ -4768,6 +4903,9 @@ async function submitAction(action){
   if(action.type==="switch" && b.hp[action.charId]<=0) return;
   if(!b.pending) b.pending = {p1:null, p2:null};
   b.pending[myKey] = action;
+  // No treino o boneco responde sozinho, senão a rodada nunca resolveria (ele
+  // não tem um jogador do outro lado pra enviar ação).
+  if(state.training) b.pending[otherKey(myKey)] = {type:"wait"};
   if(maybeResolveTurn(state)) await postAction(state);
   else await commitAndDraw(state);
 }
@@ -4789,6 +4927,13 @@ async function doForcedSwitch(id){
 }
 
 async function postAction(state){
+  // Treino não tem vencedor nem derrota: o boneco volta pra vida cheia e a
+  // batalha nunca termina.
+  if(state.training){
+    refreshDummy(state);
+    await commitAndDraw(state);
+    return;
+  }
   checkForcedSwitch(state);
   const p1Alive = aliveIds(state,"p1").length>0;
   const p2Alive = aliveIds(state,"p2").length>0;
