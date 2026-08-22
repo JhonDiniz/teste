@@ -411,26 +411,41 @@
   .mode-name{font-weight:800; font-size:16px; margin:6px 0 4px;}
   .mode-desc{font-size:12px; color:var(--text-dim); line-height:1.45;}
 
-  /* --- cartas do sorteio ----
-     Cada carta é da COR do rank do personagem — a borda superior e o fundo
-     puxam pra cor do badge daquele rank, então a raridade lê antes mesmo de
-     ler o nome. Empilhadas em coluna (não grade) porque a carta agora carrega
-     arte + radar juntos e fica alta demais pra caber lado a lado no celular. */
-  .draft-grid{display:flex; flex-direction:column; gap:12px;}
-  .draft-card{
-    background:linear-gradient(180deg,var(--panel2),var(--panel));
-    border:1px solid var(--line); border-top:3px solid var(--line); border-radius:var(--radius);
-    padding:12px; cursor:pointer; transition:border-color .15s, transform .1s, box-shadow .15s;
+  /* --- CARTAS DO SORTEIO: carrossel horizontal, estilo Mercado Noturno -----
+     5 cartas retrato lado a lado, com scroll-snap pra centralizar cada uma —
+     é o mesmo padrão do carrossel de ofertas do Valorant. Coluna vertical
+     antiga saiu; carta agora é ESTREITA E ALTA (retrato), pra caber arte +
+     radar + texto empilhados dentro dela mesma. */
+  .draft-row{
+    display:flex; gap:10px; padding:6px 10px 10px;
+    overflow-x:auto; scroll-snap-type:x mandatory;
+    scrollbar-width:none; -ms-overflow-style:none;
   }
-  .draft-card:active{transform:scale(.98);}
-  .draft-card-top{display:flex; align-items:center; justify-content:space-between; gap:8px;}
-  .draft-art{flex:0 0 auto; display:flex; justify-content:center;}
-  .draft-art .sprite-img, .draft-art .stick{height:74px; width:auto;}
-  .draft-radar-mini{flex:0 0 auto; width:110px; opacity:.92;}
+  .draft-row::-webkit-scrollbar{display:none;}
+  .draft-row::before, .draft-row::after{content:""; flex:0 0 6px;} /* respiro nas pontas pra centralizar a 1ª/última */
+  .draft-card{
+    position:relative; flex:0 0 auto; width:150px; scroll-snap-align:center;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line); border-top:4px solid var(--line); border-radius:14px;
+    padding:10px 8px 12px; cursor:pointer; overflow:hidden;
+    transition:transform .15s, box-shadow .15s;
+  }
+  .draft-card:active{transform:scale(.97);}
+  @media(min-width:601px){ .draft-card{width:186px; padding:14px 12px 16px;} }
+
+  .draft-art{display:flex; justify-content:center; align-items:flex-end; height:78px;}
+  .draft-art .sprite-img, .draft-art .stick{height:78px; width:auto;}
+  .draft-radar-mini{width:100%; opacity:.92; margin-top:2px;}
   .draft-radar-mini .radar{width:100%; height:auto;}
-  .draft-name{font-weight:800; font-size:15px; margin-top:8px;}
-  .draft-meta{margin-top:5px; display:flex; gap:6px; flex-wrap:wrap;}
-  .draft-class{font-size:11px; color:var(--text-dim); margin-top:4px;}
+  .draft-anime{
+    font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim);
+    text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .draft-name{font-weight:800; font-size:13px; margin-top:4px; text-align:center;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .draft-meta{margin-top:5px; display:flex; gap:4px; flex-wrap:wrap; justify-content:center;}
+  .draft-class{font-size:10px; color:var(--text-dim); margin-top:4px; text-align:center;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 
   .rank-card-comum{border-top-color:#5b6273; box-shadow:0 0 0 1px rgba(122,129,148,.12) inset;}
   .rank-card-raro{border-top-color:#3f6fb0; box-shadow:0 0 0 1px rgba(79,140,224,.14) inset;}
@@ -446,6 +461,55 @@
   .rank-card-epico:hover{border-color:#9b51e0;}
   .rank-card-lendario:hover{border-color:var(--gold);}
   .rank-card-mitico:hover{border-color:#e0332f;}
+
+  /* ---- SEQUÊNCIA DE REVELAÇÃO ----
+     1. carta preta, treme e brilha de leve (mistério)
+     2. nome do anime aparece
+     3. a cor da raridade "lava" a carta (borda + fundo) — de preto até a cor
+        final do rank, via variáveis CSS setadas por carta (--wash-*)
+     4. o resto (arte, radar, nome, badges) aparece por cima
+     Só toca quando o conjunto de 5 é NOVO (ver renderDraft). Uma carta já
+     revelada não re-anima a cada redesenho da tela — ver classe .revealing,
+     aplicada só nesse momento e removida depois pelo JS. */
+  .draft-card.revealing{ cursor:default; pointer-events:none; }
+  .draft-card.revealing .draft-anime{ opacity:0; animation: revealFade .5s ease forwards 1.5s; }
+  .draft-card.revealing .draft-reveal-body{ opacity:0; animation: revealFade .55s ease forwards 2.5s; }
+  .draft-card.revealing{
+    /* "both" no wash é o que importa: sem ele, durante o delay antes da
+       animação começar o navegador usa a cor ESTÁTICA final (.rank-card-X),
+       não o preto do "from" — a carta entregaria a raridade na largada. */
+    animation:
+      cardShake .5s ease-in-out both,
+      cardGlowPulse 1.0s ease-in-out .5s 2,
+      cardColorWash .6s ease 2.0s both;
+  }
+  @keyframes cardShake{
+    0%,100%{transform:translateX(0) rotate(0);}
+    15%{transform:translateX(-2px) rotate(-.6deg);}
+    30%{transform:translateX(2px) rotate(.6deg);}
+    45%{transform:translateX(-2px) rotate(-.4deg);}
+    60%{transform:translateX(2px) rotate(.4deg);}
+    80%{transform:translateX(-1px) rotate(0);}
+  }
+  @keyframes cardGlowPulse{
+    0%,100%{ box-shadow:0 0 0 rgba(224,181,89,0); }
+    50%{ box-shadow:0 0 18px rgba(224,181,89,.35), inset 0 0 14px rgba(224,181,89,.12); }
+  }
+  @keyframes revealFade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+  /* from = carta preta (estado de mistério); to = cor final do rank, lida das
+     variáveis --wash-* setadas inline por carta em JS. Sem !important em
+     nenhum lugar — é a própria animação que domina a propriedade até acabar,
+     e a classe .rank-card-X assume de forma idêntica quando ela é removida. */
+  @keyframes cardColorWash{
+    from{ border-top-color:#1c1f28; background:linear-gradient(180deg,#14161d,#0e1015); box-shadow:none; }
+    to{ border-top-color:var(--wash-color); background:var(--wash-bg); box-shadow:var(--wash-glow); }
+  }
+  @media(prefers-reduced-motion: reduce){
+    .draft-card.revealing{ animation:none !important; border-top-color:var(--wash-color); background:var(--wash-bg); box-shadow:var(--wash-glow); }
+    .draft-card.revealing .draft-anime, .draft-card.revealing .draft-reveal-body{ opacity:1; animation:none !important; }
+  }
+
+
 
   .golden-banner{
     text-align:center; padding:10px; border-radius:10px; margin-bottom:12px; font-weight:800; font-size:13px;
@@ -3597,6 +3661,24 @@ async function rerollDraft(){
   await commitAndDraw(state);
 }
 
+// Cor final de cada rank, usada tanto pelas variáveis --wash-* da animação
+// quanto reaproveitável se precisar em outro lugar. Espelha as CSS rules
+// .rank-card-* — se mudar uma, muda a outra junto.
+const RANK_WASH = {
+  comum:   {color:"#5b6273", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
+  raro:    {color:"#3f6fb0", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
+  epico:   {color:"#9b51e0", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
+  lendario:{color:"#e0b559", bg:"linear-gradient(180deg,var(--panel2),var(--panel))",              glow:"none"},
+  mitico:  {color:"#e0332f", bg:"linear-gradient(180deg, rgba(214,48,49,.10), var(--panel2) 40%, var(--panel))",
+            glow:"0 0 0 1px rgba(224,51,47,.22) inset, 0 0 14px rgba(224,51,47,.18)"}
+};
+
+// Guarda, por jogador, a assinatura do último conjunto de 5 cartas já
+// mostrado. Se bater com o atual, a tela NÃO deve reanimar — só um redesenho
+// incidental (poll, troca de aba). Se mudou (pick, reroll, rodada nova), toca
+// a revelação do zero.
+let lastDraftSig = {p1:null, p2:null};
+
 function renderDraft(state){
   const myKey = "p"+MY_SLOT;
   const oppKey = otherKey(myKey);
@@ -3608,6 +3690,15 @@ function renderDraft(state){
   const golden = !!(state.draftGolden && state.draftGolden[myKey]);
   const rerollsLeft = (state.draftRerolls && state.draftRerolls[myKey]) ?? DRAFT_REROLLS;
 
+  const sig = opcoes.join(",");
+  const ehNovo = sig && sig!==lastDraftSig[myKey];
+  lastDraftSig[myKey] = sig;
+  // Mesma trava usada na transformação em batalha: sem isso, um poll (a cada
+  // 2s) redesenha a tela no meio da revelação e ela pula direto pro final,
+  // cortando a animação. 3,1s cobre a sequência inteira (treme -> nome ->
+  // cor -> resto).
+  if(ehNovo) animLock = Date.now() + 3100;
+
   app.innerHTML = `
     <div class="eyebrow">Sorteio — ${Math.min(rodada,TEAM_SIZE)} de ${TEAM_SIZE}</div>
     <h1>${pronto ? "Time fechado" : "Escolha um lutador"}</h1>
@@ -3618,26 +3709,30 @@ function renderDraft(state){
     ${golden && !pronto ? `<div class="golden-banner">✨ GOLDEN ROLL — só Lendário e Mítico nesta rodada!</div>` : ''}
 
     ${pronto ? "" : `
-    <div class="draft-grid">
+    <div class="draft-row" id="draftRow">
       ${opcoes.map(id=>{
         const c = charById(id);
-        return `<div class="draft-card rank-card-${c.rankKey}" onclick="pickDraft('${c.id}')">
-          <div class="draft-card-top">
+        const w = RANK_WASH[c.rankKey];
+        const varStyle = `--wash-color:${w.color}; --wash-bg:${w.bg}; --wash-glow:${w.glow};`;
+        return `<div class="draft-card rank-card-${c.rankKey} ${ehNovo?'revealing':''}"
+             style="${varStyle}" onclick="pickDraft('${c.id}')">
+          <div class="draft-anime">${c.anime}</div>
+          <div class="draft-reveal-body">
             <div class="draft-art">${fighterArt(c,{view:"front"})}</div>
             <div class="draft-radar-mini">${radarChart(c,true)}</div>
+            <div class="draft-name">${c.name}</div>
+            <div class="draft-meta">
+              <span class="badge rank-${c.rankKey}">${c.rank}</span>
+              <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span>
+            </div>
+            <div class="draft-class">${c.class}</div>
           </div>
-          <div class="draft-name">${c.name}</div>
-          <div class="draft-meta">
-            <span class="badge rank-${c.rankKey}">${c.rank}</span>
-            <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span>
-          </div>
-          <div class="draft-class">${c.class} · ${c.anime}</div>
         </div>`;
       }).join("")}
     </div>
+    ${ehNovo ? '<p class="hint center" style="margin-top:-4px;">arraste pra ver as 5 cartas</p>' : ''}
     <div class="center" style="margin-top:12px;">
-      <button class="btn" ${rerollsLeft<=0?'disabled':''} onclick="rerollDraft()">🎲 Reroll (${rerollsLeft} restante${rerollsLeft===1?'':'s'})</button>
-    </div>`}
+      <button class="btn" ${rerollsLeft<=0?'disabled':''} onclick="rerollDraft()">🎲 Reroll (${rerollsLeft} restante${rerollsLeft===1?'':'s'})</button>    </div>`}
 
     <div class="card" style="margin-top:16px;">
       <h3>Seu time <span class="money">${meus.length}/${TEAM_SIZE}</span></h3>
