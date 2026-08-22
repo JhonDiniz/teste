@@ -110,11 +110,33 @@
      confundido com "lendário" numa olhada rápida no celular. */
   .badge.rank-comum{background:rgba(122,129,148,.18); color:#b7bcc9; border:1px solid #5b6273;}
   .badge.rank-raro{background:rgba(79,140,224,.18); color:#8fc0ff; border:1px solid #3f6fb0;}
+  .badge.rank-epico{background:rgba(155,81,224,.22); color:#cfa6ff; border:1px solid #9b51e0;}
   .badge.rank-lendario{background:rgba(224,181,89,.2); color:#ffd97a; border:1px solid var(--gold);}
+  /* Mítico é o topo: único com brilho, pra não se confundir com Lendário numa
+     olhada rápida no celular. */
   .badge.rank-mitico{
-    background:linear-gradient(120deg, rgba(178,92,255,.28), rgba(224,90,160,.28));
-    color:#e9c2ff; border:1px solid #b25cff; box-shadow:0 0 10px rgba(178,92,255,.45);
+    background:linear-gradient(120deg, rgba(214,48,49,.34), rgba(255,110,80,.28));
+    color:#ffb3ad; border:1px solid #e0332f; box-shadow:0 0 10px rgba(224,51,47,.5);
   }
+
+  /* --- Anidex: grupos por anime --- */
+  .anime-group{margin-bottom:14px;}
+  .anime-head{
+    position:sticky; top:0; z-index:2;
+    background:linear-gradient(180deg,#161922,rgba(22,25,34,.92));
+    padding:8px 4px 7px; margin-bottom:6px;
+    font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--gold); border-bottom:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .anime-count{
+    color:var(--text-dim); font-weight:700; letter-spacing:0;
+    background:rgba(255,255,255,.06); padding:1px 8px; border-radius:20px; font-size:11px;
+  }
+
+  /* --- gráfico de radar --- */
+  .radar-wrap{display:flex; justify-content:center; margin:8px 0 4px;}
+  .radar{width:100%; max-width:300px; height:auto; overflow:visible;}
 
   .char-hero{
     text-align:center; padding: 22px 0 10px;
@@ -615,606 +637,700 @@ const RAW = {
 };
 
 function E(type,value){ return value!==undefined ? {type,value} : {type}; }
-function A(name,dmgType,dmg,cooldown,effect,onceOnly){
-  return {name, dmgType, category: cooldown===0?"melee":"special", dmg, cooldown, effect: effect||null, onceOnly: !!onceOnly};
+
+/* PODER DA HABILIDADE (0-160) substituiu o dano fixo.
+   O dano agora sai do ATRIBUTO de ataque do personagem multiplicado pelo poder
+   da habilidade — a mesma habilidade machuca mais na mão de quem tem ataque
+   maior. Poder 0 = habilidade puramente de efeito, sem dano.
+
+   PRECISÃO (padrão 100) é o contrapeso: golpes de poder alto erram mais, senão
+   o ataque mais forte seria sempre a escolha óbvia e não haveria decisão. */
+function A(name,dmgType,power,cooldown,effect,onceOnly,precision){
+  return {name, dmgType, category: cooldown===0?"melee":"special",
+          power, cooldown, effect: effect||null, onceOnly: !!onceOnly,
+          precision: (precision===undefined ? 100 : precision)};
 }
 
+/* ATRIBUTOS (6 por personagem)
+     vida    100-300     atkFis  30-200     defFis  50-200
+     vel      10-200     atkMag  30-200     defMag  50-200
+   vel define quem começa o duelo e gera esquiva contra quem é mais lento. */
 const CHAR_KIT = [
-
-// ===== NARUTO =====
-{life:40,physShield:11,magShield:4,attacks:[
-  A("Soco Direto","physical",8,0),
-  A("Rasengan Incompleto","physical",19,3,null),
-  A("Sexy Jutsu: Distração","physical",0,3,E("debuff",6))]},
-{life:41,physShield:10,magShield:4,attacks:[
-  A("Corte com Kunai","physical",8,0),
-  A("Chuva de Armas Ninja","physical",20,2,null),
-  A("Rolo Celestial","physical",18,3,E("debuff",7))]},
-{life:50,physShield:11,magShield:13,attacks:[
-  A("Golpe Corpo a Corpo","physical",9,0),
-  A("Kagemane no Jutsu","magic",0,3,E("stun")),
-  A("Estrangulamento das Sombras","magic",23,3,null)]},
-{life:76,physShield:19,magShield:5,attacks:[
-  A("Soco da Juventude","physical",14,0),
-  A("Konoha Reppuu","physical",32,3,null),
-  A("Chute Dinâmico de Entrada","physical",24,2,E("stun"))]},
-{life:68,physShield:16,magShield:22,attacks:[
-  A("Golpe com Kunai","physical",12,0),
-  A("Tsukuyomi","magic",0,4,E("stun")),
-  A("Amaterasu","magic",34,3,null)]},
-
-// ===== DRAGON BALL =====
-{life:52,physShield:12,magShield:5,attacks:[
-  A("Soco Terrestre","physical",10,0),
-  A("Kamehameha Fraco","physical",24,3,null),
-  A("Lobo Espiritual","physical",20,3,E("debuff",8))]},
-{life:64,physShield:15,magShield:8,attacks:[
-  A("Golpe de Quatro Braços","physical",12,0),
-  A("Kikoho","physical",30,3,null),
-  A("Taiyoken","physical",0,3,E("stun"))]},
-{life:66,physShield:17,magShield:6,attacks:[
-  A("Chute Perfeito","physical",13,0),
-  A("Rajada de Energia","physical",29,2,null),
-  A("Absorção de Energia","physical",22,3,E("heal",16))]},
-{life:92,physShield:24,magShield:10,attacks:[
-  A("Soco Saiyajin","physical",16,0),
-  A("Big Bang Attack","physical",42,3,null),
-  A("Galick Gun","physical",34,3,E("debuff",12))]},
-{life:96,physShield:22,magShield:12,attacks:[
-  A("Soco Saiyajin","physical",16,0),
-  A("Kamehameha","physical",44,3,null),
-  A("Kaio-ken x3: Investida","physical",32,2,null)]},
-
-// ===== ONE PIECE =====
-{life:44,physShield:10,magShield:4,attacks:[
-  A("Soco Fraco","physical",8,0),
-  A("Investida com Bastão","physical",19,2,null),
-  A("Grito de Socorro","physical",0,3,E("shield",9))]},
-{life:58,physShield:11,magShield:16,attacks:[
-  A("Chute Simples","physical",9,0),
-  A("Cien Fleur: Wrist","magic",26,3,E("debuff",9)),
-  A("Gigantesco Braço Fantasma","magic",22,3,E("stun"))]},
-{life:63,physShield:14,magShield:6,attacks:[
-  A("Chute Giratório","physical",13,0),
-  A("Diable Jambe: Flambage Shot","physical",29,3,null),
-  A("Collier Strike","physical",21,2,E("stun"))]},
-{life:80,physShield:20,magShield:6,attacks:[
-  A("Corte de Katana","physical",15,0),
-  A("Onigiri","physical",34,2,null),
-  A("Ashura: Ichibugin","physical",30,3,E("debuff",12))]},
-{life:88,physShield:19,magShield:9,attacks:[
-  A("Soco de Borracha","physical",15,0),
-  A("Gomu Gomu no King Kong Gun","physical",38,3,null),
-  A("Gear 4: Boundman","physical",0,4,E("shield",18))]},
-
-// ===== ATTACK ON TITAN =====
-{life:46,physShield:12,magShield:3,attacks:[
-  A("Golpe com Lâmina","physical",9,0),
-  A("Manobra 3D: Rajada","physical",21,2,null),
-  A("Grito de Alerta","physical",0,3,E("shield",8))]},
-{life:50,physShield:13,magShield:3,attacks:[
-  A("Golpe com Lâmina","physical",10,0),
-  A("Manobra 3D: Investida","physical",22,2,null),
-  A("Corte Duplo","physical",18,2,E("debuff",7))]},
-{life:47,physShield:11,magShield:8,attacks:[
-  A("Golpe com Lâmina","physical",9,0),
-  A("Titã Colossal: Explosão de Vapor","magic",28,4,E("stun")),
-  A("Plano Tático","magic",0,3,E("debuff",10))]},
-{life:70,physShield:17,magShield:5,attacks:[
-  A("Golpe com Lâmina","physical",12,0),
-  A("Titã Blindado: Investida","physical",36,3,null),
-  A("Postura Blindada","physical",0,3,E("shield",16))]},
-{life:74,physShield:16,magShield:11,attacks:[
-  A("Golpe com Lâmina","physical",13,0),
-  A("Titã de Ataque: Fúria","magic",37,3,null),
-  A("Grito de Coordenação","magic",0,4,E("stun"))]},
-
-// ===== ONE PUNCH MAN =====
-{life:48,physShield:13,magShield:4,attacks:[
-  A("Soco de Ferro","physical",9,0),
-  A("Investida de Bicicleta","physical",18,2,null),
-  A("Grito Motivacional","physical",0,3,E("shield",9))]},
-{life:65,physShield:8,magShield:20,attacks:[
-  A("Empurrão Psíquico","magic",13,0),
-  A("Telecinese: Esmagar","magic",30,3,null),
-  A("Barreira Psíquica","magic",0,3,E("shield",17))]},
-{life:50,physShield:12,magShield:5,attacks:[
-  A("Soco de Pânico","physical",10,0),
-  A("Fama Emprestada: Blefe","physical",0,3,E("debuff",9)),
-  A("Recuo Estratégico","physical",17,2,null)]},
-{life:78,physShield:18,magShield:10,attacks:[
-  A("Soco Cyborg","physical",14,0),
-  A("Incineração Total","physical",33,3,null),
-  A("Autorreparo","physical",0,4,E("heal",22))]},
-{life:82,physShield:17,magShield:7,attacks:[
-  A("Soco Selvagem","physical",15,0),
-  A("Investida de Caçador de Monstros","physical",35,3,null),
-  A("Fúria Crescente","physical",26,2,E("debuff",11))]},
-
-// ===== SOLO LEVELING =====
-{life:52,physShield:14,magShield:5,attacks:[
-  A("Soco de Investigador","physical",10,0),
-  A("Tiro Certeiro","physical",22,2,null),
-  A("Análise de Fraquezas","physical",0,3,E("debuff",9))]},
-{life:64,physShield:16,magShield:8,attacks:[
-  A("Corte de Espada","physical",13,0),
-  A("Dança da Espada Dourada","physical",30,3,null),
-  A("Postura Defensiva de Elite","physical",0,3,E("shield",15))]},
-{life:60,physShield:15,magShield:9,attacks:[
-  A("Golpe de Bastão","physical",11,0),
-  A("Ordem de Comando","physical",0,3,E("shield",14)),
-  A("Ataque Coordenado","physical",25,3,null)]},
-{life:76,physShield:20,magShield:6,attacks:[
-  A("Soco Nacional","physical",15,0),
-  A("Investida do Guardião Nacional","physical",36,3,null),
-  A("Postura Inabalável","physical",0,3,E("shield",18))]},
-{life:98,physShield:12,magShield:24,attacks:[
-  A("Adaga das Sombras","physical",14,0),
-  A("Exército das Sombras","magic",36,3,E("debuff",12)),
-  A("Monarca das Sombras: Domínio","magic",0,4,E("heal",20))]},
-
-// ===== HUNTER X HUNTER =====
-{life:44,physShield:11,magShield:5,attacks:[
-  A("Soco Básico","physical",8,0),
-  A("Ataque Desesperado","physical",18,2,null),
-  A("Blefe de Advogado","physical",0,3,E("debuff",6))]},
-{life:62,physShield:11,magShield:16,attacks:[
-  A("Golpe Rápido","physical",11,0),
-  A("Godspeed","magic",29,2,null),
-  A("Vento Divino: Rajada Contínua","magic",25,3,E("stun"))]},
-{life:70,physShield:17,magShield:10,attacks:[
-  A("Soco de Treinadora","physical",13,0),
-  A("Explosão de Aura","physical",31,3,null),
-  A("Reforço de Aura","physical",0,3,E("shield",16))]},
-{life:72,physShield:13,magShield:19,attacks:[
-  A("Golpe com Livro","physical",12,0),
-  A("Skill Hunter: Roubo de Habilidade","magic",0,3,E("debuff",14)),
-  A("Judgment Chain","magic",33,4,E("stun"))]},
-{life:99,physShield:18,magShield:16,attacks:[
-  A("Golpe de Rei","physical",17,0),
-  A("Punição Nova","magic",40,3,null),
-  A("Regeneração de Formiga","magic",0,4,E("heal",24))]},
-
-// ===== BLUE LOCK =====
-{life:32,physShield:7,magShield:2,attacks:[
-  A("Chute de Bola","physical",7,0),
-  A("Finalização Precisa","physical",14,2,null),
-  A("Grito de Torcida","physical",0,3,E("shield",5))]},
-{life:34,physShield:8,magShield:2,attacks:[
-  A("Cabeceio","physical",7,0),
-  A("Chute de Potência","physical",15,2,null),
-  A("Marcação Firme","physical",0,3,E("debuff",5))]},
-{life:33,physShield:6,magShield:3,attacks:[
-  A("Drible Ginga","physical",7,0),
-  A("Finalização Imprevisível","physical",16,2,E("stun")),
-  A("Improviso Caótico","physical",13,2,null)]},
-{life:35,physShield:8,magShield:2,attacks:[
-  A("Passe Longo","physical",7,0),
-  A("Chute de Canhão","physical",16,2,null),
-  A("Provocação","physical",0,3,E("debuff",6))]},
-{life:38,physShield:8,magShield:3,attacks:[
-  A("Toque Elegante","physical",8,0),
-  A("Finalização Egoísta","physical",17,2,null),
-  A("Visão de Jogo","physical",0,3,E("debuff",7))]},
-
-// ===== DEATH NOTE =====
-{life:30,physShield:6,magShield:2,attacks:[
-  A("Golpe de Investigador","physical",6,0),
-  A("Tiro de Serviço","physical",13,2,null),
-  A("Ordem Policial","physical",0,3,E("shield",6))]},
-{life:29,physShield:4,magShield:6,attacks:[
-  A("Tapa","physical",5,0),
-  A("Olhos de Shinigami","magic",0,3,E("debuff",10),true),
-  A("Manipulação Emocional","magic",16,3,null)]},
-{life:31,physShield:5,magShield:7,attacks:[
-  A("Empurrão","physical",5,0),
-  A("Dedução: Provas Ocultas","magic",0,3,E("debuff",11),true),
-  A("Jogo de Robôs","magic",15,2,null)]},
-{life:33,physShield:5,magShield:8,attacks:[
-  A("Chute Desajeitado","physical",6,0),
-  A("Dedução Absoluta","magic",0,4,E("debuff",14),true),
-  A("Armadilha Investigativa","magic",18,2,null)]},
-{life:32,physShield:5,magShield:9,attacks:[
-  A("Empurrão Frio","physical",5,0),
-  A("Death Note: Escreve o Nome","magic",26,5,E("stun"),true),
-  A("Manipulação Fria","magic",17,3,null)]},
-
-// ===== FRIEREN =====
-{life:44,physShield:11,magShield:8,attacks:[
-  A("Golpe com Cajado","physical",9,0),
-  A("Feitiço de Cura Menor","magic",0,3,E("heal",14)),
-  A("Feitiço Ofensivo Básico","magic",19,2,null)]},
-{life:60,physShield:8,magShield:20,attacks:[
-  A("Golpe com Cajado","physical",10,0),
-  A("Magia Amaldiçoada","magic",30,3,null),
-  A("Manipulação Sombria","magic",0,3,E("debuff",12))]},
-{life:64,physShield:17,magShield:9,attacks:[
-  A("Golpe de Machado","physical",13,0),
-  A("Investida Guerreira","physical",29,2,null),
-  A("Postura de Guerreiro","physical",0,3,E("shield",15))]},
-{life:70,physShield:8,magShield:24,attacks:[
-  A("Golpe com Cajado","physical",10,0),
-  A("Zoltraak Aprimorado","magic",32,2,null),
-  A("Barreira Mágica","magic",0,3,E("shield",18))]},
-{life:80,physShield:6,magShield:29,attacks:[
-  A("Golpe com Cajado","physical",9,0),
-  A("Zoltraak","magic",34,2,null),
-  A("Barreira Élfica Milenar","magic",0,4,E("shield",22))]},
-
-// ===== AKAME GA KILL =====
-{life:60,physShield:16,magShield:6,attacks:[
-  A("Soco de Lança","physical",12,0),
-  A("Incursio: Investida","physical",28,3,null),
-  A("Postura de Armadura","physical",0,3,E("shield",15))]},
-{life:56,physShield:14,magShield:5,attacks:[
-  A("Garras Felinas","physical",12,0),
-  A("Lionelle: Fúria","physical",27,3,null),
-  A("Regeneração de Fera","physical",0,4,E("heal",17))]},
-{life:42,physShield:9,magShield:5,attacks:[
-  A("Golpe com Fio","physical",8,0),
-  A("Cross Tail: Emaranhar","physical",18,3,E("stun")),
-  A("Armadilha de Fios","physical",15,2,E("debuff",7))]},
-{life:78,physShield:14,magShield:20,attacks:[
-  A("Golpe com Espada de Gelo","physical",14,0),
-  A("Mahapadma: Congelamento Absoluto","magic",0,4,E("stun")),
-  A("Lança de Gelo","magic",34,3,null)]},
-{life:66,physShield:15,magShield:7,attacks:[
-  A("Corte de Espada","physical",13,0),
-  A("Murasame: Veneno Mortal","physical",25,3,E("debuff",13)),
-  A("Um Corte Só","physical",31,3,null)]},
-
-// ===== BLACK CLOVER =====
-{life:52,physShield:9,magShield:15,attacks:[
-  A("Golpe Elétrico","physical",10,0),
-  A("Magia de Raio: Pantera","magic",26,3,null),
-  A("Reflexo Elétrico","magic",0,3,E("shield",13))]},
-{life:50,physShield:9,magShield:14,attacks:[
-  A("Golpe de Machado","physical",10,0),
-  A("Magia do Fogo: Explosão","magic",25,3,null),
-  A("Sopro de Fumaça","magic",0,3,E("debuff",9))]},
-{life:66,physShield:10,magShield:20,attacks:[
-  A("Golpe com Adaga","physical",12,0),
-  A("Magia de Vento: Rajada Cortante","magic",30,3,null),
-  A("Armadura de Vento","magic",0,3,E("shield",17))]},
-{life:74,physShield:10,magShield:22,attacks:[
-  A("Golpe com Espada de Luz","physical",13,0),
-  A("Magia de Luz: Zephyros","magic",34,3,null),
-  A("Contra-Ataque com Vento","magic",0,3,E("stun"))]},
-{life:80,physShield:12,magShield:19,attacks:[
-  A("Corte de Espadão","physical",14,0),
-  A("Corte Negro Dimensional","magic",32,3,null),
-  A("Manto das Trevas","magic",0,4,E("shield",16))]},
-
-// ===== BOKU NO HERO ACADEMIA =====
-{life:46,physShield:9,magShield:14,attacks:[
-  A("Choque de Curto Alcance","physical",9,0),
-  A("Descarga Indiscriminada","magic",0,3,E("stun")),
-  A("Choque Direcionado","magic",22,3,null)]},
-{life:54,physShield:14,magShield:6,attacks:[
-  A("Soco Leve","physical",11,0),
-  A("Zero Gravity: Arremesso","physical",0,3,E("debuff",10)),
-  A("Investida Flutuante","physical",23,2,null)]},
-{life:66,physShield:11,magShield:20,attacks:[
-  A("Chute de Gelo","physical",11,0),
-  A("Meio-Frio Meio-Quente","magic",29,3,E("stun")),
-  A("Muralha de Gelo","magic",0,2,E("shield",18))]},
-{life:70,physShield:10,magShield:22,attacks:[
-  A("Soco Explosivo Leve","physical",13,0),
-  A("Stun Grenade","magic",0,3,E("stun")),
-  A("AP Shot: Howitzer Impact","magic",36,3,null)]},
-{life:88,physShield:22,magShield:6,attacks:[
-  A("Soco Direto","physical",16,0),
-  A("Detroit Smash","physical",42,3,null),
-  A("United States of Smash","physical",30,2,null)]},
-
-// ===== BLEACH =====
-{life:38,physShield:9,magShield:3,attacks:[
-  A("Soco de Aluno","physical",8,0),
-  A("Chute Nervoso","physical",16,2,null),
-  A("Fanfarronice","physical",0,3,E("debuff",6))]},
-{life:64,physShield:14,magShield:12,attacks:[
-  A("Corte de Zanpakuto","physical",12,0),
-  A("Hihio Zabimaru","magic",28,3,null),
-  A("Baboon Bone Trident","magic",0,3,E("shield",13))]},
-{life:52,physShield:9,magShield:17,attacks:[
-  A("Corte de Zanpakuto","physical",10,0),
-  A("Some no Mai: Tsukishiro","magic",25,3,E("stun")),
-  A("Kido de Contenção","magic",0,3,E("debuff",11))]},
-{life:74,physShield:9,magShield:24,attacks:[
-  A("Corte de Zanpakuto","physical",12,0),
-  A("Senbonzakura Kageyoshi","magic",36,3,null),
-  A("Postura Nobre","magic",0,3,E("shield",19))]},
-{life:84,physShield:16,magShield:18,attacks:[
-  A("Corte de Zangetsu","physical",15,0),
-  A("Getsuga Tenshou","magic",38,3,null),
-  A("Bankai: Investida","magic",30,2,E("debuff",12))]},
-
-// ===== RE:ZERO =====
-{life:36,physShield:8,magShield:4,attacks:[
-  A("Golpe com Bastão","physical",7,0),
-  A("Negociação Habilidosa","physical",0,3,E("debuff",6)),
-  A("Ataque Oportunista","physical",15,2,null)]},
-{life:56,physShield:8,magShield:18,attacks:[
-  A("Golpe com Marreta","physical",11,0),
-  A("Fogo Ursino","magic",26,3,null),
-  A("Devoção Curativa","magic",0,4,E("heal",19))]},
-{life:62,physShield:16,magShield:6,attacks:[
-  A("Corte de Espada Veterana","physical",12,0),
-  A("Técnica da Espada: Golpe Certeiro","physical",27,3,null),
-  A("Postura de Veterano","physical",0,3,E("shield",15))]},
-{life:90,physShield:23,magShield:8,attacks:[
-  A("Corte do Espadachim Mais Forte","physical",17,0),
-  A("Divine Blade: Corte Absoluto","physical",42,3,null),
-  A("Reflexo Perfeito","physical",0,3,E("shield",20))]},
-{life:54,physShield:8,magShield:19,attacks:[
-  A("Golpe com Cajado de Gelo","physical",10,0),
-  A("El Hymen: Explosão de Gelo","magic",27,3,null),
-  A("Espíritos do Gelo: Cura","magic",0,4,E("heal",18))]},
-
-// ===== FULLMETAL ALCHEMIST =====
-{life:52,physShield:13,magShield:6,attacks:[
-  A("Soco Reforçado","physical",11,0),
-  A("Transmutação: Lança de Aço","physical",24,3,null),
-  A("Muralha de Alquimia","physical",0,3,E("shield",13))]},
-{life:48,physShield:12,magShield:4,attacks:[
-  A("Coronhada","physical",10,0),
-  A("Tiro Certeiro de Pistola","physical",23,2,null),
-  A("Rajada de Precisão","physical",19,2,E("debuff",8))]},
-{life:58,physShield:8,magShield:19,attacks:[
-  A("Golpe com Luva","physical",10,0),
-  A("Alquimia de Chamas: Estalo","magic",29,3,null),
-  A("Explosão Direcionada","magic",25,3,E("stun"))]},
-{life:62,physShield:14,magShield:15,attacks:[
-  A("Soco Automail","physical",12,0),
-  A("Transmutação: Lâmina de Aço","magic",28,3,null),
-  A("Reconstrução Alquímica","magic",0,4,E("heal",17))]},
-{life:70,physShield:19,magShield:9,attacks:[
-  A("Soco Colossal","physical",15,0),
-  A("Transmutação: Canhão de Pedra","physical",33,3,null),
-  A("Brilho de Confiança","physical",0,3,E("debuff",11))]},
-
-// ===== RECORD OF RAGNAROK =====
-{life:56,physShield:14,magShield:6,attacks:[
-  A("Corte de Faca","physical",11,0),
-  A("Fúria Assassina","physical",27,3,null),
-  A("Investida nas Sombras","physical",22,2,E("debuff",10))]},
-{life:94,physShield:23,magShield:8,attacks:[
-  A("Soco Divino","physical",17,0),
-  A("Doze Trabalhos: Nemean Khora","physical",44,3,null),
-  A("Vigor Sobre-humano","physical",0,3,E("heal",20))]},
-{life:68,physShield:17,magShield:7,attacks:[
-  A("Corte de Katana","physical",13,0),
-  A("Tsubame Gaeshi","physical",31,2,null),
-  A("Golpe da Andorinha Tripla","physical",26,3,E("stun"))]},
-{life:80,physShield:16,magShield:16,attacks:[
-  A("Soco do Primeiro Humano","physical",15,0),
-  A("Fúria Original","magic",36,3,null),
-  A("Instinto de Sobrevivência","magic",0,3,E("shield",17))]},
-{life:90,physShield:12,magShield:26,attacks:[
-  A("Toque Sereno","physical",13,0),
-  A("Vazio Infinito","magic",38,4,E("stun")),
-  A("Iluminação: Cura Universal","magic",0,4,E("heal",24))]},
-
-// ===== BAKI =====
-{life:58,physShield:16,magShield:3,attacks:[
-  A("Golpe de Mestre","physical",12,0),
-  A("Técnica Ancestral","physical",26,3,null),
-  A("Leitura de Movimento","physical",0,3,E("debuff",10))]},
-{life:78,physShield:20,magShield:4,attacks:[
-  A("Soco Selvagem","physical",15,0),
-  A("Fúria Bestial","physical",34,3,null),
-  A("Couraça Muscular","physical",0,3,E("shield",17))]},
-{life:86,physShield:21,magShield:4,attacks:[
-  A("Soco de Ogre","physical",16,0),
-  A("Explosão Muscular","physical",38,3,null),
-  A("Regeneração de Combate","physical",0,4,E("heal",19))]},
-{life:68,physShield:18,magShield:4,attacks:[
-  A("Chute Karatê","physical",13,0),
-  A("Técnica Secreta: Punho Fantasma","physical",29,3,null),
-  A("Postura Imóvel","physical",0,3,E("shield",15))]},
-{life:50,physShield:14,magShield:3,attacks:[
-  A("Golpe de Palma","physical",10,0),
-  A("Toque da Morte","physical",24,3,E("debuff",11)),
-  A("Respiração Curativa","physical",0,4,E("heal",15))]},
-
-// ===== HAIKYUU =====
-{life:36,physShield:9,magShield:2,attacks:[
-  A("Recepção Relâmpago","physical",8,0),
-  A("Defesa Impossível","physical",0,3,E("shield",8)),
-  A("Contra-Ataque Rápido","physical",16,2,null)]},
-{life:38,physShield:10,magShield:2,attacks:[
-  A("Bloqueio de Força","physical",8,0),
-  A("Cortada de Potência","physical",17,2,null),
-  A("Grito Intimidador","physical",0,3,E("debuff",6))]},
-{life:34,physShield:7,magShield:3,attacks:[
-  A("Toque Preguiçoso","physical",7,0),
-  A("Levantamento Estratégico","physical",0,3,E("debuff",7)),
-  A("Combinação Rápida","physical",15,2,null)]},
-{life:37,physShield:8,magShield:3,attacks:[
-  A("Salto Explosivo","physical",8,0),
-  A("Cortada Relâmpago","physical",17,2,null),
-  A("Velocidade Decolagem","physical",0,3,E("stun"))]},
-{life:39,physShield:9,magShield:3,attacks:[
-  A("Levantamento Perfeito","physical",8,0),
-  A("Combinação Rápida com Hinata","physical",18,2,null),
-  A("Ajuste Tático","physical",0,3,E("debuff",7))]},
-
-// ===== NANATSU NO TAIZAI =====
-{life:56,physShield:10,magShield:16,attacks:[
-  A("Golpe com Machadinha","physical",11,0),
-  A("Chastiefol: Investida","magic",27,3,null),
-  A("Chastiefol: Cura da Floresta","magic",0,4,E("heal",18))]},
-{life:64,physShield:17,magShield:6,attacks:[
-  A("Soco de Gigante","physical",13,0),
-  A("Punho da Terra","physical",30,3,null),
-  A("Escudo de Pedra","physical",0,3,E("shield",16))]},
-{life:72,physShield:16,magShield:10,attacks:[
-  A("Corte de Espada Quebrada","physical",14,0),
-  A("Snatch: Roubo de Poder","magic",0,3,E("debuff",13)),
-  A("Fúria da Raposa","magic",32,3,null)]},
-{life:88,physShield:14,magShield:20,attacks:[
-  A("Golpe Solar","physical",15,0),
-  A("O Um: Sunshine","magic",40,3,null),
-  A("Compressão de Poder","magic",0,4,E("debuff",16))]},
-{life:76,physShield:9,magShield:24,attacks:[
-  A("Toque Mágico","physical",12,0),
-  A("Magia Composta: Escuridão","magic",34,3,E("stun")),
-  A("Cura Suprema","magic",0,4,E("heal",22))]},
-
-// ===== KAGUYA-SAMA =====
-{life:30,physShield:6,magShield:2,attacks:[
-  A("Empurrão Nervoso","physical",6,0),
-  A("Argumento Lógico","physical",0,3,E("debuff",6)),
-  A("Contra-Ataque Ansioso","physical",13,2,null)]},
-{life:33,physShield:6,magShield:3,attacks:[
-  A("Abraço Surpresa","physical",6,0),
-  A("Energia Contagiante","physical",0,3,E("debuff",7)),
-  A("Investida Animada","physical",14,2,null)]},
-{life:32,physShield:7,magShield:2,attacks:[
-  A("Golpe Discreto","physical",6,0),
-  A("Manipulação nos Bastidores","physical",0,3,E("debuff",8)),
-  A("Ataque Calculado","physical",14,2,null)]},
-{life:34,physShield:6,magShield:4,attacks:[
-  A("Postura Presidencial","physical",6,0),
-  A("Discurso Convincente","physical",0,3,E("debuff",7)),
-  A("Jogada Política","physical",15,2,null)]},
-{life:35,physShield:6,magShield:4,attacks:[
-  A("Golpe Refinado","physical",6,0),
-  A("Jogo Psicológico dos 10 mil anos","physical",0,3,E("debuff",9)),
-  A("Ataque de Orgulho","physical",15,2,null)]},
-
-// ===== JUJUTSU KAISEN =====
-{life:56,physShield:13,magShield:9,attacks:[
-  A("Soco Reforçado","physical",12,0),
-  A("Divergent Fist","magic",28,3,null),
-  A("Black Flash","magic",0,4,E("debuff",14))]},
-{life:52,physShield:12,magShield:10,attacks:[
-  A("Golpe com Martelo","physical",11,0),
-  A("Straw Doll Technique: Resonance","magic",0,3,E("debuff",13)),
-  A("Hairpin","magic",27,3,null)]},
-{life:60,physShield:11,magShield:17,attacks:[
-  A("Golpe Corpo a Corpo","physical",11,0),
-  A("Divine Dogs: Investida","magic",29,3,null),
-  A("Nue: Ataque Aéreo","magic",25,3,E("stun"))]},
-{life:100,physShield:16,magShield:20,attacks:[
-  A("Golpe Devastador","physical",17,0),
-  A("Malevolent Shrine","magic",46,4,null),
-  A("Fire Arrow","magic",34,2,E("debuff",16))]},
-{life:96,physShield:14,magShield:26,attacks:[
-  A("Toque Casual","physical",15,0),
-  A("Hollow Purple","magic",44,3,null),
-  A("Infinito: Bloqueio Absoluto","magic",0,4,E("shield",24))]},
-
-// ===== DEMON SLAYER =====
-{life:42,physShield:11,magShield:5,attacks:[
-  A("Golpe Trêmulo","physical",9,0),
-  A("Respiração do Trovão: Primeira Forma","physical",22,3,null),
-  A("Colapso de Medo","physical",0,3,E("debuff",8))]},
-{life:58,physShield:16,magShield:5,attacks:[
-  A("Marretada Selvagem","physical",12,0),
-  A("Respiração da Fera","physical",27,3,null),
-  A("Faro Aguçado","physical",0,3,E("debuff",10))]},
-{life:78,physShield:18,magShield:7,attacks:[
-  A("Corte Flamejante","physical",15,0),
-  A("Respiração da Chama: Nono Corte","physical",36,3,null),
-  A("Ardor Inabalável","physical",0,3,E("shield",17))]},
-{life:74,physShield:17,magShield:8,attacks:[
-  A("Corte Silencioso","physical",14,0),
-  A("Respiração da Água: Undécimo Corte","physical",33,3,null),
-  A("Concentração Total Constante","physical",0,3,E("shield",16))]},
-{life:70,physShield:16,magShield:9,attacks:[
-  A("Corte Rápido","physical",13,0),
-  A("Respiração do Sol: Dança do Deus do Fogo","magic",35,3,null),
-  A("Instinto Aguçado","magic",0,3,E("stun"))]},
-
-// ===== HELL'S PARADISE =====
-{life:44,physShield:12,magShield:4,attacks:[
-  A("Golpe com Foice","physical",10,0),
-  A("Investida Brutal","physical",21,2,null),
-  A("Grito de Guerra","physical",0,3,E("debuff",8))]},
-{life:48,physShield:11,magShield:8,attacks:[
-  A("Golpe com Kunai","physical",10,0),
-  A("Técnica Ninja: Veneno Silencioso","magic",23,3,E("debuff",10)),
-  A("Passos Silenciosos","magic",0,3,E("shield",13))]},
-{life:50,physShield:12,magShield:7,attacks:[
-  A("Corte de Lâmina de Execução","physical",11,0),
-  A("Golpe Sentencial","magic",24,3,null),
-  A("Postura de Executora","magic",0,3,E("shield",13))]},
-{life:66,physShield:17,magShield:6,attacks:[
-  A("Soco de Presidiário","physical",13,0),
-  A("Regeneração de Tatuagem","physical",0,4,E("heal",19)),
-  A("Fúria Contida","physical",29,3,null)]},
-{life:58,physShield:15,magShield:7,attacks:[
-  A("Corte Certeiro","physical",12,0),
-  A("Técnica de Execução Perfeita","physical",27,3,null),
-  A("Julgamento Frio","physical",0,3,E("debuff",11))]},
-
-// ===== YOUR NAME =====
-{life:28,physShield:5,magShield:2,attacks:[
-  A("Empurrão Tímido","physical",5,0),
-  A("Conselho Sincero","physical",0,3,E("debuff",5)),
-  A("Reação Nervosa","physical",12,2,null)]},
-{life:27,physShield:5,magShield:2,attacks:[
-  A("Tapa Fraco","physical",5,0),
-  A("Fofoca Estratégica","physical",0,3,E("debuff",5)),
-  A("Empurrão de Susto","physical",11,2,null)]},
-{life:29,physShield:5,magShield:3,attacks:[
-  A("Empurrão Educado","physical",5,0),
-  A("Charme Adulto","physical",0,3,E("debuff",6)),
-  A("Reação Calculada","physical",12,2,null)]},
-{life:33,physShield:5,magShield:5,attacks:[
-  A("Empurrão Determinado","physical",6,0),
-  A("Conexão dos Fios do Destino","magic",0,4,E("heal",16)),
-  A("Ritual Ancestral","magic",18,3,null)]},
-{life:31,physShield:6,magShield:3,attacks:[
-  A("Soco Desajeitado","physical",6,0),
-  A("Determinação Repentina","physical",0,3,E("debuff",6)),
-  A("Corrida Contra o Tempo","physical",14,2,null)]},
-
-// ===== HORIMIYA =====
-{life:29,physShield:5,magShield:2,attacks:[
-  A("Empurrão Casual","physical",5,0),
-  A("Piada Sem Graça","physical",0,3,E("debuff",5)),
-  A("Reação Exagerada","physical",12,2,null)]},
-{life:30,physShield:5,magShield:2,attacks:[
-  A("Tapa de Indignação","physical",5,0),
-  A("Grito Assustador","physical",0,3,E("stun")),
-  A("Investida Brava","physical",12,2,null)]},
-{life:31,physShield:5,magShield:3,attacks:[
-  A("Empurrão Gentil","physical",5,0),
-  A("Sorriso Desarmante","physical",0,3,E("debuff",6)),
-  A("Reação Rápida","physical",13,2,null)]},
-{life:34,physShield:7,magShield:3,attacks:[
-  A("Soco Silencioso","physical",7,0),
-  A("Rebeldia Contida","physical",0,3,E("debuff",7)),
-  A("Explosão Reprimida","physical",15,2,null)]},
-{life:32,physShield:6,magShield:3,attacks:[
-  A("Tapa Duplo Padrão","physical",6,0),
-  A("Faceta Oculta","physical",0,3,E("debuff",7)),
-  A("Investida Decidida","physical",14,2,null)]},
-
-// ===== JOJO'S BIZARRE ADVENTURE =====
-{life:48,physShield:9,magShield:14,attacks:[
-  A("Soco de Echoes","physical",10,0),
-  A("Echoes Act 1: Sound Slap","magic",22,3,null),
-  A("Echoes Act 2: Impacto","magic",0,3,E("debuff",10))]},
-{life:60,physShield:11,magShield:16,attacks:[
-  A("Soco Corpo a Corpo","physical",12,0),
-  A("Crazy Diamond: Reparo Ofensivo","magic",28,3,null),
-  A("Crazy Diamond: Cura","magic",0,4,E("heal",19))]},
-{life:82,physShield:12,magShield:22,attacks:[
-  A("Soco Elegante","physical",14,0),
-  A("Gold Experience Requiem: Reset","magic",0,4,E("stun")),
-  A("Gold Experience: Vida","magic",36,3,null)]},
-{life:90,physShield:13,magShield:23,attacks:[
-  A("Soco Aristocrático","physical",15,0),
-  A("The World: Tempo Parado","magic",0,4,E("stun")),
-  A("Road Roller: Investida","magic",40,3,null)]},
-{life:86,physShield:15,magShield:19,attacks:[
-  A("Soco Direto","physical",15,0),
-  A("Star Platinum: ORAORAORA","magic",38,3,null),
-  A("Star Platinum: Reflexo Perfeito","magic",0,3,E("shield",18))]}
-
+// Konohamaru (Naruto)
+{vida:136,atkFis:98,atkMag:30,defFis:103,defMag:61,vel:72,attacks:[
+  A("Soco Direto","physical",35,0,null),
+  A("Rasengan Incompleto","physical",71,3,null),
+  A("Sexy Jutsu: Distração","physical",0,3,E("debuff",30))]},
+// Tenten (Naruto)
+{vida:138,atkFis:102,atkMag:40,defFis:95,defMag:61,vel:122,attacks:[
+  A("Corte com Kunai","physical",35,0,null),
+  A("Chuva de Armas Ninja","physical",74,2,null),
+  A("Rolo Celestial","physical",68,3,E("debuff",35))]},
+// Shikamaru Nara (Naruto)
+{vida:163,atkFis:60,atkMag:113,defFis:103,defMag:111,vel:87,attacks:[
+  A("Golpe Corpo a Corpo","physical",38,0,null),
+  A("Kagemane no Jutsu","magic",0,3,E("stun"),false,90),
+  A("Estrangulamento das Sombras","magic",84,3,null)]},
+// Might Guy (Naruto)
+{vida:234,atkFis:147,atkMag:55,defFis:163,defMag:67,vel:155,attacks:[
+  A("Soco da Juventude","physical",55,0,null),
+  A("Konoha Reppuu","physical",114,3,null,false,95),
+  A("Chute Dinâmico de Entrada","physical",88,2,E("stun"),false,90)]},
+// Itachi Uchiha (Naruto)
+{vida:212,atkFis:71,atkMag:155,defFis:140,defMag:161,vel:117,attacks:[
+  A("Golpe com Kunai","physical",48,0,null),
+  A("Tsukuyomi","magic",0,4,E("stun"),false,90),
+  A("Amaterasu","magic",120,3,null,false,90)]},
+// Yamcha (Dragon Ball)
+{vida:168,atkFis:117,atkMag:30,defFis:110,defMag:67,vel:103,attacks:[
+  A("Soco Terrestre","physical",41,0,null),
+  A("Kamehameha Fraco","physical",88,3,null),
+  A("Lobo Espiritual","physical",74,3,E("debuff",40))]},
+// Tenshinhan (Dragon Ball)
+{vida:201,atkFis:140,atkMag:40,defFis:133,defMag:83,vel:122,attacks:[
+  A("Golpe de Quatro Braços","physical",48,0,null),
+  A("Kikoho","physical",107,3,null,false,95),
+  A("Taiyoken","physical",0,3,E("stun"),false,90)]},
+// Android 18 (Dragon Ball)
+{vida:207,atkFis:136,atkMag:40,defFis:148,defMag:72,vel:111,attacks:[
+  A("Chute Perfeito","physical",51,0,null),
+  A("Rajada de Energia","physical",104,2,null),
+  A("Absorção de Energia","physical",81,3,E("heal",52))]},
+// Vegeta (Dragon Ball)
+{vida:278,atkFis:185,atkMag:55,defFis:200,defMag:94,vel:128,attacks:[
+  A("Soco Saiyajin","physical",61,0,null),
+  A("Big Bang Attack","physical",147,3,null,false,85),
+  A("Galick Gun","physical",120,3,E("debuff",60),false,90)]},
+// Son Goku (Dragon Ball)
+{vida:289,atkFis:192,atkMag:55,defFis:185,defMag:106,vel:159,attacks:[
+  A("Soco Saiyajin","physical",61,0,null),
+  A("Kamehameha","physical",153,3,null,false,85),
+  A("Kaio-ken x3: Investida","physical",114,2,null,false,95)]},
+// Coby (One Piece)
+{vida:147,atkFis:98,atkMag:30,defFis:95,defMag:61,vel:75,attacks:[
+  A("Soco Fraco","physical",35,0,null),
+  A("Investida com Bastão","physical",71,2,null),
+  A("Grito de Socorro","physical",0,3,E("shield",39))]},
+// Nico Robin (One Piece)
+{vida:185,atkFis:60,atkMag:124,defFis:103,defMag:128,vel:80,attacks:[
+  A("Chute Simples","physical",38,0,null),
+  A("Cien Fleur: Wrist","magic",94,3,E("debuff",45)),
+  A("Gigantesco Braço Fantasma","magic",81,3,E("stun"),false,90)]},
+// Sanji (One Piece)
+{vida:199,atkFis:136,atkMag:40,defFis:125,defMag:72,vel:119,attacks:[
+  A("Chute Giratório","physical",51,0,null),
+  A("Diable Jambe: Flambage Shot","physical",104,3,null),
+  A("Collier Strike","physical",78,2,E("stun"),false,90)]},
+// Roronoa Zoro (Wano) (One Piece)
+{vida:245,atkFis:155,atkMag:55,defFis:170,defMag:72,vel:168,attacks:[
+  A("Corte de Katana","physical",58,0,null),
+  A("Onigiri","physical",120,2,null,false,90),
+  A("Ashura: Ichibugin","physical",107,3,E("debuff",60),false,95)]},
+// Monkey D. Luffy (One Piece)
+{vida:267,atkFis:170,atkMag:55,defFis:163,defMag:89,vel:152,attacks:[
+  A("Soco de Borracha","physical",58,0,null),
+  A("Gomu Gomu no King Kong Gun","physical",134,3,null,false,90),
+  A("Gear 4: Boundman","physical",0,4,E("shield",69))]},
+// Sasha Blouse (Attack on Titan)
+{vida:152,atkFis:105,atkMag:30,defFis:110,defMag:56,vel:94,attacks:[
+  A("Golpe com Lâmina","physical",38,0,null),
+  A("Manobra 3D: Rajada","physical",78,2,null),
+  A("Grito de Alerta","physical",0,3,E("shield",35))]},
+// Jean Kirstein (Attack on Titan)
+{vida:163,atkFis:109,atkMag:40,defFis:118,defMag:56,vel:110,attacks:[
+  A("Golpe com Lâmina","physical",41,0,null),
+  A("Manobra 3D: Investida","physical",81,2,null),
+  A("Corte Duplo","physical",68,2,E("debuff",35))]},
+// Armin Arlert (Attack on Titan)
+{vida:155,atkFis:60,atkMag:132,defFis:103,defMag:83,vel:102,attacks:[
+  A("Golpe com Lâmina","physical",38,0,null),
+  A("Titã Colossal: Explosão de Vapor","magic",101,4,E("stun"),false,90),
+  A("Plano Tático","magic",0,3,E("debuff",50))]},
+// Reiner Braun (Attack on Titan)
+{vida:218,atkFis:162,atkMag:55,defFis:148,defMag:67,vel:85,attacks:[
+  A("Golpe com Lâmina","physical",48,0,null),
+  A("Titã Blindado: Investida","physical",127,3,null,false,90),
+  A("Postura Blindada","physical",0,3,E("shield",63))]},
+// Eren Yeager (Attack on Titan)
+{vida:229,atkFis:75,atkMag:166,defFis:140,defMag:100,vel:135,attacks:[
+  A("Golpe com Lâmina","physical",51,0,null),
+  A("Titã de Ataque: Fúria","magic",130,3,null,false,90),
+  A("Grito de Coordenação","magic",0,4,E("stun"),false,90)]},
+// Mumen Rider (One Punch Man)
+{vida:158,atkFis:94,atkMag:30,defFis:118,defMag:61,vel:118,attacks:[
+  A("Soco de Ferro","physical",38,0,null),
+  A("Investida de Bicicleta","physical",68,2,null),
+  A("Grito Motivacional","physical",0,3,E("shield",39))]},
+// Tornado (One Punch Man)
+{vida:204,atkFis:40,atkMag:140,defFis:80,defMag:150,vel:79,attacks:[
+  A("Empurrão Psíquico","magic",51,0,null),
+  A("Telecinese: Esmagar","magic",107,3,null,false,95),
+  A("Barreira Psíquica","magic",0,3,E("shield",66))]},
+// King (fama) (One Punch Man)
+{vida:163,atkFis:90,atkMag:30,defFis:110,defMag:67,vel:103,attacks:[
+  A("Soco de Pânico","physical",41,0,null),
+  A("Fama Emprestada: Blefe","physical",0,3,E("debuff",45)),
+  A("Recuo Estratégico","physical",65,2,null)]},
+// Genos (upgrade) (One Punch Man)
+{vida:240,atkFis:151,atkMag:55,defFis:155,defMag:94,vel:84,attacks:[
+  A("Soco Cyborg","physical",55,0,null),
+  A("Incineração Total","physical",117,3,null,false,95),
+  A("Autorreparo","physical",0,4,E("heal",77))]},
+// Garou (One Punch Man)
+{vida:251,atkFis:158,atkMag:55,defFis:148,defMag:78,vel:162,attacks:[
+  A("Soco Selvagem","physical",58,0,null),
+  A("Investida de Caçador de Monstros","physical",124,3,null,false,90),
+  A("Fúria Crescente","physical",94,2,E("debuff",55))]},
+// Woo Jinchul (Solo Leveling)
+{vida:168,atkFis:109,atkMag:30,defFis:125,defMag:67,vel:62,attacks:[
+  A("Soco de Investigador","physical",41,0,null),
+  A("Tiro Certeiro","physical",81,2,null),
+  A("Análise de Fraquezas","physical",0,3,E("debuff",45))]},
+// Cha Hae-in (Solo Leveling)
+{vida:201,atkFis:140,atkMag:40,defFis:140,defMag:83,vel:123,attacks:[
+  A("Corte de Espada","physical",51,0,null),
+  A("Dança da Espada Dourada","physical",107,3,null,false,95),
+  A("Postura Defensiva de Elite","physical",0,3,E("shield",59))]},
+// Go Gunhee (Solo Leveling)
+{vida:190,atkFis:121,atkMag:40,defFis:133,defMag:89,vel:64,attacks:[
+  A("Golpe de Bastão","physical",45,0,null),
+  A("Ordem de Comando","physical",0,3,E("shield",56)),
+  A("Ataque Coordenado","physical",91,3,null)]},
+// Thomas Andre (Solo Leveling)
+{vida:234,atkFis:162,atkMag:55,defFis:170,defMag:72,vel:153,attacks:[
+  A("Soco Nacional","physical",58,0,null),
+  A("Investida do Guardião Nacional","physical",127,3,null,false,90),
+  A("Postura Inabalável","physical",0,3,E("shield",69))]},
+// Sung Jinwoo (Monarca) (Solo Leveling)
+{vida:295,atkFis:79,atkMag:162,defFis:110,defMag:172,vel:122,attacks:[
+  A("Adaga das Sombras","physical",55,0,null),
+  A("Exército das Sombras","magic",127,3,E("debuff",60),false,90),
+  A("Monarca das Sombras: Domínio","magic",0,4,E("heal",69))]},
+// Leorio Paradinight (Hunter x Hunter)
+{vida:147,atkFis:94,atkMag:30,defFis:103,defMag:67,vel:107,attacks:[
+  A("Soco Básico","physical",35,0,null),
+  A("Ataque Desesperado","physical",68,2,null),
+  A("Blefe de Advogado","physical",0,3,E("debuff",30))]},
+// Killua Zoldyck (Hunter x Hunter)
+{vida:196,atkFis:68,atkMag:136,defFis:103,defMag:128,vel:167,attacks:[
+  A("Golpe Rápido","physical",45,0,null),
+  A("Godspeed","magic",104,2,null),
+  A("Vento Divino: Rajada Contínua","magic",91,3,E("stun"),false,90)]},
+// Biscuit Krueger (Hunter x Hunter)
+{vida:218,atkFis:143,atkMag:40,defFis:148,defMag:94,vel:66,attacks:[
+  A("Soco de Treinadora","physical",51,0,null),
+  A("Explosão de Aura","physical",111,3,null,false,95),
+  A("Reforço de Aura","physical",0,3,E("shield",63))]},
+// Chrollo Lucilfer (Hunter x Hunter)
+{vida:223,atkFis:71,atkMag:151,defFis:118,defMag:144,vel:120,attacks:[
+  A("Golpe com Livro","physical",48,0,null),
+  A("Skill Hunter: Roubo de Habilidade","magic",0,3,E("debuff",70)),
+  A("Judgment Chain","magic",117,4,E("stun"),false,90)]},
+// Meruem (Hunter x Hunter)
+{vida:297,atkFis:90,atkMag:177,defFis:155,defMag:128,vel:83,attacks:[
+  A("Golpe de Rei","physical",65,0,null),
+  A("Punição Nova","magic",140,3,null,false,85),
+  A("Regeneração de Formiga","magic",0,4,E("heal",85))]},
+// Aoshi Tokimitsu (Blue Lock)
+{vida:114,atkFis:79,atkMag:30,defFis:73,defMag:50,vel:124,attacks:[
+  A("Chute de Bola","physical",32,0,null),
+  A("Finalização Precisa","physical",55,2,null),
+  A("Grito de Torcida","physical",0,3,E("shield",25))]},
+// Rensuke Kunigami (Blue Lock)
+{vida:119,atkFis:83,atkMag:30,defFis:80,defMag:50,vel:123,attacks:[
+  A("Cabeceio","physical",32,0,null),
+  A("Chute de Potência","physical",58,2,null),
+  A("Marcação Firme","physical",0,3,E("debuff",25))]},
+// Meguru Bachira (Blue Lock)
+{vida:116,atkFis:87,atkMag:40,defFis:65,defMag:56,vel:156,attacks:[
+  A("Drible Ginga","physical",32,0,null),
+  A("Finalização Imprevisível","physical",61,2,E("stun"),false,90),
+  A("Improviso Caótico","physical",51,2,null)]},
+// Shoei Baro (Blue Lock)
+{vida:122,atkFis:87,atkMag:40,defFis:80,defMag:50,vel:157,attacks:[
+  A("Passe Longo","physical",32,0,null),
+  A("Chute de Canhão","physical",61,2,null),
+  A("Provocação","physical",0,3,E("debuff",30))]},
+// Seishiro Nagi (Blue Lock)
+{vida:130,atkFis:90,atkMag:55,defFis:80,defMag:56,vel:175,attacks:[
+  A("Toque Elegante","physical",35,0,null),
+  A("Finalização Egoísta","physical",65,2,null),
+  A("Visão de Jogo","physical",0,3,E("debuff",35))]},
+// Soichiro Yagami (Death Note)
+{vida:108,atkFis:75,atkMag:30,defFis:65,defMag:50,vel:77,attacks:[
+  A("Golpe de Investigador","physical",28,0,null),
+  A("Tiro de Serviço","physical",51,2,null),
+  A("Ordem Policial","physical",0,3,E("shield",28))]},
+// Misa Amane (Death Note)
+{vida:105,atkFis:45,atkMag:87,defFis:50,defMag:72,vel:60,attacks:[
+  A("Tapa","physical",25,0,null),
+  A("Olhos de Shinigami","magic",0,3,E("debuff",50),true),
+  A("Manipulação Emocional","magic",61,3,null)]},
+// Near (Death Note)
+{vida:111,atkFis:45,atkMag:83,defFis:58,defMag:78,vel:90,attacks:[
+  A("Empurrão","physical",25,0,null),
+  A("Dedução: Provas Ocultas","magic",0,3,E("debuff",55),true),
+  A("Jogo de Robôs","magic",58,2,null)]},
+// L Lawliet (Death Note)
+{vida:116,atkFis:49,atkMag:94,defFis:58,defMag:83,vel:128,attacks:[
+  A("Chute Desajeitado","physical",28,0,null),
+  A("Dedução Absoluta","magic",0,4,E("debuff",70),true),
+  A("Armadilha Investigativa","magic",68,2,null)]},
+// Light Yagami (Death Note)
+{vida:114,atkFis:45,atkMag:124,defFis:58,defMag:89,vel:110,attacks:[
+  A("Empurrão Frio","physical",25,0,null),
+  A("Death Note: Escreve o Nome","magic",94,5,E("stun"),true,90),
+  A("Manipulação Fria","magic",65,3,null)]},
+// Sein (Frieren)
+{vida:147,atkFis:60,atkMag:98,defFis:103,defMag:83,vel:57,attacks:[
+  A("Golpe com Cajado","physical",38,0,null),
+  A("Feitiço de Cura Menor","magic",0,3,E("heal",44)),
+  A("Feitiço Ofensivo Básico","magic",71,2,null)]},
+// Übel (Frieren)
+{vida:190,atkFis:64,atkMag:140,defFis:80,defMag:150,vel:77,attacks:[
+  A("Golpe com Cajado","physical",41,0,null),
+  A("Magia Amaldiçoada","magic",107,3,null,false,95),
+  A("Manipulação Sombria","magic",0,3,E("debuff",60))]},
+// Stark (Frieren)
+{vida:201,atkFis:136,atkMag:40,defFis:148,defMag:89,vel:110,attacks:[
+  A("Golpe de Machado","physical",51,0,null),
+  A("Investida Guerreira","physical",104,2,null),
+  A("Postura de Guerreiro","physical",0,3,E("shield",59))]},
+// Fern (Frieren)
+{vida:218,atkFis:64,atkMag:147,defFis:80,defMag:172,vel:118,attacks:[
+  A("Golpe com Cajado","physical",41,0,null),
+  A("Zoltraak Aprimorado","magic",114,2,null,false,95),
+  A("Barreira Mágica","magic",0,3,E("shield",69))]},
+// Frieren (Frieren)
+{vida:245,atkFis:60,atkMag:155,defFis:65,defMag:200,vel:111,attacks:[
+  A("Golpe com Cajado","physical",38,0,null),
+  A("Zoltraak","magic",120,2,null,false,90),
+  A("Barreira Élfica Milenar","magic",0,4,E("shield",83))]},
+// Bulat (Akame ga Kill)
+{vida:190,atkFis:132,atkMag:40,defFis:140,defMag:72,vel:61,attacks:[
+  A("Soco de Lança","physical",48,0,null),
+  A("Incursio: Investida","physical",101,3,null),
+  A("Postura de Armadura","physical",0,3,E("shield",59))]},
+// Leone (Akame ga Kill)
+{vida:179,atkFis:128,atkMag:40,defFis:125,defMag:67,vel:117,attacks:[
+  A("Garras Felinas","physical",48,0,null),
+  A("Lionelle: Fúria","physical",97,3,null),
+  A("Regeneração de Fera","physical",0,4,E("heal",56))]},
+// Lubbock (Akame ga Kill)
+{vida:141,atkFis:94,atkMag:30,defFis:88,defMag:67,vel:142,attacks:[
+  A("Golpe com Fio","physical",35,0,null),
+  A("Cross Tail: Emaranhar","physical",68,3,E("stun"),false,90),
+  A("Armadilha de Fios","physical",58,2,E("debuff",35))]},
+// Esdeath (Akame ga Kill)
+{vida:240,atkFis:79,atkMag:155,defFis:125,defMag:150,vel:111,attacks:[
+  A("Golpe com Espada de Gelo","physical",55,0,null),
+  A("Mahapadma: Congelamento Absoluto","magic",0,4,E("stun"),false,90),
+  A("Lança de Gelo","magic",120,3,null,false,90)]},
+// Akame (Akame ga Kill)
+{vida:207,atkFis:143,atkMag:55,defFis:133,defMag:78,vel:200,attacks:[
+  A("Corte de Espada","physical",51,0,null),
+  A("Murasame: Veneno Mortal","physical",91,3,E("debuff",65)),
+  A("Um Corte Só","physical",111,3,null,false,95)]},
+// Luck Voltia (Black Clover)
+{vida:168,atkFis:64,atkMag:124,defFis:88,defMag:122,vel:91,attacks:[
+  A("Golpe Elétrico","physical",41,0,null),
+  A("Magia de Raio: Pantera","magic",94,3,null),
+  A("Reflexo Elétrico","magic",0,3,E("shield",52))]},
+// Magna Swing (Black Clover)
+{vida:163,atkFis:64,atkMag:121,defFis:88,defMag:117,vel:64,attacks:[
+  A("Golpe de Machado","physical",41,0,null),
+  A("Magia do Fogo: Explosão","magic",91,3,null),
+  A("Sopro de Fumaça","magic",0,3,E("debuff",45))]},
+// Noelle Silva (Black Clover)
+{vida:207,atkFis:71,atkMag:140,defFis:95,defMag:150,vel:89,attacks:[
+  A("Golpe com Adaga","physical",48,0,null),
+  A("Magia de Vento: Rajada Cortante","magic",107,3,null,false,95),
+  A("Armadura de Vento","magic",0,3,E("shield",66))]},
+// Yuno Grinberryall (Black Clover)
+{vida:229,atkFis:75,atkMag:155,defFis:95,defMag:161,vel:123,attacks:[
+  A("Golpe com Espada de Luz","physical",51,0,null),
+  A("Magia de Luz: Zephyros","magic",120,3,null,false,90),
+  A("Contra-Ataque com Vento","magic",0,3,E("stun"),false,90)]},
+// Asta (Black Clover)
+{vida:245,atkFis:109,atkMag:147,defFis:110,defMag:144,vel:142,attacks:[
+  A("Corte de Espadão","physical",55,0,null),
+  A("Corte Negro Dimensional","magic",114,3,null,false,95),
+  A("Manto das Trevas","magic",0,4,E("shield",63))]},
+// Denki Kaminari (Boku no Hero)
+{vida:152,atkFis:60,atkMag:109,defFis:88,defMag:117,vel:59,attacks:[
+  A("Choque de Curto Alcance","physical",38,0,null),
+  A("Descarga Indiscriminada","magic",0,3,E("stun"),false,90),
+  A("Choque Direcionado","magic",81,3,null)]},
+// Ochaco Uraraka (Boku no Hero)
+{vida:174,atkFis:117,atkMag:40,defFis:125,defMag:72,vel:72,attacks:[
+  A("Soco Leve","physical",45,0,null),
+  A("Zero Gravity: Arremesso","physical",0,3,E("debuff",50)),
+  A("Investida Flutuante","physical",84,2,null)]},
+// Shoto Todoroki (Boku no Hero)
+{vida:207,atkFis:68,atkMag:136,defFis:103,defMag:150,vel:119,attacks:[
+  A("Chute de Gelo","physical",45,0,null),
+  A("Meio-Frio Meio-Quente","magic",104,3,E("stun"),false,90),
+  A("Muralha de Gelo","magic",0,2,E("shield",69))]},
+// Katsuki Bakugo (Boku no Hero)
+{vida:218,atkFis:75,atkMag:162,defFis:95,defMag:161,vel:138,attacks:[
+  A("Soco Explosivo Leve","physical",51,0,null),
+  A("Stun Grenade","magic",0,3,E("stun"),false,90),
+  A("AP Shot: Howitzer Impact","magic",127,3,null,false,90)]},
+// All Might (Boku no Hero)
+{vida:267,atkFis:185,atkMag:55,defFis:185,defMag:72,vel:147,attacks:[
+  A("Soco Direto","physical",61,0,null),
+  A("Detroit Smash","physical",147,3,null,false,85),
+  A("United States of Smash","physical",107,2,null,false,95)]},
+// Keigo Asano (Bleach)
+{vida:130,atkFis:90,atkMag:30,defFis:88,defMag:56,vel:131,attacks:[
+  A("Soco de Aluno","physical",35,0,null),
+  A("Chute Nervoso","physical",61,2,null),
+  A("Fanfarronice","physical",0,3,E("debuff",30))]},
+// Renji Abarai (Bleach)
+{vida:201,atkFis:124,atkMag:132,defFis:125,defMag:106,vel:138,attacks:[
+  A("Corte de Zanpakuto","physical",48,0,null),
+  A("Hihio Zabimaru","magic",101,3,null),
+  A("Baboon Bone Trident","magic",0,3,E("shield",52))]},
+// Rukia Kuchiki (Bleach)
+{vida:168,atkFis:64,atkMag:121,defFis:88,defMag:133,vel:83,attacks:[
+  A("Corte de Zanpakuto","physical",41,0,null),
+  A("Some no Mai: Tsukishiro","magic",91,3,E("stun"),false,90),
+  A("Kido de Contenção","magic",0,3,E("debuff",55))]},
+// Byakuya Kuchiki (Bleach)
+{vida:229,atkFis:71,atkMag:162,defFis:88,defMag:172,vel:168,attacks:[
+  A("Corte de Zanpakuto","physical",48,0,null),
+  A("Senbonzakura Kageyoshi","magic",127,3,null,false,90),
+  A("Postura Nobre","magic",0,3,E("shield",73))]},
+// Ichigo Kurosaki (Bleach)
+{vida:256,atkFis:83,atkMag:170,defFis:140,defMag:139,vel:164,attacks:[
+  A("Corte de Zangetsu","physical",58,0,null),
+  A("Getsuga Tenshou","magic",134,3,null,false,90),
+  A("Bankai: Investida","magic",107,2,E("debuff",60),false,95)]},
+// Otto Suwen (Re:Zero)
+{vida:125,atkFis:87,atkMag:30,defFis:80,defMag:61,vel:75,attacks:[
+  A("Golpe com Bastão","physical",32,0,null),
+  A("Negociação Habilidosa","physical",0,3,E("debuff",30)),
+  A("Ataque Oportunista","physical",58,2,null)]},
+// Rem (Re:Zero)
+{vida:179,atkFis:68,atkMag:124,defFis:80,defMag:139,vel:97,attacks:[
+  A("Golpe com Marreta","physical",45,0,null),
+  A("Fogo Ursino","magic",94,3,null),
+  A("Devoção Curativa","magic",0,4,E("heal",65))]},
+// Wilhelm van Astrea (Re:Zero)
+{vida:196,atkFis:128,atkMag:55,defFis:140,defMag:72,vel:155,attacks:[
+  A("Corte de Espada Veterana","physical",48,0,null),
+  A("Técnica da Espada: Golpe Certeiro","physical",97,3,null),
+  A("Postura de Veterano","physical",0,3,E("shield",59))]},
+// Reinhard van Astrea (Re:Zero)
+{vida:273,atkFis:185,atkMag:55,defFis:193,defMag:83,vel:161,attacks:[
+  A("Corte do Espadachim Mais Forte","physical",65,0,null),
+  A("Divine Blade: Corte Absoluto","physical",147,3,null,false,85),
+  A("Reflexo Perfeito","physical",0,3,E("shield",76))]},
+// Emilia (Re:Zero)
+{vida:174,atkFis:64,atkMag:128,defFis:80,defMag:144,vel:88,attacks:[
+  A("Golpe com Cajado de Gelo","physical",41,0,null),
+  A("El Hymen: Explosão de Gelo","magic",97,3,null),
+  A("Espíritos do Gelo: Cura","magic",0,4,E("heal",60))]},
+// Alphonse Elric (base) (Fullmetal Alchemist)
+{vida:168,atkFis:117,atkMag:30,defFis:118,defMag:72,vel:86,attacks:[
+  A("Soco Reforçado","physical",45,0,null),
+  A("Transmutação: Lança de Aço","physical",88,3,null),
+  A("Muralha de Alquimia","physical",0,3,E("shield",52))]},
+// Riza Hawkeye (Fullmetal Alchemist)
+{vida:158,atkFis:113,atkMag:40,defFis:110,defMag:61,vel:123,attacks:[
+  A("Coronhada","physical",41,0,null),
+  A("Tiro Certeiro de Pistola","physical",84,2,null),
+  A("Rajada de Precisão","physical",71,2,E("debuff",40))]},
+// Roy Mustang (Fullmetal Alchemist)
+{vida:185,atkFis:64,atkMag:140,defFis:80,defMag:144,vel:110,attacks:[
+  A("Golpe com Luva","physical",41,0,null),
+  A("Alquimia de Chamas: Estalo","magic",104,3,null),
+  A("Explosão Direcionada","magic",91,3,E("stun"),false,90)]},
+// Edward Elric (Fullmetal Alchemist)
+{vida:196,atkFis:121,atkMag:132,defFis:125,defMag:122,vel:127,attacks:[
+  A("Soco Automail","physical",48,0,null),
+  A("Transmutação: Lâmina de Aço","magic",101,3,null),
+  A("Reconstrução Alquímica","magic",0,4,E("heal",56))]},
+// Alex Louis Armstrong (Fullmetal Alchemist)
+{vida:218,atkFis:151,atkMag:40,defFis:163,defMag:89,vel:62,attacks:[
+  A("Soco Colossal","physical",58,0,null),
+  A("Transmutação: Canhão de Pedra","physical",117,3,null,false,95),
+  A("Brilho de Confiança","physical",0,3,E("debuff",55))]},
+// Jack the Ripper (Record of Ragnarok)
+{vida:179,atkFis:128,atkMag:30,defFis:125,defMag:72,vel:142,attacks:[
+  A("Corte de Faca","physical",45,0,null),
+  A("Fúria Assassina","physical",97,3,null),
+  A("Investida nas Sombras","physical",81,2,E("debuff",50))]},
+// Hercules (Record of Ragnarok)
+{vida:284,atkFis:192,atkMag:55,defFis:193,defMag:83,vel:158,attacks:[
+  A("Soco Divino","physical",65,0,null),
+  A("Doze Trabalhos: Nemean Khora","physical",153,3,null,false,85),
+  A("Vigor Sobre-humano","physical",0,3,E("heal",69))]},
+// Sasaki Kojiro (Record of Ragnarok)
+{vida:212,atkFis:143,atkMag:40,defFis:148,defMag:78,vel:127,attacks:[
+  A("Corte de Katana","physical",51,0,null),
+  A("Tsubame Gaeshi","physical",111,2,null,false,95),
+  A("Golpe da Andorinha Tripla","physical",94,3,E("stun"),false,90)]},
+// Adam (Record of Ragnarok)
+{vida:245,atkFis:83,atkMag:162,defFis:140,defMag:128,vel:127,attacks:[
+  A("Soco do Primeiro Humano","physical",58,0,null),
+  A("Fúria Original","magic",127,3,null,false,90),
+  A("Instinto de Sobrevivência","magic",0,3,E("shield",66))]},
+// Buddha (Record of Ragnarok)
+{vida:273,atkFis:75,atkMag:170,defFis:110,defMag:183,vel:116,attacks:[
+  A("Toque Sereno","physical",51,0,null),
+  A("Vazio Infinito","magic",134,4,E("stun"),false,90),
+  A("Iluminação: Cura Universal","magic",0,4,E("heal",85))]},
+// Kosho Shibukawa (Baki)
+{vida:185,atkFis:124,atkMag:40,defFis:140,defMag:56,vel:128,attacks:[
+  A("Golpe de Mestre","physical",48,0,null),
+  A("Técnica Ancestral","physical",94,3,null),
+  A("Leitura de Movimento","physical",0,3,E("debuff",50))]},
+// Jack Hanma (Baki)
+{vida:240,atkFis:155,atkMag:55,defFis:170,defMag:61,vel:161,attacks:[
+  A("Soco Selvagem","physical",58,0,null),
+  A("Fúria Bestial","physical",120,3,null,false,90),
+  A("Couraça Muscular","physical",0,3,E("shield",66))]},
+// Baki Hanma (Baki)
+{vida:262,atkFis:170,atkMag:55,defFis:178,defMag:61,vel:154,attacks:[
+  A("Soco de Ogre","physical",61,0,null),
+  A("Explosão Muscular","physical",134,3,null,false,90),
+  A("Regeneração de Combate","physical",0,4,E("heal",65))]},
+// Doppo Orochi (Baki)
+{vida:212,atkFis:136,atkMag:40,defFis:155,defMag:61,vel:128,attacks:[
+  A("Chute Karatê","physical",51,0,null),
+  A("Técnica Secreta: Punho Fantasma","physical",104,3,null),
+  A("Postura Imóvel","physical",0,3,E("shield",59))]},
+// Retsu Kaioh (Baki)
+{vida:163,atkFis:117,atkMag:30,defFis:125,defMag:56,vel:106,attacks:[
+  A("Golpe de Palma","physical",41,0,null),
+  A("Toque da Morte","physical",88,3,E("debuff",55)),
+  A("Respiração Curativa","physical",0,4,E("heal",48))]},
+// Yu Nishinoya (Haikyuu)
+{vida:125,atkFis:87,atkMag:30,defFis:88,defMag:50,vel:123,attacks:[
+  A("Recepção Relâmpago","physical",35,0,null),
+  A("Defesa Impossível","physical",0,3,E("shield",35)),
+  A("Contra-Ataque Rápido","physical",61,2,null)]},
+// Ryunosuke Tanaka (Haikyuu)
+{vida:130,atkFis:90,atkMag:30,defFis:95,defMag:50,vel:130,attacks:[
+  A("Bloqueio de Força","physical",35,0,null),
+  A("Cortada de Potência","physical",65,2,null),
+  A("Grito Intimidador","physical",0,3,E("debuff",30))]},
+// Kenma Kozume (Haikyuu)
+{vida:119,atkFis:83,atkMag:40,defFis:73,defMag:56,vel:153,attacks:[
+  A("Toque Preguiçoso","physical",32,0,null),
+  A("Levantamento Estratégico","physical",0,3,E("debuff",35)),
+  A("Combinação Rápida","physical",58,2,null)]},
+// Shoyo Hinata (Haikyuu)
+{vida:127,atkFis:94,atkMag:40,defFis:80,defMag:56,vel:149,attacks:[
+  A("Salto Explosivo","physical",35,0,null),
+  A("Cortada Relâmpago","physical",65,2,null),
+  A("Velocidade Decolagem","physical",0,3,E("stun"),false,90)]},
+// Tobio Kageyama (Haikyuu)
+{vida:133,atkFis:94,atkMag:55,defFis:88,defMag:56,vel:187,attacks:[
+  A("Levantamento Perfeito","physical",35,0,null),
+  A("Combinação Rápida com Hinata","physical",68,2,null),
+  A("Ajuste Tático","physical",0,3,E("debuff",35))]},
+// King (Nanatsu no Taizai)
+{vida:179,atkFis:68,atkMag:128,defFis:95,defMag:128,vel:79,attacks:[
+  A("Golpe com Machadinha","physical",45,0,null),
+  A("Chastiefol: Investida","magic",97,3,null),
+  A("Chastiefol: Cura da Floresta","magic",0,4,E("heal",60))]},
+// Diane (Nanatsu no Taizai)
+{vida:201,atkFis:140,atkMag:40,defFis:148,defMag:72,vel:54,attacks:[
+  A("Soco de Gigante","physical",51,0,null),
+  A("Punho da Terra","physical",107,3,null,false,95),
+  A("Escudo de Pedra","physical",0,3,E("shield",63))]},
+// Ban (Nanatsu no Taizai)
+{vida:223,atkFis:79,atkMag:147,defFis:140,defMag:94,vel:152,attacks:[
+  A("Corte de Espada Quebrada","physical",55,0,null),
+  A("Snatch: Roubo de Poder","magic",0,3,E("debuff",65)),
+  A("Fúria da Raposa","magic",114,3,null,false,95)]},
+// Escanor (Nanatsu no Taizai)
+{vida:267,atkFis:83,atkMag:177,defFis:125,defMag:150,vel:130,attacks:[
+  A("Golpe Solar","physical",58,0,null),
+  A("O Um: Sunshine","magic",140,3,null,false,85),
+  A("Compressão de Poder","magic",0,4,E("debuff",80))]},
+// Merlin (Nanatsu no Taizai)
+{vida:234,atkFis:71,atkMag:155,defFis:88,defMag:172,vel:118,attacks:[
+  A("Toque Mágico","physical",48,0,null),
+  A("Magia Composta: Escuridão","magic",120,3,E("stun"),false,90),
+  A("Cura Suprema","magic",0,4,E("heal",77))]},
+// Yu Ishigami (Kaguya-sama)
+{vida:108,atkFis:75,atkMag:30,defFis:65,defMag:50,vel:78,attacks:[
+  A("Empurrão Nervoso","physical",28,0,null),
+  A("Argumento Lógico","physical",0,3,E("debuff",30)),
+  A("Contra-Ataque Ansioso","physical",51,2,null)]},
+// Chika Fujiwara (Kaguya-sama)
+{vida:116,atkFis:79,atkMag:30,defFis:65,defMag:56,vel:69,attacks:[
+  A("Abraço Surpresa","physical",28,0,null),
+  A("Energia Contagiante","physical",0,3,E("debuff",35)),
+  A("Investida Animada","physical",55,2,null)]},
+// Ai Hayasaka (Kaguya-sama)
+{vida:114,atkFis:79,atkMag:40,defFis:73,defMag:50,vel:96,attacks:[
+  A("Golpe Discreto","physical",28,0,null),
+  A("Manipulação nos Bastidores","physical",0,3,E("debuff",40)),
+  A("Ataque Calculado","physical",55,2,null)]},
+// Miyuki Shirogane (Kaguya-sama)
+{vida:119,atkFis:83,atkMag:40,defFis:65,defMag:61,vel:101,attacks:[
+  A("Postura Presidencial","physical",28,0,null),
+  A("Discurso Convincente","physical",0,3,E("debuff",35)),
+  A("Jogada Política","physical",58,2,null)]},
+// Kaguya Shinomiya (Kaguya-sama)
+{vida:122,atkFis:83,atkMag:55,defFis:65,defMag:61,vel:126,attacks:[
+  A("Golpe Refinado","physical",28,0,null),
+  A("Jogo Psicológico dos 10 mil anos","physical",0,3,E("debuff",45)),
+  A("Ataque de Orgulho","physical",58,2,null)]},
+// Yuji Itadori (base) (Jujutsu Kaisen)
+{vida:179,atkFis:71,atkMag:132,defFis:118,defMag:89,vel:121,attacks:[
+  A("Soco Reforçado","physical",48,0,null),
+  A("Divergent Fist","magic",101,3,null),
+  A("Black Flash","magic",0,4,E("debuff",70))]},
+// Nobara Kugisaki (Jujutsu Kaisen)
+{vida:168,atkFis:121,atkMag:128,defFis:110,defMag:94,vel:108,attacks:[
+  A("Golpe com Martelo","physical",45,0,null),
+  A("Straw Doll Technique: Resonance","magic",0,3,E("debuff",65)),
+  A("Hairpin","magic",97,3,null)]},
+// Megumi Fushiguro (Jujutsu Kaisen)
+{vida:190,atkFis:68,atkMag:136,defFis:103,defMag:133,vel:91,attacks:[
+  A("Golpe Corpo a Corpo","physical",45,0,null),
+  A("Divine Dogs: Investida","magic",104,3,null),
+  A("Nue: Ataque Aéreo","magic",91,3,E("stun"),false,90)]},
+// Sukuna (Jujutsu Kaisen)
+{vida:300,atkFis:90,atkMag:200,defFis:140,defMag:150,vel:113,attacks:[
+  A("Golpe Devastador","physical",65,0,null),
+  A("Malevolent Shrine","magic",160,4,null,false,85),
+  A("Fire Arrow","magic",120,2,E("debuff",80),false,90)]},
+// Satoru Gojo (Jujutsu Kaisen)
+{vida:289,atkFis:83,atkMag:192,defFis:125,defMag:183,vel:121,attacks:[
+  A("Toque Casual","physical",58,0,null),
+  A("Hollow Purple","magic",153,3,null,false,85),
+  A("Infinito: Bloqueio Absoluto","magic",0,4,E("shield",90))]},
+// Zenitsu Agatsuma (Demon Slayer)
+{vida:141,atkFis:109,atkMag:30,defFis:103,defMag:67,vel:106,attacks:[
+  A("Golpe Trêmulo","physical",38,0,null),
+  A("Respiração do Trovão: Primeira Forma","physical",81,3,null),
+  A("Colapso de Medo","physical",0,3,E("debuff",40))]},
+// Inosuke Hashibira (Demon Slayer)
+{vida:185,atkFis:128,atkMag:40,defFis:140,defMag:67,vel:125,attacks:[
+  A("Marretada Selvagem","physical",48,0,null),
+  A("Respiração da Fera","physical",97,3,null),
+  A("Faro Aguçado","physical",0,3,E("debuff",50))]},
+// Kyojuro Rengoku (Demon Slayer)
+{vida:240,atkFis:162,atkMag:55,defFis:155,defMag:78,vel:159,attacks:[
+  A("Corte Flamejante","physical",58,0,null),
+  A("Respiração da Chama: Nono Corte","physical",127,3,null,false,90),
+  A("Ardor Inabalável","physical",0,3,E("shield",66))]},
+// Giyu Tomioka (Demon Slayer)
+{vida:229,atkFis:151,atkMag:55,defFis:148,defMag:83,vel:155,attacks:[
+  A("Corte Silencioso","physical",55,0,null),
+  A("Respiração da Água: Undécimo Corte","physical",117,3,null,false,95),
+  A("Concentração Total Constante","physical",0,3,E("shield",63))]},
+// Tanjiro Kamado (Hi) (Demon Slayer)
+{vida:218,atkFis:75,atkMag:158,defFis:140,defMag:89,vel:168,attacks:[
+  A("Corte Rápido","physical",51,0,null),
+  A("Respiração do Sol: Dança do Deus do Fogo","magic",124,3,null,false,90),
+  A("Instinto Aguçado","magic",0,3,E("stun"),false,90)]},
+// Chobei (Hell's Paradise)
+{vida:147,atkFis:105,atkMag:30,defFis:110,defMag:61,vel:105,attacks:[
+  A("Golpe com Foice","physical",41,0,null),
+  A("Investida Brutal","physical",78,2,null),
+  A("Grito de Guerra","physical",0,3,E("debuff",40))]},
+// Yuzuriha (Hell's Paradise)
+{vida:158,atkFis:64,atkMag:113,defFis:103,defMag:83,vel:159,attacks:[
+  A("Golpe com Kunai","physical",41,0,null),
+  A("Técnica Ninja: Veneno Silencioso","magic",84,3,E("debuff",50)),
+  A("Passos Silenciosos","magic",0,3,E("shield",52))]},
+// Sagiri Asaemon (Hell's Paradise)
+{vida:163,atkFis:113,atkMag:117,defFis:110,defMag:78,vel:124,attacks:[
+  A("Corte de Lâmina de Execução","physical",45,0,null),
+  A("Golpe Sentencial","magic",88,3,null),
+  A("Postura de Executora","magic",0,3,E("shield",52))]},
+// Gabimaru (Hell's Paradise)
+{vida:207,atkFis:136,atkMag:55,defFis:148,defMag:72,vel:190,attacks:[
+  A("Soco de Presidiário","physical",51,0,null),
+  A("Regeneração de Tatuagem","physical",0,4,E("heal",65)),
+  A("Fúria Contida","physical",104,3,null)]},
+// Yamada Asaemon Tenza (Hell's Paradise)
+{vida:185,atkFis:132,atkMag:55,defFis:133,defMag:78,vel:163,attacks:[
+  A("Corte Certeiro","physical",48,0,null),
+  A("Técnica de Execução Perfeita","physical",97,3,null),
+  A("Julgamento Frio","physical",0,3,E("debuff",55))]},
+// Katsuhiko Teshigawara (Your Name)
+{vida:103,atkFis:71,atkMag:30,defFis:58,defMag:50,vel:121,attacks:[
+  A("Empurrão Tímido","physical",25,0,null),
+  A("Conselho Sincero","physical",0,3,E("debuff",25)),
+  A("Reação Nervosa","physical",48,2,null)]},
+// Tessie (Your Name)
+{vida:100,atkFis:68,atkMag:30,defFis:58,defMag:50,vel:120,attacks:[
+  A("Tapa Fraco","physical",25,0,null),
+  A("Fofoca Estratégica","physical",0,3,E("debuff",25)),
+  A("Empurrão de Susto","physical",45,2,null)]},
+// Miki Okudera (Your Name)
+{vida:105,atkFis:71,atkMag:30,defFis:58,defMag:56,vel:121,attacks:[
+  A("Empurrão Educado","physical",25,0,null),
+  A("Charme Adulto","physical",0,3,E("debuff",30)),
+  A("Reação Calculada","physical",48,2,null)]},
+// Mitsuha Miyamizu (Your Name)
+{vida:116,atkFis:49,atkMag:94,defFis:58,defMag:67,vel:76,attacks:[
+  A("Empurrão Determinado","physical",28,0,null),
+  A("Conexão dos Fios do Destino","magic",0,4,E("heal",52)),
+  A("Ritual Ancestral","magic",68,3,null)]},
+// Taki Tachibana (Your Name)
+{vida:111,atkFis:79,atkMag:40,defFis:65,defMag:56,vel:153,attacks:[
+  A("Soco Desajeitado","physical",28,0,null),
+  A("Determinação Repentina","physical",0,3,E("debuff",30)),
+  A("Corrida Contra o Tempo","physical",55,2,null)]},
+// Tooru Ishikawa (Horimiya)
+{vida:105,atkFis:71,atkMag:30,defFis:58,defMag:50,vel:132,attacks:[
+  A("Empurrão Casual","physical",25,0,null),
+  A("Piada Sem Graça","physical",0,3,E("debuff",25)),
+  A("Reação Exagerada","physical",48,2,null)]},
+// Yuki Yoshikawa (Horimiya)
+{vida:108,atkFis:71,atkMag:30,defFis:58,defMag:50,vel:122,attacks:[
+  A("Tapa de Indignação","physical",25,0,null),
+  A("Grito Assustador","physical",0,3,E("stun"),false,90),
+  A("Investida Brava","physical",48,2,null)]},
+// Remi Ayasaki (Horimiya)
+{vida:111,atkFis:75,atkMag:40,defFis:58,defMag:56,vel:150,attacks:[
+  A("Empurrão Gentil","physical",25,0,null),
+  A("Sorriso Desarmante","physical",0,3,E("debuff",30)),
+  A("Reação Rápida","physical",51,2,null)]},
+// Izumi Miyamura (Horimiya)
+{vida:119,atkFis:83,atkMag:40,defFis:73,defMag:56,vel:146,attacks:[
+  A("Soco Silencioso","physical",32,0,null),
+  A("Rebeldia Contida","physical",0,3,E("debuff",35)),
+  A("Explosão Reprimida","physical",58,2,null)]},
+// Kyoko Hori (Horimiya)
+{vida:114,atkFis:79,atkMag:40,defFis:65,defMag:56,vel:156,attacks:[
+  A("Tapa Duplo Padrão","physical",28,0,null),
+  A("Faceta Oculta","physical",0,3,E("debuff",35)),
+  A("Investida Decidida","physical",55,2,null)]},
+// Koichi Hirose (JoJo's Bizarre Adventure)
+{vida:158,atkFis:64,atkMag:109,defFis:88,defMag:117,vel:60,attacks:[
+  A("Soco de Echoes","physical",41,0,null),
+  A("Echoes Act 1: Sound Slap","magic",81,3,null),
+  A("Echoes Act 2: Impacto","magic",0,3,E("debuff",50))]},
+// Josuke Higashikata (JoJo's Bizarre Adventure)
+{vida:190,atkFis:71,atkMag:132,defFis:103,defMag:128,vel:88,attacks:[
+  A("Soco Corpo a Corpo","physical",48,0,null),
+  A("Crazy Diamond: Reparo Ofensivo","magic",101,3,null),
+  A("Crazy Diamond: Cura","magic",0,4,E("heal",65))]},
+// Giorno Giovanna (JoJo's Bizarre Adventure)
+{vida:251,atkFis:79,atkMag:162,defFis:110,defMag:161,vel:114,attacks:[
+  A("Soco Elegante","physical",55,0,null),
+  A("Gold Experience Requiem: Reset","magic",0,4,E("stun"),false,90),
+  A("Gold Experience: Vida","magic",127,3,null,false,90)]},
+// Dio Brando (JoJo's Bizarre Adventure)
+{vida:273,atkFis:83,atkMag:177,defFis:118,defMag:167,vel:116,attacks:[
+  A("Soco Aristocrático","physical",58,0,null),
+  A("The World: Tempo Parado","magic",0,4,E("stun"),false,90),
+  A("Road Roller: Investida","magic",140,3,null,false,85)]},
+// Jotaro Kujo (JoJo's Bizarre Adventure)
+{vida:262,atkFis:83,atkMag:170,defFis:133,defMag:144,vel:155,attacks:[
+  A("Soco Direto","physical",58,0,null),
+  A("Star Platinum: ORAORAORA","magic",134,3,null,false,90),
+  A("Star Platinum: Reflexo Perfeito","magic",0,3,E("shield",69))]},
 ];
 
 // Aparência curada por personagem: [pele, cor do cabelo, estilo, roupa, roupa2]
@@ -1391,199 +1507,204 @@ const CLASS_TYPE = [
 
 // O 4º ataque de cada personagem (mesma ordem).
 const FOURTH_ATTACK = [
-A("Elemento Fogo: Bola de Fogo","physical",17,2,E("dot",5)),
-A("Investida com Nunchaku","physical",19,2,null),
-A("Armadilha Tática","physical",0,3,E("debuff",9)),
-A("Chute do Leão Adormecido","physical",26,2,null),
-A("Genjutsu: Ilusão das Trevas","magic",0,3,E("debuff",13)),
-A("Rajada de Punhos","physical",21,2,null),
-A("Bomba Espírito Fraca","physical",24,2,null),
-A("Chute Twin Chaser","physical",22,2,E("debuff",8)),
-A("Final Flash","physical",38,3,null),
-A("Spirit Bomb","physical",40,3,null),
-A("Investida com Bastão","physical",18,2,null),
-A("Cien Fleur: Clutch","magic",24,2,E("debuff",9)),
-A("Diable Jambe: Poêle à Frire","physical",25,2,E("dot",4)),
-A("Santoryu: Oni Giri","physical",30,2,null),
-A("Gomu Gomu no Elephant Gun","physical",34,2,null),
-A("Tiro de Precisão","physical",20,2,null),
-A("Ataque em Grupo","physical",21,2,null),
-A("Plano de Batalha","physical",0,3,E("shield",13)),
-A("Blindagem Total","physical",0,3,E("shield",19)),
-A("Rugido de Comando","magic",0,3,E("stun")),
-A("Investida Corajosa","physical",17,2,null),
-A("Confusão Psíquica","magic",0,3,E("stun")),
-A("Fama Inflada: Recuo Tático","physical",0,3,E("debuff",8)),
-A("Rajada Incendiária","physical",26,2,E("dot",5)),
-A("Fúria Descontrolada","physical",32,2,null),
-A("Marcação de Alvo","physical",21,2,E("debuff",9)),
-A("Investida Dourada","physical",29,2,null),
-A("Comando de Elite","physical",0,3,E("shield",14)),
-A("Golpe do Guardião","physical",30,2,null),
-A("Adaga Sombria: Execução","magic",30,2,E("dot",7)),
-A("Combo de Braços","physical",18,2,null),
-A("Thunderbolt","magic",27,2,E("stun")),
-A("Golpe de Treinadora Rigorosa","physical",25,2,null),
-A("Skill Hunter: Cópia","magic",0,3,E("debuff",12)),
-A("Fúria de Rei Formiga","magic",34,2,null),
-A("Passe Decisivo","physical",13,2,null),
-A("Muralha Defensiva","physical",0,2,E("shield",6)),
-A("Jogada Imprevisível","physical",14,2,E("debuff",5)),
-A("Chute Curvo","physical",15,2,null),
-A("Visão Panorâmica","physical",0,2,E("debuff",6)),
-A("Interrogatório","physical",0,3,E("debuff",8)),
-A("Sedução Manipuladora","magic",15,2,null),
-A("Rede de Informantes","magic",0,3,E("debuff",10)),
-A("Cadeia de Dedução","magic",16,2,null),
-A("Jogo Psicológico","magic",0,3,E("debuff",12)),
-A("Cajado Sagrado: Toque Curativo","magic",0,3,E("heal",13)),
-A("Runa de Amaldiçoamento","magic",22,2,E("debuff",9)),
-A("Investida com Machado","physical",25,2,null),
-A("Magia Negra: Vórtice","magic",26,2,E("dot",5)),
-A("Selo de Tempo Congelante","magic",0,3,E("stun")),
-A("Golpe com Lança Incursio","physical",24,2,null),
-A("Salto Felino","physical",23,2,null),
-A("Emboscada de Fios","physical",0,3,E("stun")),
-A("Nevasca Absoluta","magic",0,3,E("stun")),
-A("Corte Envenenado","physical",22,2,E("dot",8)),
-A("Descarga Elétrica Total","magic",0,3,E("stun")),
-A("Explosão Incendiária","magic",25,2,E("dot",5)),
-A("Onda Aquática Curativa","magic",0,3,E("heal",15)),
-A("Rajada Cortante de Vento","magic",0,2,E("debuff",10)),
-A("Corte de Espadão","physical",22,2,null),
-A("Sobrecarga Total: 1.300.000 Volts","magic",0,4,E("stun")),
-A("Comet Home Run","physical",24,2,null),
-A("Parede de Gelo Total","magic",0,2,E("shield",12)),
-A("Explosão em Área","magic",28,2,E("dot",5)),
-A("Carolina Smash","physical",36,3,null),
-A("Chute Nervoso Duplo","physical",17,2,null),
-A("Higa Zekkou","physical",26,2,null),
-A("Sode no Shirayuki: Congelar","magic",0,3,E("stun")),
-A("Corte de Pétalas Cortantes","magic",28,2,E("debuff",11)),
-A("Getsuga Jujisho","magic",32,2,null),
-A("Golpe Oportunista Duplo","physical",16,2,null),
-A("Garras Curativas","magic",0,3,E("heal",16)),
-A("Golpe Certeiro Veterano","physical",24,2,null),
-A("Corte Absoluto Repetido","physical",30,2,null),
-A("Congelamento Espiritual","magic",0,3,E("stun")),
-A("Muralha de Ferro","physical",0,2,E("shield",12)),
-A("Rajada Automática","physical",20,2,E("debuff",8)),
-A("Círculo de Transmutação: Chamas","magic",30,2,E("dot",5)),
-A("Punho de Aço Reforçado","physical",25,2,null),
-A("Pilar de Pedra","physical",0,3,E("shield",16)),
-A("Corte nas Sombras","physical",23,2,null),
-A("Vigor Divino","physical",0,3,E("heal",17)),
-A("Corte no Vento","physical",27,2,null),
-A("Fúria Ancestral","magic",30,2,null),
-A("Cura Iluminada","magic",0,4,E("heal",22)),
-A("Combo Ancestral","physical",22,2,null),
-A("Rugido Selvagem","physical",0,3,E("stun")),
-A("Punho Demolidor","physical",32,2,null),
-A("Golpe Nervoso Preciso","physical",0,3,E("debuff",12)),
-A("Respiração Curativa Profunda","physical",0,3,E("heal",13)),
-A("Cobertura Total da Quadra","physical",0,2,E("shield",7)),
-A("Bloqueio Duplo","physical",0,2,E("shield",7)),
-A("Leitura de Jogo","physical",0,2,E("debuff",6)),
-A("Salto Impossível","physical",18,2,null),
-A("Levantamento Enganoso","physical",0,2,E("debuff",6)),
-A("Cura da Floresta Sagrada","magic",0,3,E("heal",17)),
-A("Terremoto Gigante","physical",0,3,E("stun")),
-A("Roubo de Poder Duplo","magic",29,2,E("debuff",11)),
-A("Extinguish Rays","magic",0,3,E("debuff",16)),
-A("Barreira Infinita","magic",0,4,E("shield",20)),
-A("Provocação Calculada","physical",0,2,E("debuff",6)),
-A("Distração Animada","physical",13,2,null),
-A("Manipulação Silenciosa","physical",0,2,E("debuff",7)),
-A("Xeque-Mate Social","physical",14,2,null),
-A("Guerra Psicológica Total","physical",0,3,E("debuff",10)),
-A("Cursed Energy: Impacto","magic",26,2,E("dot",5)),
-A("Resonance: Golpe Amaldiçoado","physical",25,2,null),
-A("Domain Expansion: Chimera Shadow Garden","magic",0,4,E("stun")),
-A("Cleave","magic",36,2,null),
-A("Blue: Colapso Gravitacional","magic",0,3,E("debuff",15)),
-A("Respiração do Trovão: Sexta Forma","magic",0,3,E("stun")),
-A("Mordida Selvagem","physical",24,2,E("dot",5)),
-A("Respiração da Chama: Ascensão do Fênix","magic",0,3,E("dot",6)),
-A("Respiração da Água: Dança Serena","physical",28,2,null),
-A("Dança do Deus do Fogo","magic",0,3,E("dot",6)),
-A("Golpe Bruto de Prisioneiro","physical",20,2,null),
-A("Névoa Tóxica","magic",0,3,E("dot",6)),
-A("Corte de Execução Duplo","physical",23,2,null),
-A("Regeneração Selvagem","physical",0,3,E("heal",15)),
-A("Sentença Final","physical",28,2,null),
-A("Reação em Cadeia","physical",11,2,null),
-A("Comentário Afiado","physical",0,2,E("debuff",5)),
-A("Charme Inesperado","physical",11,2,null),
-A("Fio Vermelho do Destino","magic",0,3,E("shield",10)),
-A("Corrida Contra o Tempo Final","physical",13,2,null),
-A("Investida Casual","physical",11,2,null),
-A("Grito Definitivo","physical",0,2,E("stun")),
-A("Charme Reconfortante","physical",0,2,E("debuff",5)),
-A("Explosão de Confiança","physical",14,2,null),
-A("Faceta Surpresa","physical",0,2,E("debuff",6)),
-A("Echoes Act 3: Distorção","magic",0,3,E("debuff",11)),
-A("Crazy Diamond: Soco Restaurador","magic",26,2,null),
-A("Gold Experience: Vida Selvagem","magic",0,3,E("dot",6)),
-A("The World: Road Roller","magic",0,4,E("stun")),
-A("Star Platinum: The World Over Heaven","magic",34,2,null)
+A("Elemento Fogo: Bola de Fogo","physical",65,2,E("dot",20)),
+A("Investida com Nunchaku","physical",71,2,null),
+A("Armadilha Tática","physical",0,3,E("debuff",45)),
+A("Chute do Leão Adormecido","physical",94,2,null),
+A("Genjutsu: Ilusão das Trevas","magic",0,3,E("debuff",65)),
+A("Rajada de Punhos","physical",78,2,null),
+A("Bomba Espírito Fraca","physical",88,2,null),
+A("Chute Twin Chaser","physical",81,2,E("debuff",40)),
+A("Final Flash","physical",134,3,null,false,90),
+A("Spirit Bomb","physical",140,3,null,false,85),
+A("Investida com Bastão","physical",68,2,null),
+A("Cien Fleur: Clutch","magic",88,2,E("debuff",45)),
+A("Diable Jambe: Poêle à Frire","physical",91,2,E("dot",15)),
+A("Santoryu: Oni Giri","physical",107,2,null,false,95),
+A("Gomu Gomu no Elephant Gun","physical",120,2,null,false,90),
+A("Tiro de Precisão","physical",74,2,null),
+A("Ataque em Grupo","physical",78,2,null),
+A("Plano de Batalha","physical",0,3,E("shield",52)),
+A("Blindagem Total","physical",0,3,E("shield",73)),
+A("Rugido de Comando","magic",0,3,E("stun"),false,90),
+A("Investida Corajosa","physical",65,2,null),
+A("Confusão Psíquica","magic",0,3,E("stun"),false,90),
+A("Fama Inflada: Recuo Tático","physical",0,3,E("debuff",40)),
+A("Rajada Incendiária","physical",94,2,E("dot",20)),
+A("Fúria Descontrolada","physical",114,2,null,false,95),
+A("Marcação de Alvo","physical",78,2,E("debuff",45)),
+A("Investida Dourada","physical",104,2,null),
+A("Comando de Elite","physical",0,3,E("shield",56)),
+A("Golpe do Guardião","physical",107,2,null,false,95),
+A("Adaga Sombria: Execução","magic",107,2,E("dot",30),false,95),
+A("Combo de Braços","physical",68,2,null),
+A("Thunderbolt","magic",97,2,E("stun"),false,90),
+A("Golpe de Treinadora Rigorosa","physical",91,2,null),
+A("Skill Hunter: Cópia","magic",0,3,E("debuff",60)),
+A("Fúria de Rei Formiga","magic",120,2,null,false,90),
+A("Passe Decisivo","physical",51,2,null),
+A("Muralha Defensiva","physical",0,2,E("shield",28)),
+A("Jogada Imprevisível","physical",55,2,E("debuff",25)),
+A("Chute Curvo","physical",58,2,null),
+A("Visão Panorâmica","physical",0,2,E("debuff",30)),
+A("Interrogatório","physical",0,3,E("debuff",40)),
+A("Sedução Manipuladora","magic",58,2,null),
+A("Rede de Informantes","magic",0,3,E("debuff",50)),
+A("Cadeia de Dedução","magic",61,2,null),
+A("Jogo Psicológico","magic",0,3,E("debuff",60)),
+A("Cajado Sagrado: Toque Curativo","magic",0,3,E("heal",40)),
+A("Runa de Amaldiçoamento","magic",81,2,E("debuff",45)),
+A("Investida com Machado","physical",91,2,null),
+A("Magia Negra: Vórtice","magic",94,2,E("dot",20)),
+A("Selo de Tempo Congelante","magic",0,3,E("stun"),false,90),
+A("Golpe com Lança Incursio","physical",88,2,null),
+A("Salto Felino","physical",84,2,null),
+A("Emboscada de Fios","physical",0,3,E("stun"),false,90),
+A("Nevasca Absoluta","magic",0,3,E("stun"),false,90),
+A("Corte Envenenado","physical",81,2,E("dot",35)),
+A("Descarga Elétrica Total","magic",0,3,E("stun"),false,90),
+A("Explosão Incendiária","magic",91,2,E("dot",20)),
+A("Onda Aquática Curativa","magic",0,3,E("heal",48)),
+A("Rajada Cortante de Vento","magic",0,2,E("debuff",50)),
+A("Corte de Espadão","physical",81,2,null),
+A("Sobrecarga Total: 1.300.000 Volts","magic",0,4,E("stun"),false,90),
+A("Comet Home Run","physical",88,2,null),
+A("Parede de Gelo Total","magic",0,2,E("shield",49)),
+A("Explosão em Área","magic",101,2,E("dot",20)),
+A("Carolina Smash","physical",127,3,null,false,90),
+A("Chute Nervoso Duplo","physical",65,2,null),
+A("Higa Zekkou","physical",94,2,null),
+A("Sode no Shirayuki: Congelar","magic",0,3,E("stun"),false,90),
+A("Corte de Pétalas Cortantes","magic",101,2,E("debuff",55)),
+A("Getsuga Jujisho","magic",114,2,null,false,95),
+A("Golpe Oportunista Duplo","physical",61,2,null),
+A("Garras Curativas","magic",0,3,E("heal",52)),
+A("Golpe Certeiro Veterano","physical",88,2,null),
+A("Corte Absoluto Repetido","physical",107,2,null,false,95),
+A("Congelamento Espiritual","magic",0,3,E("stun"),false,90),
+A("Muralha de Ferro","physical",0,2,E("shield",49)),
+A("Rajada Automática","physical",74,2,E("debuff",40)),
+A("Círculo de Transmutação: Chamas","magic",107,2,E("dot",20),false,95),
+A("Punho de Aço Reforçado","physical",91,2,null),
+A("Pilar de Pedra","physical",0,3,E("shield",63)),
+A("Corte nas Sombras","physical",84,2,null),
+A("Vigor Divino","physical",0,3,E("heal",56)),
+A("Corte no Vento","physical",97,2,null),
+A("Fúria Ancestral","magic",107,2,null,false,95),
+A("Cura Iluminada","magic",0,4,E("heal",77)),
+A("Combo Ancestral","physical",81,2,null),
+A("Rugido Selvagem","physical",0,3,E("stun"),false,90),
+A("Punho Demolidor","physical",114,2,null,false,95),
+A("Golpe Nervoso Preciso","physical",0,3,E("debuff",60)),
+A("Respiração Curativa Profunda","physical",0,3,E("heal",40)),
+A("Cobertura Total da Quadra","physical",0,2,E("shield",32)),
+A("Bloqueio Duplo","physical",0,2,E("shield",32)),
+A("Leitura de Jogo","physical",0,2,E("debuff",30)),
+A("Salto Impossível","physical",68,2,null),
+A("Levantamento Enganoso","physical",0,2,E("debuff",30)),
+A("Cura da Floresta Sagrada","magic",0,3,E("heal",56)),
+A("Terremoto Gigante","physical",0,3,E("stun"),false,90),
+A("Roubo de Poder Duplo","magic",104,2,E("debuff",55)),
+A("Extinguish Rays","magic",0,3,E("debuff",80)),
+A("Barreira Infinita","magic",0,4,E("shield",76)),
+A("Provocação Calculada","physical",0,2,E("debuff",30)),
+A("Distração Animada","physical",51,2,null),
+A("Manipulação Silenciosa","physical",0,2,E("debuff",35)),
+A("Xeque-Mate Social","physical",55,2,null),
+A("Guerra Psicológica Total","physical",0,3,E("debuff",50)),
+A("Cursed Energy: Impacto","magic",94,2,E("dot",20)),
+A("Resonance: Golpe Amaldiçoado","physical",91,2,null),
+A("Domain Expansion: Chimera Shadow Garden","magic",0,4,E("stun"),false,90),
+A("Cleave","magic",127,2,null,false,90),
+A("Blue: Colapso Gravitacional","magic",0,3,E("debuff",75)),
+A("Respiração do Trovão: Sexta Forma","magic",0,3,E("stun"),false,90),
+A("Mordida Selvagem","physical",88,2,E("dot",20)),
+A("Respiração da Chama: Ascensão do Fênix","magic",0,3,E("dot",25)),
+A("Respiração da Água: Dança Serena","physical",101,2,null),
+A("Dança do Deus do Fogo","magic",0,3,E("dot",25)),
+A("Golpe Bruto de Prisioneiro","physical",74,2,null),
+A("Névoa Tóxica","magic",0,3,E("dot",25)),
+A("Corte de Execução Duplo","physical",84,2,null),
+A("Regeneração Selvagem","physical",0,3,E("heal",48)),
+A("Sentença Final","physical",101,2,null),
+A("Reação em Cadeia","physical",45,2,null),
+A("Comentário Afiado","physical",0,2,E("debuff",25)),
+A("Charme Inesperado","physical",45,2,null),
+A("Fio Vermelho do Destino","magic",0,3,E("shield",42)),
+A("Corrida Contra o Tempo Final","physical",51,2,null),
+A("Investida Casual","physical",45,2,null),
+A("Grito Definitivo","physical",0,2,E("stun"),false,90),
+A("Charme Reconfortante","physical",0,2,E("debuff",25)),
+A("Explosão de Confiança","physical",55,2,null),
+A("Faceta Surpresa","physical",0,2,E("debuff",30)),
+A("Echoes Act 3: Distorção","magic",0,3,E("debuff",55)),
+A("Crazy Diamond: Soco Restaurador","magic",94,2,null),
+A("Gold Experience: Vida Selvagem","magic",0,3,E("dot",25)),
+A("The World: Road Roller","magic",0,4,E("stun"),false,90),
+A("Star Platinum: The World Over Heaven","magic",120,2,null,false,90),
 ];
 
 // Ultimate exclusivo por personagem Mítico/Lendário, com chave = nome exato.
 const ULTIMATES = {
-"Sukuna": {kind:"meteor", name:"Domain Expansion: Malevolent Shrine", aoeDmg:29, dmgType:"magic", desc:"Expande seu domínio amaldiçoado longe demais pra conter — corta tudo que está por perto, aliado ou não."},
-"Son Goku": {name:"Super Saiyajin", lifeBonus:32, dmgBonus:14, desc:"Seus cabelos se erguem e ficam dourados — poder e velocidade disparam instantaneamente."},
-"Vegeta": {name:"Super Saiyajin do Príncipe", lifeBonus:32, dmgBonus:14, desc:"Orgulho Saiyajin transformado em fúria dourada explosiva."},
-"All Might": {name:"Símbolo da Paz: Poder Pleno", lifeBonus:30, dmgBonus:15, desc:"Solta toda a reserva de One For All que ainda lhe resta, num último fôlego heroico."},
-"Ichigo Kurosaki": {name:"Bankai: Tensa Zangetsu", lifeBonus:30, dmgBonus:14, desc:"Sua zanpakuto se transforma, e seu reiatsu escurece a área ao redor."},
-"Meruem": {kind:"meteor", name:"Fúria Real Indiscriminada", aoeDmg:28, dmgType:"magic", desc:"Seu poder de rei cresce tanto que nem ele consegue mais direcionar o alcance — todos no campo sofrem o impacto."},
-"Sung Jinwoo (Monarca)": {name:"Monarca das Sombras: Domínio Absoluto", lifeBonus:34, dmgBonus:16, desc:"Invoca seu exército de sombras completo e assume a forma do verdadeiro Monarca."},
-"Roronoa Zoro (Wano)": {name:"Ashura: Nove Espadas", lifeBonus:28, dmgBonus:14, desc:"Manifesta múltiplos braços fantasmagóricos empunhando espadas — um demônio de três cabeças."},
-"Garou": {name:"Predador Cósmico", lifeBonus:24, dmgBonus:6, growPerHit:5, growCap:35, explodeOnDeath:true, desc:"Absorve os golpes recebidos e evolui a cada apanhada — fica genuinamente mais forte conforme leva dano, até um limite. Se cair em batalha com poder acumulado, esse poder explode nos próprios aliados."},
-"Reinhard van Astrea": {name:"Bênção do Dragão Ancestral", lifeBonus:30, dmgBonus:14, desc:"O sangue do lendário matador de dragões desperta por completo em suas veias."},
-"Jotaro Kujo": {name:"Star Platinum: The World", lifeBonus:28, dmgBonus:14, desc:"Para o tempo por um instante e desfere uma rajada de socos impossível de esquivar."},
-"Monkey D. Luffy": {name:"Gear 5: Nika Desperto", lifeBonus:34, dmgBonus:16, desc:"Desperta o Fruto do Sol — borracha, liberdade e caos puro em forma de guerreiro lendário."},
-"Might Guy": {name:"Oito Portões: Porta da Morte", lifeBonus:30, dmgBonus:14, selfRecoil:{value:7, turns:3}, desc:"Abre os últimos portões chakra, sabendo o preço que isso cobra do próprio corpo — o próprio Guy perde vida a cada rodada sua enquanto o efeito dura."},
-"Baki Hanma": {name:"Instinto Ogro Desperto", lifeBonus:28, dmgBonus:13, desc:"O instinto assassino herdado de seu pai finalmente vem à tona por completo."},
-"Satoru Gojo": {name:"Domain Expansion: Unlimited Void", lifeBonus:34, dmgBonus:16, desc:"Expande seu domínio infinito, inundando o oponente com informação sensorial impossível de processar."},
-"Sasaki Kojiro": {name:"Tsubame Gaeshi Definitivo", lifeBonus:26, dmgBonus:14, desc:"A técnica da andorinha executada em velocidade sobre-humana, três cortes simultâneos."},
-"Adam": {kind:"meteor", name:"Pecado Original", aoeDmg:26, dmgType:"physical", desc:"Desperta uma calamidade primordial ampla demais pra ser direcionada — atinge todo mundo ao redor, sem exceção."},
-"Killua Zoldyck": {name:"Godspeed: Whirlwind", lifeBonus:26, dmgBonus:13, desc:"Aumenta sua velocidade a níveis quase imperceptíveis, riscos de raio ao redor do corpo."},
-"Roy Mustang": {kind:"meteor", name:"Chama Suprema: Inferno Total", aoeDmg:23, dmgType:"magic", desc:"Um estalar de dedos gera um incêndio grande demais pra controlar — o fogo não escolhe quem queima."},
-"Byakuya Kuchiki": {name:"Bankai: Senbonzakura Kageyoshi Total", lifeBonus:28, dmgBonus:14, desc:"Milhares de lâminas de pétalas cobrem o campo de batalha inteiro."},
-"Akame": {name:"Um Corte, Uma Morte: Murasame Total", lifeBonus:26, dmgBonus:14, desc:"Abandona qualquer hesitação — o próximo corte de Murasame é sempre fatal."},
-"Hercules": {name:"Doze Trabalhos Completos", lifeBonus:24, dmgBonus:12, desc:"Revive a força que completou os doze trabalhos lendários, num só golpe."},
-"Katsuki Bakugo": {name:"AP Shot Supremo", lifeBonus:24, dmgBonus:12, desc:"Concentra nitroglicerina suada ao extremo para uma explosão de propulsão total."},
-"Thomas Andre": {name:"Fúria do Guardião Nacional", lifeBonus:22, dmgBonus:11, desc:"O herói mais forte dos EUA solta todo seu poder de uma vez."},
-"Buddha": {kind:"meteor", name:"Julgamento Universal", aoeDmg:25, dmgType:"magic", desc:"Um julgamento divino desce sobre o campo inteiro, sem distinguir amigo de inimigo."},
-"Genos (upgrade)": {name:"Overdrive: Reator Total", lifeBonus:24, dmgBonus:12, desc:"Redireciona toda a energia do reator para os punhos incineradores."},
-"Android 18": {name:"Absorção Total de Energia", lifeBonus:22, dmgBonus:11, desc:"Absorve energia ambiente ilimitadamente, sem nunca precisar recarregar."},
-"Dio Brando": {kind:"meteor", name:"The World: Road Roller Total", aoeDmg:27, dmgType:"physical", desc:"Para o tempo e desfere pancadas em todas as direções — ninguém em campo escapa, nem seus próprios aliados."},
-"Nico Robin": {name:"Gigante Fleur Completo", lifeBonus:22, dmgBonus:11, desc:"Multiplica dezenas de braços fantasmas cobrindo cada ângulo do oponente."},
-"Sanji": {name:"Diable Jambe: Espectre", lifeBonus:22, dmgBonus:11, desc:"Suas pernas pegam fogo azulado — velocidade e força num só chute flamejante."},
-"Ban": {name:"Fox Sin Imortal", lifeBonus:24, dmgBonus:12, desc:"Sua imortalidade rouba a vida de quem o atinge, tornando-o cada vez mais implacável."},
-"Asta": {name:"Devil Union: Asmodeus", lifeBonus:24, dmgBonus:12, desc:"Funde-se por completo com o demônio da destruição, mesmo sem magia própria."},
-"Escanor": {kind:"meteor", name:"The One: Sol Abrasador", aoeDmg:27, dmgType:"magic", desc:"No pico do meio-dia, o calor do seu corpo é tanto que queima o campo de batalha inteiro, sem exceção."},
-"Fern": {name:"Magia Suprema: Legado de Frieren", lifeBonus:22, dmgBonus:11, desc:"Canaliza tudo que aprendeu na jornada com Frieren num único feitiço devastador."},
-"Giyu Tomioka": {name:"Respiração da Água: Décima Primeira Forma", lifeBonus:22, dmgBonus:11, desc:"A forma secreta da respiração da água, fluida e implacável."},
-"Giorno Giovanna": {name:"Gold Experience Requiem", lifeBonus:26, dmgBonus:13, desc:"Seu stand evolui além da vida — anula qualquer resultado de ataques contra ele."},
-"Biscuit Krueger": {name:"Forma Adulta Completa", lifeBonus:22, dmgBonus:11, desc:"Abandona a forma infantil e revela o corpo real, musculoso e devastador."},
-"Jack the Ripper": {name:"Fantasma Assassino Total", lifeBonus:22, dmgBonus:11, desc:"Torna-se um borrão nas sombras, golpeando de ângulos impossíveis de prever."},
-"Cha Hae-in": {name:"Fúria da Espada Dourada", lifeBonus:22, dmgBonus:11, desc:"Sua espada brilha dourada, cortando através de qualquer resistência mágica."},
-"Esdeath": {name:"Mahapadma Absoluto", lifeBonus:24, dmgBonus:12, desc:"Congela o tempo ao redor do oponente por completo, sem chance de reação."},
-"Merlin": {kind:"meteor", name:"Magia Arcana Sem Controle", aoeDmg:24, dmgType:"magic", desc:"Um feitiço antigo demais pra ser contido explode em todas as direções, sem poupar ninguém no campo."},
-"Megumi Fushiguro": {name:"Divine General: Mahoraga", lifeBonus:24, dmgBonus:12, desc:"Invoca o shikigami mais poderoso de seu arsenal, que se adapta a qualquer ataque."},
-"Frieren": {name:"Magia Ancestral dos Mil Anos", lifeBonus:24, dmgBonus:12, desc:"Um feitiço estudado ao longo de um milênio inteiro de vida, refinado à perfeição."},
-"Stark": {name:"Fúria Guerreira Total", lifeBonus:20, dmgBonus:10, desc:"Abandona toda cautela e ataca com a força bruta de um verdadeiro guerreiro."},
-"Edward Elric": {name:"Portão da Verdade", lifeBonus:22, dmgBonus:11, permanentShieldCost:5, desc:"Um vislumbre proibido de conhecimento alquímico absoluto — mas a troca equivalente cobra um preço permanente na própria defesa."},
-"Renji Abarai": {name:"Bankai: Hihio Zabimaru", lifeBonus:22, dmgBonus:11, desc:"Sua zanpakuto se transforma numa serpente óssea gigantesca e flamejante."},
-"Übel": {name:"Magia Amaldiçoada Total", lifeBonus:22, dmgBonus:11, desc:"Manipula a mente do oponente sem qualquer resquício de piedade."},
-"Chrollo Lucilfer": {kind:"meteor", name:"Judgment Chain: Roubo Descontrolado", aoeDmg:24, dmgType:"magic", desc:"Ativa uma habilidade roubada poderosa demais pra controlar — atinge todo mundo em campo, aliados inclusive."},
-"Kyojuro Rengoku": {name:"Respiração da Chama: Décima Forma", lifeBonus:24, dmgBonus:12, desc:"A forma secreta da respiração da chama, ardendo com o espírito de um Hashira."},
-"Itachi Uchiha": {name:"Susanoo Completo", lifeBonus:24, dmgBonus:12, desc:"Um avatar espectral gigante de chakra envolve seu corpo por completo."},
-"Josuke Higashikata": {name:"Crazy Diamond: Restauração Total", lifeBonus:20, dmgBonus:10, desc:"Restaura qualquer coisa ao seu estado original — inclusive a própria vitalidade."},
-"Yuno Grinberryall": {name:"Espírito do Vento: Sylph", lifeBonus:22, dmgBonus:11, desc:"Fecha um contrato completo com o espírito do vento, ganhando asas etéreas."},
-"Tenshinhan": {name:"Kikoho Supremo: Autossacrifício", lifeBonus:20, dmgBonus:10, upfrontToll:18, desc:"Concentra toda sua energia vital num único disparo que consome a si mesmo — perde vida na hora só para ativar."},
-"Eren Yeager": {name:"Titã Fundador: Grito Ancestral", lifeBonus:24, dmgBonus:12, desc:"Um brado que ecoa por gerações de titãs, dobrando a realidade ao seu redor."}
+"Sukuna": {kind:"meteor", name:"Domain Expansion: Malevolent Shrine", aoeDmg:100, dmgType:"magic", desc:"Expande seu domínio amaldiçoado longe demais pra conter — corta tudo que está por perto, aliado ou não."},
+"Son Goku": {name:"Super Saiyajin", lifeBonus:103, atkBonus:50, desc:"Seus cabelos se erguem e ficam dourados — poder e velocidade disparam instantaneamente."},
+"Vegeta": {name:"Super Saiyajin do Príncipe", lifeBonus:103, atkBonus:50, desc:"Orgulho Saiyajin transformado em fúria dourada explosiva."},
+"All Might": {name:"Símbolo da Paz: Poder Pleno", lifeBonus:96, atkBonus:55, desc:"Solta toda a reserva de One For All que ainda lhe resta, num último fôlego heroico."},
+"Ichigo Kurosaki": {name:"Bankai: Tensa Zangetsu", lifeBonus:96, atkBonus:50, desc:"Sua zanpakuto se transforma, e seu reiatsu escurece a área ao redor."},
+"Meruem": {kind:"meteor", name:"Fúria Real Indiscriminada", aoeDmg:95, dmgType:"magic", desc:"Seu poder de rei cresce tanto que nem ele consegue mais direcionar o alcance — todos no campo sofrem o impacto."},
+"Sung Jinwoo (Monarca)": {name:"Monarca das Sombras: Domínio Absoluto", lifeBonus:110, atkBonus:60, desc:"Invoca seu exército de sombras completo e assume a forma do verdadeiro Monarca."},
+"Roronoa Zoro (Wano)": {name:"Ashura: Nove Espadas", lifeBonus:89, atkBonus:50, desc:"Manifesta múltiplos braços fantasmagóricos empunhando espadas — um demônio de três cabeças."},
+"Garou": {name:"Predador Cósmico", lifeBonus:74, atkBonus:10, growPerHit:15, growCap:100, explodeOnDeath:true, desc:"Absorve os golpes recebidos e evolui a cada apanhada — fica genuinamente mais forte conforme leva dano, até um limite. Se cair em batalha com poder acumulado, esse poder explode nos próprios aliados."},
+"Reinhard van Astrea": {name:"Bênção do Dragão Ancestral", lifeBonus:96, atkBonus:50, desc:"O sangue do lendário matador de dragões desperta por completo em suas veias."},
+"Jotaro Kujo": {name:"Star Platinum: The World", lifeBonus:89, atkBonus:50, desc:"Para o tempo por um instante e desfere uma rajada de socos impossível de esquivar."},
+"Monkey D. Luffy": {name:"Gear 5: Nika Desperto", lifeBonus:110, atkBonus:60, desc:"Desperta o Fruto do Sol — borracha, liberdade e caos puro em forma de guerreiro lendário."},
+"Might Guy": {name:"Oito Portões: Porta da Morte", lifeBonus:96, atkBonus:50, selfRecoil:{value:20, turns:3}, desc:"Abre os últimos portões chakra, sabendo o preço que isso cobra do próprio corpo — o próprio Guy perde vida a cada rodada sua enquanto o efeito dura."},
+"Baki Hanma": {name:"Instinto Ogro Desperto", lifeBonus:89, atkBonus:45, desc:"O instinto assassino herdado de seu pai finalmente vem à tona por completo."},
+"Satoru Gojo": {name:"Domain Expansion: Unlimited Void", lifeBonus:110, atkBonus:60, desc:"Expande seu domínio infinito, inundando o oponente com informação sensorial impossível de processar."},
+"Sasaki Kojiro": {name:"Tsubame Gaeshi Definitivo", lifeBonus:81, atkBonus:50, desc:"A técnica da andorinha executada em velocidade sobre-humana, três cortes simultâneos."},
+"Adam": {kind:"meteor", name:"Pecado Original", aoeDmg:85, dmgType:"physical", desc:"Desperta uma calamidade primordial ampla demais pra ser direcionada — atinge todo mundo ao redor, sem exceção."},
+"Killua Zoldyck": {name:"Godspeed: Whirlwind", lifeBonus:81, atkBonus:45, desc:"Aumenta sua velocidade a níveis quase imperceptíveis, riscos de raio ao redor do corpo."},
+"Roy Mustang": {kind:"meteor", name:"Chama Suprema: Inferno Total", aoeDmg:70, dmgType:"magic", desc:"Um estalar de dedos gera um incêndio grande demais pra controlar — o fogo não escolhe quem queima."},
+"Byakuya Kuchiki": {name:"Bankai: Senbonzakura Kageyoshi Total", lifeBonus:89, atkBonus:50, desc:"Milhares de lâminas de pétalas cobrem o campo de batalha inteiro."},
+"Akame": {name:"Um Corte, Uma Morte: Murasame Total", lifeBonus:81, atkBonus:50, desc:"Abandona qualquer hesitação — o próximo corte de Murasame é sempre fatal."},
+"Hercules": {name:"Doze Trabalhos Completos", lifeBonus:74, atkBonus:40, desc:"Revive a força que completou os doze trabalhos lendários, num só golpe."},
+"Katsuki Bakugo": {name:"AP Shot Supremo", lifeBonus:74, atkBonus:40, desc:"Concentra nitroglicerina suada ao extremo para uma explosão de propulsão total."},
+"Thomas Andre": {name:"Fúria do Guardião Nacional", lifeBonus:67, atkBonus:35, desc:"O herói mais forte dos EUA solta todo seu poder de uma vez."},
+"Buddha": {kind:"meteor", name:"Julgamento Universal", aoeDmg:80, dmgType:"magic", desc:"Um julgamento divino desce sobre o campo inteiro, sem distinguir amigo de inimigo."},
+"Genos (upgrade)": {name:"Overdrive: Reator Total", lifeBonus:74, atkBonus:40, desc:"Redireciona toda a energia do reator para os punhos incineradores."},
+"Android 18": {name:"Absorção Total de Energia", lifeBonus:67, atkBonus:35, desc:"Absorve energia ambiente ilimitadamente, sem nunca precisar recarregar."},
+"Dio Brando": {kind:"meteor", name:"The World: Road Roller Total", aoeDmg:90, dmgType:"physical", desc:"Para o tempo e desfere pancadas em todas as direções — ninguém em campo escapa, nem seus próprios aliados."},
+"Nico Robin": {name:"Gigante Fleur Completo", lifeBonus:67, atkBonus:35, desc:"Multiplica dezenas de braços fantasmas cobrindo cada ângulo do oponente."},
+"Sanji": {name:"Diable Jambe: Espectre", lifeBonus:67, atkBonus:35, desc:"Suas pernas pegam fogo azulado — velocidade e força num só chute flamejante."},
+"Ban": {name:"Fox Sin Imortal", lifeBonus:74, atkBonus:40, desc:"Sua imortalidade rouba a vida de quem o atinge, tornando-o cada vez mais implacável."},
+"Asta": {name:"Devil Union: Asmodeus", lifeBonus:74, atkBonus:40, desc:"Funde-se por completo com o demônio da destruição, mesmo sem magia própria."},
+"Escanor": {kind:"meteor", name:"The One: Sol Abrasador", aoeDmg:90, dmgType:"magic", desc:"No pico do meio-dia, o calor do seu corpo é tanto que queima o campo de batalha inteiro, sem exceção."},
+"Fern": {name:"Magia Suprema: Legado de Frieren", lifeBonus:67, atkBonus:35, desc:"Canaliza tudo que aprendeu na jornada com Frieren num único feitiço devastador."},
+"Giyu Tomioka": {name:"Respiração da Água: Décima Primeira Forma", lifeBonus:67, atkBonus:35, desc:"A forma secreta da respiração da água, fluida e implacável."},
+"Giorno Giovanna": {name:"Gold Experience Requiem", lifeBonus:81, atkBonus:45, desc:"Seu stand evolui além da vida — anula qualquer resultado de ataques contra ele."},
+"Biscuit Krueger": {name:"Forma Adulta Completa", lifeBonus:67, atkBonus:35, desc:"Abandona a forma infantil e revela o corpo real, musculoso e devastador."},
+"Jack the Ripper": {name:"Fantasma Assassino Total", lifeBonus:67, atkBonus:35, desc:"Torna-se um borrão nas sombras, golpeando de ângulos impossíveis de prever."},
+"Cha Hae-in": {name:"Fúria da Espada Dourada", lifeBonus:67, atkBonus:35, desc:"Sua espada brilha dourada, cortando através de qualquer resistência mágica."},
+"Esdeath": {name:"Mahapadma Absoluto", lifeBonus:74, atkBonus:40, desc:"Congela o tempo ao redor do oponente por completo, sem chance de reação."},
+"Merlin": {kind:"meteor", name:"Magia Arcana Sem Controle", aoeDmg:75, dmgType:"magic", desc:"Um feitiço antigo demais pra ser contido explode em todas as direções, sem poupar ninguém no campo."},
+"Megumi Fushiguro": {name:"Divine General: Mahoraga", lifeBonus:74, atkBonus:40, desc:"Invoca o shikigami mais poderoso de seu arsenal, que se adapta a qualquer ataque."},
+"Frieren": {name:"Magia Ancestral dos Mil Anos", lifeBonus:74, atkBonus:40, desc:"Um feitiço estudado ao longo de um milênio inteiro de vida, refinado à perfeição."},
+"Stark": {name:"Fúria Guerreira Total", lifeBonus:60, atkBonus:30, desc:"Abandona toda cautela e ataca com a força bruta de um verdadeiro guerreiro."},
+"Edward Elric": {name:"Portão da Verdade", lifeBonus:67, atkBonus:35, permanentDefCost:25, desc:"Um vislumbre proibido de conhecimento alquímico absoluto — mas a troca equivalente cobra um preço permanente na própria defesa."},
+"Renji Abarai": {name:"Bankai: Hihio Zabimaru", lifeBonus:67, atkBonus:35, desc:"Sua zanpakuto se transforma numa serpente óssea gigantesca e flamejante."},
+"Übel": {name:"Magia Amaldiçoada Total", lifeBonus:67, atkBonus:35, desc:"Manipula a mente do oponente sem qualquer resquício de piedade."},
+"Chrollo Lucilfer": {kind:"meteor", name:"Judgment Chain: Roubo Descontrolado", aoeDmg:75, dmgType:"magic", desc:"Ativa uma habilidade roubada poderosa demais pra controlar — atinge todo mundo em campo, aliados inclusive."},
+"Kyojuro Rengoku": {name:"Respiração da Chama: Décima Forma", lifeBonus:74, atkBonus:40, desc:"A forma secreta da respiração da chama, ardendo com o espírito de um Hashira."},
+"Itachi Uchiha": {name:"Susanoo Completo", lifeBonus:74, atkBonus:40, desc:"Um avatar espectral gigante de chakra envolve seu corpo por completo."},
+"Josuke Higashikata": {name:"Crazy Diamond: Restauração Total", lifeBonus:60, atkBonus:30, desc:"Restaura qualquer coisa ao seu estado original — inclusive a própria vitalidade."},
+"Yuno Grinberryall": {name:"Espírito do Vento: Sylph", lifeBonus:67, atkBonus:35, desc:"Fecha um contrato completo com o espírito do vento, ganhando asas etéreas."},
+"Tenshinhan": {name:"Kikoho Supremo: Autossacrifício", lifeBonus:60, atkBonus:30, upfrontToll:50, desc:"Concentra toda sua energia vital num único disparo que consome a si mesmo — perde vida na hora só para ativar."},
+"Reiner Braun": {name:"Titã Blindado: Investida Total", lifeBonus:88, atkBonus:44, desc:"A blindagem se fecha por completo e ele deixa de recuar — avança atravessando o que estiver na frente."},
+"Shoto Todoroki": {name:"Meio-Frio Meio-Quente: Potência Máxima", lifeBonus:82, atkBonus:46, desc:"Para de recusar o lado esquerdo e usa gelo e chama ao mesmo tempo, sem se poupar."},
+"Alex Louis Armstrong": {name:"Alquimia Transmitida por Gerações", lifeBonus:80, atkBonus:42, desc:"A técnica passada de geração em geração na família Armstrong, aplicada com toda a força do corpo."},
+"Jack Hanma": {name:"Fúria do Sangue Hanma", lifeBonus:86, atkBonus:48, desc:"O sangue Hanma ferve e ele luta ignorando por completo o próprio limite físico."},
+"Tanjiro Kamado (Hi)": {name:"Respiração do Sol: Treze Formas", lifeBonus:84, atkBonus:46, desc:"Encadeia as doze formas numa décima terceira, o ciclo completo da Respiração do Sol."},
+"Eren Yeager": {name:"Titã Fundador: Grito Ancestral", lifeBonus:74, atkBonus:40, desc:"Um brado que ecoa por gerações de titãs, dobrando a realidade ao seu redor."}
 };
 
 /* =========================================================================
@@ -2061,7 +2182,8 @@ Object.keys(RAW).forEach(anime=>{
       id: "c"+thisId,
       name, anime, level, type,
       class: ct[0], element: ct[1],
-      life: kit.life, physShield: kit.physShield, magShield: kit.magShield,
+      vida: kit.vida, atkFis: kit.atkFis, atkMag: kit.atkMag,
+      defFis: kit.defFis, defMag: kit.defMag, vel: kit.vel,
       attacks: [...kit.attacks, fourthAtk],
       appearance: ap ? {skin:ap[0], hairColor:ap[1], hairStyle:ap[2], outfit:ap[3], outfit2:ap[4]} : null,
       ultimate: null
@@ -2075,19 +2197,33 @@ Object.keys(RAW).forEach(anime=>{
    Os limiares de percentil e o cálculo do score continuam exatamente os mesmos:
    a mudança é só de nome e de cor. `rankKey` é a versão sem acento usada em
    classe CSS; `rank` é o rótulo que aparece na tela. */
+// Cinco tiers. Os cortes de Mítico (15%) e Lendário (40%) foram MANTIDOS de
+// propósito: são eles que decidem quem recebe Ultimate, e mexer neles mudaria
+// o elenco de personagens transformáveis. O Épico nasceu de dividir o antigo
+// Raro, que sozinho cobria metade do elenco e não distinguia nada.
 const RANK_TIERS = [
   {pct:0.15, key:"mitico",   label:"Mítico"},
   {pct:0.40, key:"lendario", label:"Lendário"},
-  {pct:0.75, key:"raro",     label:"Raro"},
+  {pct:0.60, key:"epico",    label:"Épico"},
+  {pct:0.80, key:"raro",     label:"Raro"},
   {pct:1.01, key:"comum",    label:"Comum"}
 ];
+const RANK_ORDER = ["comum","raro","epico","lendario","mitico"]; // crescente
 const ULT_TIERS = ["mitico","lendario"]; // só esses dois recebem Ultimate
 
 (function rankCharacters(){
+  // Score sobre os 6 atributos novos. Ataque entra pelo MAIOR dos dois (um mago
+  // não é fraco por ter ataque físico baixo) somado ao poder das habilidades.
   const scored = CHARACTERS.map(c=>{
-    const atkPower = c.attacks.reduce((sum,a)=> sum + (a.dmg||0), 0);
-    const effectBonus = c.attacks.filter(a=>a.effect).length * 6;
-    const score = c.life + (c.physShield+c.magShield)*1.3 + atkPower*1.4 + effectBonus;
+    const somaPoder = c.attacks.reduce((s,a)=> s + (a.power||0), 0);
+    const efeitos = c.attacks.filter(a=>a.effect).length * 14;
+    const ofensivo = Math.max(c.atkFis, c.atkMag);
+    const score = c.vida
+                + (c.defFis + c.defMag) * 0.55
+                + ofensivo * 1.1
+                + somaPoder * 0.5
+                + c.vel * 0.35
+                + efeitos;
     return {c, score};
   }).sort((a,b)=>b.score-a.score);
   const n = scored.length;
@@ -2100,9 +2236,9 @@ const ULT_TIERS = ["mitico","lendario"]; // só esses dois recebem Ultimate
       const u = ULTIMATES[entry.c.name];
       if(u) entry.c.ultimate = u.kind==="meteor"
         ? {name:u.name, kind:"meteor", aoeDmg:u.aoeDmg, dmgType:u.dmgType, desc:u.desc}
-        : {name:u.name, kind:"transform", lifeBonus:u.lifeBonus, dmgBonus:u.dmgBonus,
+        : {name:u.name, kind:"transform", lifeBonus:u.lifeBonus, atkBonus:u.atkBonus,
            growPerHit:u.growPerHit||null, growCap:u.growCap||null, explodeOnDeath:!!u.explodeOnDeath,
-           selfRecoil:u.selfRecoil||null, upfrontToll:u.upfrontToll||null, permanentShieldCost:u.permanentShieldCost||null,
+           selfRecoil:u.selfRecoil||null, upfrontToll:u.upfrontToll||null, permanentDefCost:u.permanentDefCost||null,
            desc:u.desc};
     }
   });
@@ -2361,27 +2497,93 @@ function setIndexView(v){
 function renderCharIndex(){
   if(indexSelectedId){ renderCharDetail(charById(indexSelectedId)); return; }
   const term = indexSearchTerm.toLowerCase();
-  const filtered = CHARACTERS.filter(c => c.name.toLowerCase().includes(term) || c.anime.toLowerCase().includes(term));
+  const filtrados = CHARACTERS.filter(c => c.name.toLowerCase().includes(term) || c.anime.toLowerCase().includes(term));
+
+  // Agrupado por anime e, dentro de cada anime, em raridade CRESCENTE.
+  // A ordem dos animes segue ANIMES (a mesma do banco de dados), não a
+  // alfabética, pra bater com a ordem em que os personagens foram criados.
+  const porAnime = ANIMES
+    .map(anime => ({
+      anime,
+      chars: filtrados.filter(c => c.anime === anime)
+                      .sort((a,b) => RANK_ORDER.indexOf(a.rankKey) - RANK_ORDER.indexOf(b.rankKey))
+    }))
+    .filter(g => g.chars.length > 0);
+
   app.innerHTML = `
-    <div class="eyebrow">Índice</div>
+    <div class="eyebrow">Anidex</div>
     <h1>Todos os Personagens</h1>
-    <p class="sub">${CHARACTERS.length} lutadores de 27 animes. Toque em um pra ver o kit completo.</p>
+    <p class="sub">${CHARACTERS.length} lutadores de ${ANIMES.length} animes, agrupados por série e ordenados do Comum ao Mítico.</p>
     <div class="card">
       <input type="text" id="indexSearch" placeholder="Buscar por nome ou anime..." value="${indexSearchTerm.replace(/"/g,'&quot;')}" oninput="updateIndexSearch(this.value)">
     </div>
     <div class="index-list">
-      ${filtered.map(c=>`
-        <div class="index-row" onclick="selectIndexChar('${c.id}')">
-          ${fighterArt(c,{view:"front"})}
-          <div class="index-info">
-            <div class="index-name">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span> ${hasSprite(c)?'<span class="badge spr">Pixel art</span>':''}</div>
-            <div class="index-sub">${c.anime} · ${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
-          </div>
+      ${porAnime.map(g=>`
+        <div class="anime-group">
+          <div class="anime-head">${g.anime} <span class="anime-count">${g.chars.length}</span></div>
+          ${g.chars.map(c=>`
+            <div class="index-row" onclick="selectIndexChar('${c.id}')">
+              ${fighterArt(c,{view:"front"})}
+              <div class="index-info">
+                <div class="index-name">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span></div>
+                <div class="index-sub">${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
+              </div>
+            </div>`).join("")}
         </div>`).join("")}
-      ${filtered.length===0?'<p class="hint center">Nenhum personagem encontrado.</p>':''}
+      ${porAnime.length===0?'<p class="hint center">Nenhum personagem encontrado.</p>':''}
     </div>
     <div class="center" style="margin-top:16px;"><button class="btn" onclick="closeCharIndex()">← Voltar ao menu</button></div>
   `;
+}
+
+/* GRÁFICO DE RADAR (hexágono, 6 atributos).
+   Cada eixo é normalizado pelo SEU próprio intervalo — vida vai de 100 a 300 e
+   velocidade de 10 a 200, então usar uma escala única achataria uns e estouraria
+   outros. Assim "cheio" significa sempre "no topo daquele atributo". */
+const RADAR_AXES = [
+  {key:"atkFis", label:"ATK Fís", min:30,  max:200},
+  {key:"atkMag", label:"ATK Mág", min:30,  max:200},
+  {key:"defMag", label:"DEF Mág", min:50,  max:200},
+  {key:"vel",    label:"VEL",     min:10,  max:200},
+  {key:"defFis", label:"DEF Fís", min:50,  max:200},
+  {key:"vida",   label:"Vida",    min:100, max:300}
+];
+
+function radarChart(c){
+  const CX=130, CY=125, R=82;
+  const n = RADAR_AXES.length;
+  const ponto = (i, frac)=>{
+    const ang = (Math.PI*2*i)/n - Math.PI/2;
+    return [CX + Math.cos(ang)*R*frac, CY + Math.sin(ang)*R*frac];
+  };
+  const teias = [0.25,0.5,0.75,1].map(f=>
+    `<polygon points="${RADAR_AXES.map((_,i)=>ponto(i,f).map(v=>v.toFixed(1)).join(",")).join(" ")}"
+      fill="none" stroke="${f===1?'#3a4152':'#2a2f3d'}" stroke-width="1"/>`).join("");
+  const eixos = RADAR_AXES.map((_,i)=>{
+    const [x,y]=ponto(i,1);
+    return `<line x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#2a2f3d" stroke-width="1"/>`;
+  }).join("");
+  const fracs = RADAR_AXES.map(a=>{
+    const v = c[a.key];
+    return Math.max(0.04, Math.min(1, (v-a.min)/(a.max-a.min)));
+  });
+  const forma = fracs.map((f,i)=>ponto(i,f).map(v=>v.toFixed(1)).join(",")).join(" ");
+  const bolinhas = fracs.map((f,i)=>{
+    const [x,y]=ponto(i,f);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--gold)"/>`;
+  }).join("");
+  const rotulos = RADAR_AXES.map((a,i)=>{
+    const [x,y]=ponto(i,1.30);
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle"
+             font-size="10.5" font-weight="700" fill="#9aa0af">${a.label}</text>
+            <text x="${x.toFixed(1)}" y="${(y+11).toFixed(1)}" text-anchor="middle" dominant-baseline="middle"
+             font-size="11" font-weight="800" fill="#eceef2">${c[a.key]}</text>`;
+  }).join("");
+  return `<svg class="radar" viewBox="0 0 260 250" role="img" aria-label="Atributos de ${c.name}">
+    ${teias}${eixos}
+    <polygon points="${forma}" fill="rgba(224,181,89,.24)" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"/>
+    ${bolinhas}${rotulos}
+  </svg>`;
 }
 
 function renderCharDetail(c){
@@ -2411,18 +2613,14 @@ function renderCharDetail(c){
         <div class="anime" style="margin-top:8px;">${c.anime}</div>
         <div class="hint" style="margin-top:4px;">${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
         ${viewer}
-        <div class="stat-row">
-          <div class="stat"><div class="val">${c.life}</div><div class="lbl">Vida</div></div>
-          <div class="stat"><div class="val">${c.physShield}</div><div class="lbl">Escudo Físico</div></div>
-          <div class="stat"><div class="val">${c.magShield}</div><div class="lbl">Escudo Mágico</div></div>
-        </div>
+        <div class="radar-wrap">${radarChart(c)}</div>
       </div>
       <div class="attacks">
         ${c.attacks.map(a=>`
           <div class="attack">
             <div>
               <div class="an">${a.name} <span class="badge ${a.dmgType}">${a.dmgType==='physical'?'Físico':'Mágico'}</span> ${a.onceOnly?'<span class="badge once">Uso único</span>':''}</div>
-              <div class="ad">${a.category==='melee'?'Corpo a corpo · sem cooldown':'Especial · cooldown '+a.cooldown+' turnos'}${a.dmg?' · '+a.dmg+' dano':''}${a.effect?' · '+describeEffect(a.effect):''}</div>
+              <div class="ad">${a.category==='melee'?'Corpo a corpo · sem cooldown':'Especial · cooldown '+a.cooldown+' turnos'}${a.power>0?' · poder '+a.power:''}${a.precision<100?' · precisão '+a.precision+'%':''}${a.effect?' · '+describeEffect(a.effect):''}</div>
             </div>
           </div>`).join("")}
       </div>
@@ -2432,8 +2630,8 @@ function renderCharDetail(c){
         <p class="hint">${c.ultimate.desc}</p>
         <p class="hint">${c.ultimate.kind==="meteor"
           ? `⚠️ Atinge todos em campo: ${c.ultimate.aoeDmg} de dano ${c.ultimate.dmgType==="physical"?"físico":"mágico"} nos inimigos, metade nos aliados. Usa o turno.`
-          : `+${c.ultimate.lifeBonus} vida, +${c.ultimate.dmgBonus} dano, -40% de escudo por até 3 rodadas${c.ultimate.growPerHit?`, cresce ao apanhar (até +${c.ultimate.growCap})`:''}${c.ultimate.explodeOnDeath?', explode nos aliados se morrer com poder acumulado':''}${c.ultimate.selfRecoil?`, perde ${c.ultimate.selfRecoil.value} de vida por ${c.ultimate.selfRecoil.turns} rodadas próprias`:''}${c.ultimate.upfrontToll?`, sacrifica ${c.ultimate.upfrontToll} de vida na hora`:''}${c.ultimate.permanentShieldCost?`, -${c.ultimate.permanentShieldCost} de escudo permanente`:''}. Não gasta o turno.`}</p>
-      ` : `<div class="divider"></div><p class="hint">Sem Ultimate (raridade Raro/Comum).</p>`}
+          : `+${c.ultimate.lifeBonus} vida, +${c.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas${c.ultimate.growPerHit?`, cresce ao apanhar (até +${c.ultimate.growCap})`:''}${c.ultimate.explodeOnDeath?', explode nos aliados se morrer com poder acumulado':''}${c.ultimate.selfRecoil?`, perde ${c.ultimate.selfRecoil.value} de vida por ${c.ultimate.selfRecoil.turns} rodadas próprias`:''}${c.ultimate.upfrontToll?`, sacrifica ${c.ultimate.upfrontToll} de vida na hora`:''}${c.ultimate.permanentDefCost?`, -${c.ultimate.permanentDefCost} de defesa permanente`:''}. Não gasta o turno.`}</p>
+      ` : `<div class="divider"></div><p class="hint">Sem Ultimate — só Mítico e Lendário recebem.</p>`}
     </div>
     <div class="row" style="gap:8px;">
       <button class="btn" onclick="backToIndexList()">← Lista de personagens</button>
@@ -2631,9 +2829,9 @@ function renderAuction(state){
 }
 
 function describeEffect(e){
-  if(e.type==="shield") return "+"+e.value+" de escudo até ser atingido";
+  if(e.type==="shield") return "+"+e.value+" de defesa até ser atingido";
   if(e.type==="heal") return "cura "+e.value+" de vida";
-  if(e.type==="debuff") return "-"+e.value+" no escudo do alvo até ser atingido";
+  if(e.type==="debuff") return "-"+e.value+" na defesa do alvo até ser atingido";
   if(e.type==="stun") return "atordoa por 1 turno";
   if(e.type==="dot") return e.value+" de dano contínuo por 2 turnos";
   return "";
@@ -2771,7 +2969,7 @@ function renderUltimate(state){
           <div class="mini-card">
             <div class="mn">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span> ${c.ultimate?'<span class="badge ult">Ultimate</span>':''}</div>
             <div class="ma">${c.anime} · ${c.class} · <span class="badge element-${c.element}">${ELEMENT_ICON[c.element]||''} ${c.element}</span></div>
-            <div style="font-size:11px; color:var(--text-dim);">Vida ${c.life} · Esc.Fís ${c.physShield} · Esc.Mág ${c.magShield}</div>
+            <div style="font-size:11px; color:var(--text-dim);">❤️ ${c.vida} · ⚔️ ${Math.max(c.atkFis,c.atkMag)} · 🛡️ ${Math.round((c.defFis+c.defMag)/2)} · ⚡ ${c.vel}</div>
           </div>`).join("")}
       </div>
       ${ultCandidates.length===0 ? `<p class="status-line" style="margin-top:14px;">Nenhum personagem do seu time possui Ultimate — siga em frente.</p>` : `
@@ -2781,7 +2979,7 @@ function renderUltimate(state){
         <option value="">Selecione um personagem</option>
         ${ultCandidates.map(c=>`<option value="${c.id}" ${chosen===c.id?'selected':''}>${c.name}</option>`).join("")}
       </select>
-      ${chosen ? (()=>{ const cc=charById(chosen); return `<div class="ultimate-box"><strong>${cc.ultimate.name}</strong><br>${cc.ultimate.desc}<br>${cc.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo — ignora escudo — inimigos levam ${cc.ultimate.aoeDmg} de dano ${cc.ultimate.dmgType==="physical"?"físico":"mágico"}, aliados levam metade.` : `+${cc.ultimate.lifeBonus} vida máxima, +${cc.ultimate.dmgBonus} de dano, -40% de escudo por até 3 rodadas${cc.ultimate.growPerHit?`, fica mais forte a cada golpe apanhado`:''}.`}</div>`; })() : ''}
+      ${chosen ? (()=>{ const cc=charById(chosen); return `<div class="ultimate-box"><strong>${cc.ultimate.name}</strong><br>${cc.ultimate.desc}<br>${cc.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo — ignora defesa — inimigos levam ${cc.ultimate.aoeDmg} de dano ${cc.ultimate.dmgType==="physical"?"físico":"mágico"}, aliados levam metade.` : `+${cc.ultimate.lifeBonus} vida máxima, +${cc.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas${cc.ultimate.growPerHit?`, fica mais forte a cada golpe apanhado`:''}.`}</div>`; })() : ''}
       `}
       <div style="margin-top:16px; text-align:center;">
         <button class="btn primary" onclick="confirmReady()">${chosen || ultCandidates.length===0 ? 'Confirmar time' : 'Confirmar sem Ultimate'}</button>
@@ -3027,27 +3225,76 @@ async function flipCoin(){
 
 /* ============ MOTOR DE BATALHA ============ */
 function initBattle(state){
+  const primeiroP1 = state.attackOrder.p1[0], primeiroP2 = state.attackOrder.p2[0];
   const battle = {
-    // Fallback: um modo novo que esqueça de sortear quem começa não pode
-    // derrubar a batalha — no pior caso o p1 começa.
-    currentTurn: (state.coinResult==="p1" || state.coinResult==="p2") ? state.coinResult : "p1",
-    activeChar: {p1: state.attackOrder.p1[0], p2: state.attackOrder.p2[0]},
+    currentTurn: quemComeca(state, primeiroP1, primeiroP2),
+    activeChar: {p1: primeiroP1, p2: primeiroP2},
     mustSwitch: {p1:false, p2:false},
-    hp:{}, cooldowns:{}, onceUsed:{}, stunned:{}, shields:{}, tempShield:{}, dmgBonus:{}, maxLifeBonus:{}, ultimateUsed:{}, transformed:{}, dot:{},
+    hp:{}, cooldowns:{}, onceUsed:{}, stunned:{}, def:{}, tempDef:{}, atkBonus:{},
+    maxLifeBonus:{}, ultimateUsed:{}, transformed:{}, dot:{},
     growOnHit:{}, transformActive:{}, stunImmune:{}, selfRecoil:{},
     log:["A batalha começou!"]
   };
   [...state.teams.p1, ...state.teams.p2].forEach(id=>{
     const c = charById(id);
-    battle.hp[id]=c.life;
-    battle.shields[id]={phys:c.physShield, mag:c.magShield};
+    battle.hp[id]=c.vida;
+    battle.def[id]={fis:c.defFis, mag:c.defMag};
     battle.cooldowns[id]=[0,0,0,0];
     battle.onceUsed[id]=[false,false,false,false];
     battle.stunned[id]=false;
-    battle.dmgBonus[id]=0;
+    battle.atkBonus[id]=0;
     battle.maxLifeBonus[id]=0;
   });
   return battle;
+}
+
+/* A VELOCIDADE decide quem abre o duelo. Empate cai no resultado da moeda (ou
+   no p1), pra continuar determinístico e igual nos dois clientes. */
+function quemComeca(state, idP1, idP2){
+  const v1 = charById(idP1).vel, v2 = charById(idP2).vel;
+  if(v1 > v2) return "p1";
+  if(v2 > v1) return "p2";
+  return (state.coinResult==="p1" || state.coinResult==="p2") ? state.coinResult : "p1";
+}
+
+/* ---------- atributos efetivos em combate ---------- */
+function atkStat(state, id, dmgType){
+  const c = charById(id);
+  const base = dmgType==="physical" ? c.atkFis : c.atkMag;
+  return Math.max(1, base + (state.battle.atkBonus[id]||0));
+}
+function defStat(state, id, dmgType){
+  const b = state.battle;
+  const k = dmgType==="physical" ? "fis" : "mag";
+  const temp = (b.tempDef && b.tempDef[id] && b.tempDef[id][k]) || 0;
+  return Math.max(0, b.def[id][k] + temp);
+}
+
+/* DANO
+     Bruto = Ataque x (Poder da Habilidade / 100)
+     Final = Bruto x (100 / (100 + Defesa))
+   A defesa deixou de ser subtração e virou divisor: ela agora reduz uma FRAÇÃO
+   do dano, então nunca zera um golpe nem deixa de importar contra golpes fortes. */
+function calcDano(state, attackerId, targetId, atk){
+  const a = atkStat(state, attackerId, atk.dmgType);
+  const d = defStat(state, targetId, atk.dmgType);
+  const bruto = a * ((atk.power||0)/100);
+  return Math.max(1, Math.round(bruto * (100/(100+d))));
+}
+
+/* ESQUIVA E PRECISÃO
+   Quem é mais rápido esquiva de quem é mais lento: o dobro da velocidade dá 25%.
+   A chance de errar soma a esquiva do alvo com o que falta pra precisão do golpe
+   chegar a 100 — e o total nunca passa de 60%, senão golpes fortes viraria loteria. */
+const MAX_MISS = 60;
+function chanceEsquiva(state, attackerId, targetId){
+  const va = charById(attackerId).vel, vt = charById(targetId).vel;
+  if(vt <= va) return 0;
+  return Math.min(MAX_MISS, ((vt/va) - 1) * 25);
+}
+function chanceErro(state, attackerId, targetId, atk){
+  const falta = 100 - (atk.precision===undefined ? 100 : atk.precision);
+  return Math.min(MAX_MISS, chanceEsquiva(state, attackerId, targetId) + falta);
 }
 
 function checkDeathPenalty(state, id, wasAliveBefore){}
@@ -3061,7 +3308,7 @@ function checkGrowOnHit(state, id, wasAliveBefore){
   if(g.current >= g.cap) return;
   const gain = Math.min(g.perHit, g.cap-g.current);
   g.current += gain;
-  b.dmgBonus[id] = (b.dmgBonus[id]||0) + gain;
+  b.atkBonus[id] = (b.atkBonus[id]||0) + gain;
   const c = charById(id);
   b.log.unshift(`${c.name} fica mais forte ao apanhar! (+${gain} de dano, ${g.current}/${g.cap} acumulado)`);
 }
@@ -3108,9 +3355,9 @@ function tickTransformDuration(state, id){
   const t = b.transformActive[id];
   t.turnsLeft -= 1;
   if(t.turnsLeft<=0){
-    b.shields[id].phys = t.original.phys;
-    b.shields[id].mag = t.original.mag;
-    b.dmgBonus[id] = 0;
+    b.def[id].fis = t.original.fis;
+    b.def[id].mag = t.original.mag;
+    b.atkBonus[id] = 0;
     b.maxLifeBonus[id] = 0;
     b.hp[id] = Math.min(b.hp[id], maxLifeOf(state,id));
     b.transformed[id] = false;
@@ -3188,7 +3435,7 @@ function checkForcedSwitch(state){
 
 function maxLifeOf(state, id){
   const c = charById(id);
-  return c.life + (state.battle.maxLifeBonus[id]||0);
+  return c.vida + (state.battle.maxLifeBonus[id]||0);
 }
 function teamOf(state,id){ return state.teams.p1.includes(id) ? "p1" : "p2"; }
 function aliveIds(state, key){ return state.teams[key].filter(id=>state.battle.hp[id]>0); }
@@ -3204,12 +3451,10 @@ function hudFor(state, id, side){
   const hp = Math.max(0,b.hp[id]);
   const maxHp = maxLifeOf(state,id);
   const pct = Math.max(0,Math.round((hp/maxHp)*100));
-  const sh = b.shields[id];
-  const tempMod = b.tempShield && b.tempShield[id];
-  const dPhys = tempMod ? (tempMod.phys||0) : 0;
-  const dMag = tempMod ? (tempMod.mag||0) : 0;
   const tag = (t)=> `<span class="hud-tag">${t}</span>`;
-  let tags = tag(`🛡️F ${Math.max(0,sh.phys+dPhys)}`) + tag(`🛡️M ${Math.max(0,sh.mag+dMag)}`);
+  let tags = tag(`🛡️F ${defStat(state,id,"physical")}`)
+           + tag(`🛡️M ${defStat(state,id,"magic")}`)
+           + tag(`⚡ ${c.vel}`);
   if(b.stunned[id] && hp>0) tags += tag("💫 atordoado");
   if(b.dot && b.dot[id] && hp>0) tags += tag("🔥 "+b.dot[id].source);
   if(b.stunImmune && b.stunImmune[id] && hp>0) tags += tag("🔰 "+b.stunImmune[id].turnsLeft);
@@ -3308,6 +3553,7 @@ function renderBattle(state){
         <h3>${attackerChar.name} <span class="badge rank-${attackerChar.rankKey}">${attackerChar.rank}</span> ${isTransformed?'<span class="badge ult">✨ Transformado</span>':''} — escolha o ataque</h3>
         <p class="hint" style="margin-top:-6px; margin-bottom:10px;">${attackerChar.class} · <span class="badge element-${attackerChar.element}">${ELEMENT_ICON[attackerChar.element]||''} ${attackerChar.element}</span></p>
         ${attackerChar.attacks.map((a,i)=>{
+          const erro = chanceErro(state, myActiveId, oppActiveId, a);
           const cdLeft = state.battle.cooldowns[myActiveId][i];
           const usedOnce = a.onceOnly && state.battle.onceUsed[myActiveId][i];
           const disabled = cdLeft>0 || usedOnce;
@@ -3315,15 +3561,22 @@ function renderBattle(state){
           const displayName = isTransformed ? `${attackerChar.ultimate.name}: ${a.name}` : a.name;
           return `<button class="atk-btn" ${disabled?'disabled':''} onclick="doAttack(${i})">
             <div class="an">${displayName} ${typeTag} ${a.onceOnly?'<span class="badge once">único</span>':''}</div>
-            <div class="ad">${disabled ? (usedOnce?'já usado nessa partida':'em cooldown ('+cdLeft+' turnos)') : (a.category==='melee'?'sem cooldown':'cooldown '+a.cooldown+' turnos')+(a.dmg?' · '+(a.dmg+(isTransformed?(state.battle.dmgBonus[myActiveId]||0):0))+' dano'+(isTransformed?' (reforçado)':''):'')+(a.effect?' · '+describeEffect(a.effect):'')}</div>
+            <div class="ad">${disabled
+              ? (usedOnce?'já usado nessa partida':'em cooldown ('+cdLeft+' turnos)')
+              : (a.category==='melee'?'sem cooldown':'cooldown '+a.cooldown+' turnos')
+                + (a.power>0 ? ' · ~'+calcDano(state,myActiveId,oppActiveId,a)+' de dano'+(isTransformed?' (reforçado)':'') : '')
+                + (erro>0 ? ' · '+Math.round(erro)+'% de errar' : '')
+                + (a.effect?' · '+describeEffect(a.effect):'')}</div>
           </button>`;
         }).join("")}
         ${state.ultimateChoice[myKey]===myActiveId && !state.battle.ultimateUsed[myActiveId] ? `
           <div class="ultimate-box">
             <strong>${attackerChar.ultimate.name}</strong> — ${attackerChar.ultimate.desc}<br>
-            ${attackerChar.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo ignorando escudo — ${attackerChar.ultimate.aoeDmg} de dano ${attackerChar.ultimate.dmgType==="physical"?"físico":"mágico"} nos inimigos, metade nos aliados. Usa o turno.` : `+${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.dmgBonus} dano em cada ataque, -40% de escudo por até 3 rodadas${attackerChar.ultimate.growPerHit?`, e fica ainda mais forte a cada golpe que apanhar (até +${attackerChar.ultimate.growCap} de dano)`:''}. Não gasta o turno.`}
+            ${attackerChar.ultimate.kind==="meteor" ? `⚠️ Atinge TODOS em campo ignorando defesa — ${attackerChar.ultimate.aoeDmg} de dano ${attackerChar.ultimate.dmgType==="physical"?"físico":"mágico"} nos inimigos, metade nos aliados. Usa o turno.` : `+${attackerChar.ultimate.lifeBonus} vida, +${attackerChar.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas${attackerChar.ultimate.growPerHit?`, e fica ainda mais forte a cada golpe que apanhar (até +${attackerChar.ultimate.growCap} de ataque)`:''}. Não gasta o turno.`}
             <div style="margin-top:8px;"><button class="btn danger" onclick="useUltimate()">${attackerChar.ultimate.kind==="meteor"?'Ativar Ultimate (usa o turno)':'Transformar (grátis)'}</button></div>
           </div>` : ''}
+        ${(()=>{ const e=Math.round(chanceEsquiva(state,myActiveId,oppActiveId));
+          return e>0 ? `<p class="hint" style="margin-top:8px;">⚡ ${charById(oppActiveId).name} é mais rápido: +${e}% de chance de desviar dos seus golpes.</p>` : ''; })()}
         <p class="hint" style="margin-top:8px;">Toque em outro lutador seu nas reservas pra trocar — isso usa sua vez.</p>
       </div>` : ''}
     </div>
@@ -3677,7 +3930,7 @@ function applyAction(state, attackerId, atkIdx, targetId){
   const c = charById(attackerId);
   const atk = c.attacks[atkIdx];
   const b = state.battle;
-  if(!b.tempShield) b.tempShield = {};
+  if(!b.tempDef) b.tempDef = {};
   const fxEffects = [];
   const fxColor = ELEMENT_GLOW[c.element] || "#e0b559";
   const fxShape = fxShapeFor(c.element, atk.dmgType);
@@ -3685,26 +3938,39 @@ function applyAction(state, attackerId, atkIdx, targetId){
   if(b.cooldowns[attackerId][atkIdx]>0 || (atk.onceOnly && b.onceUsed[attackerId][atkIdx])){
     b.log.unshift(`${c.name} tentou usar ${atk.name}, mas ainda não está pronto.`);
   } else {
-    if(atk.dmg>0 && targetId){
+    // ---- ESQUIVA / PRECISÃO ----
+    // Rolado UMA vez, aqui, na máquina de quem age. O resultado vai gravado no
+    // estado, então os dois clientes veem o mesmo desfecho — nada é re-sorteado
+    // do outro lado.
+    let errou = false;
+    if(targetId && (atk.power>0 || atk.effect)){
+      const risco = chanceErro(state, attackerId, targetId, atk);
+      if(risco > 0 && Math.random()*100 < risco){
+        errou = true;
+        const tgt = charById(targetId);
+        const esq = Math.round(chanceEsquiva(state, attackerId, targetId));
+        b.log.unshift(`${c.name} usou ${atk.name} — ${tgt.name} desviou! (${Math.round(risco)}% de chance de erro${esq>0?`, ${esq}% por velocidade`:''})`);
+        fxEffects.push({targetId, kind:"miss"});
+      }
+    }
+
+    if(!errou && atk.power>0 && targetId){
       const tgt = charById(targetId);
-      const shieldKey = atk.dmgType==="physical"?"phys":"mag";
-      const tempMod = (b.tempShield[targetId] && b.tempShield[targetId][shieldKey]) || 0;
-      const shieldVal = Math.max(0, b.shields[targetId][shieldKey] + tempMod);
-      const dmg = Math.max(5, (atk.dmg + (b.dmgBonus[attackerId]||0)) - shieldVal);
+      const dmg = calcDano(state, attackerId, targetId, atk);
       const wasAlive = b.hp[targetId]>0;
       b.hp[targetId] = Math.max(0, b.hp[targetId]-dmg);
       b.log.unshift(`${c.name} usou ${atk.name} em ${tgt.name}: ${dmg} de dano.`);
-      // Qualquer escudo temporário no alvo é consumido no instante em que ele apanha.
-      if(b.tempShield[targetId]){ delete b.tempShield[targetId]; }
+      // Defesa temporária do alvo é consumida no instante em que ele apanha.
+      if(b.tempDef[targetId]){ delete b.tempDef[targetId]; }
       checkDeathPenalty(state, targetId, wasAlive);
       checkGrowOnHit(state, targetId, wasAlive);
       checkExplodeOnDeath(state, targetId, wasAlive);
       fxEffects.push({targetId, kind:"hit", color:fxColor, shape:fxShape, value:dmg});
       if(b.hp[targetId]<=0) b.log.unshift(`${tgt.name} foi derrotado!`);
     }
-    if(atk.effect){
+    if(atk.effect && !errou){
       if(atk.effect.type==="shield"){
-        b.tempShield[attackerId] = {phys: atk.effect.value, mag: atk.effect.value};
+        b.tempDef[attackerId] = {fis: atk.effect.value, mag: atk.effect.value};
         b.log.unshift(`${c.name} reforça a defesa em +${atk.effect.value} até ser atingido.`);
         fxEffects.push({targetId:attackerId, kind:"shield", color:"#8fc0ff"});
       } else if(atk.effect.type==="heal"){
@@ -3715,10 +3981,10 @@ function applyAction(state, attackerId, atkIdx, targetId){
         fxEffects.push({targetId:attackerId, kind:"heal", value:b.hp[attackerId]-before});
       } else if(atk.effect.type==="debuff" && targetId){
         const tgt = charById(targetId);
-        const shieldKey = atk.dmgType==="physical"?"phys":"mag";
-        if(!b.tempShield[targetId]) b.tempShield[targetId] = {phys:0, mag:0};
-        b.tempShield[targetId][shieldKey] = -atk.effect.value;
-        b.log.unshift(`${tgt.name} fica vulnerável (-${atk.effect.value} de escudo até ser atingido).`);
+        const k = atk.dmgType==="physical"?"fis":"mag";
+        if(!b.tempDef[targetId]) b.tempDef[targetId] = {fis:0, mag:0};
+        b.tempDef[targetId][k] = -atk.effect.value;
+        b.log.unshift(`${tgt.name} fica vulnerável (-${atk.effect.value} de defesa até ser atingido).`);
       } else if(atk.effect.type==="stun" && targetId){
         const tgt = charById(targetId);
         if(!b.stunImmune) b.stunImmune = {};
@@ -3775,7 +4041,7 @@ async function useUltimate(){
   if(!ultId || ultId!==activeId || state.battle.currentTurn!==myKey || state.battle.ultimateUsed[ultId]) return;
   const c = charById(ultId);
   const b = state.battle;
-  if(!b.tempShield) b.tempShield = {};
+  if(!b.tempDef) b.tempDef = {};
   if(!b.transformed) b.transformed = {};
   if(!b.growOnHit) b.growOnHit = {};
   if(!b.transformActive) b.transformActive = {};
@@ -3817,21 +4083,21 @@ async function useUltimate(){
     // (Might Guy, Tenshinhan, Edward) um preço extra próprio da história deles.
     b.maxLifeBonus[ultId] = c.ultimate.lifeBonus;
     b.hp[ultId] = Math.min(maxLifeOf(state,ultId), b.hp[ultId]+c.ultimate.lifeBonus);
-    b.dmgBonus[ultId] = c.ultimate.dmgBonus;
+    b.atkBonus[ultId] = c.ultimate.atkBonus;
     b.transformed[ultId] = true;
     // Dispara a animação de duas fases nos DOIS clientes: quem transformou vê
     // pelo redesenho imediato, o adversário vê quando o polling trouxer a
     // revisão nova. O nonce garante que cada um toque a animação uma vez só.
     b.lastFx = {nonce: nextFxNonce(b), kind:"transform", targetId: ultId, name: c.ultimate.name};
 
-    let baselinePhys = b.shields[ultId].phys;
-    let baselineMag = b.shields[ultId].mag;
+    let baselineFis = b.def[ultId].fis;
+    let baselineMag = b.def[ultId].mag;
     let extraLog = "";
 
-    if(c.ultimate.permanentShieldCost){
-      baselinePhys = Math.max(1, baselinePhys - c.ultimate.permanentShieldCost);
-      baselineMag = Math.max(1, baselineMag - c.ultimate.permanentShieldCost);
-      extraLog += ` Paga um preço permanente: -${c.ultimate.permanentShieldCost} de escudo pro resto da luta.`;
+    if(c.ultimate.permanentDefCost){
+      baselineFis = Math.max(10, baselineFis - c.ultimate.permanentDefCost);
+      baselineMag = Math.max(10, baselineMag - c.ultimate.permanentDefCost);
+      extraLog += ` Paga um preço permanente: -${c.ultimate.permanentDefCost} de defesa pro resto da luta.`;
     }
     if(c.ultimate.upfrontToll){
       b.hp[ultId] = Math.max(1, b.hp[ultId]-c.ultimate.upfrontToll);
@@ -3842,16 +4108,16 @@ async function useUltimate(){
       extraLog += ` Vai perder ${c.ultimate.selfRecoil.value} de vida a cada rodada própria durante ${c.ultimate.selfRecoil.turns} rodadas.`;
     }
 
-    b.shields[ultId].phys = Math.max(2, Math.round(baselinePhys*0.6));
-    b.shields[ultId].mag = Math.max(2, Math.round(baselineMag*0.6));
-    b.transformActive[ultId] = {turnsLeft:3, original:{phys:baselinePhys, mag:baselineMag}};
+    b.def[ultId].fis = Math.max(10, Math.round(baselineFis*0.6));
+    b.def[ultId].mag = Math.max(10, Math.round(baselineMag*0.6));
+    b.transformActive[ultId] = {turnsLeft:3, original:{fis:baselineFis, mag:baselineMag}};
 
     let growNote = "";
     if(c.ultimate.growPerHit){
       b.growOnHit[ultId] = {perHit:c.ultimate.growPerHit, cap:c.ultimate.growCap, current:0};
       growNote = ` Quanto mais apanhar a partir de agora, mais forte fica (até +${c.ultimate.growCap} de dano extra)${c.ultimate.explodeOnDeath?' — mas se cair com poder acumulado, ele explode nos próprios aliados!':''}.`;
     }
-    b.log.unshift(`${c.name} se transforma: ${c.ultimate.name}! (+${c.ultimate.lifeBonus} vida, +${c.ultimate.dmgBonus} dano em cada ataque, -40% de escudo por até 3 rodadas próprias)${extraLog}${growNote}`);
+    b.log.unshift(`${c.name} se transforma: ${c.ultimate.name}! (+${c.ultimate.lifeBonus} vida, +${c.ultimate.atkBonus} de ataque, -40% de defesa por até 3 rodadas próprias)${extraLog}${growNote}`);
     await commitAndDraw(state);
   }
 }
@@ -3907,7 +4173,7 @@ function renderDone(state){
           ${team.map(c=>`
             <div class="mini-card" style="margin-top:8px;">
               <div class="mn">${c.name} <span class="badge rank-${c.rankKey}">${c.rank}</span> ${ultId===c.id?'<span class="badge ult">Ultimate ativo</span>':''}</div>
-              <div class="ma">${c.anime} · Vida ${c.life}</div>
+              <div class="ma">${c.anime} · Vida ${c.vida}</div>
             </div>`).join("")}
         </div>`;
       }).join("")}
